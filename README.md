@@ -1,2 +1,119 @@
 # godot-agent
-Reusable Godot development tooling and OpenCode instructions.
+
+A small, reusable **Godot development agent for OpenCode**. Keep the expertise
+here, your global wiring in dotfiles, and each game's rules in that game's
+`AGENTS.md`.
+
+This is a starter, not a replacement game editor or an autonomous game studio.
+The first target is a dependable loop: **inspect → make one scoped change → run
+checks → inspect the real game → iterate → human play-feel review**.
+
+## What exists today
+
+| Included | Not implemented |
+| --- | --- |
+| Global, project-agnostic Godot agent instructions | Godot editor-control or MCP integration |
+| Preview-first, non-overwriting symlink installer | Screenshot capture or automated gameplay input |
+| Bounded Godot 4 import / optional headless smoke helper | Asset generation, import pipelines, or model-specific setup |
+| Standard-library tests and an isolated Godot fixture | A proven end-to-end loop on your game or desktop |
+
+The scripts require **Python 3.9+ on Linux/macOS**. Using the agent requires an
+existing OpenCode installation; checking a game requires its compatible Godot 4
+**editor** binary. Nothing here downloads software or configures model providers.
+
+## Install only when ready
+
+Clone this repository to a permanent location, then review and preview:
+
+```sh
+git clone git@github.com:Elevator-Robot/godot-agent.git
+cd godot-agent
+python3 scripts/install.py
+```
+
+The preview makes no changes. To opt in:
+
+```sh
+python3 scripts/install.py --apply
+```
+
+This creates exactly one symlink:
+`~/.config/opencode/agents/godot.md` → this checkout's `agents/godot.md`.
+It refuses existing files, directories, and other symlinks, including dangling
+links; it leaves `opencode.json`, model settings, permissions, and game repos alone.
+Re-running it for the same link is harmless. Keep the checkout in place: reviewed
+updates to its agent file are reflected through the link.
+
+For a nonstandard OpenCode config location, explicitly pass
+`--config-dir /absolute/config/path` to both preview and apply. This installer does
+not infer environment overrides. Check `opencode debug paths` and any
+`OPENCODE_CONFIG_DIR` setting first. To uninstall, inspect the installed symlink
+and remove **only that link**, not the checkout or the surrounding config directory.
+
+Restart OpenCode, run `opencode agent list`, and look for `godot`. Inside a game
+repository, select it as a primary agent or invoke `@godot`. `mode: all` supports
+both. The definition deliberately sets no model or permission overrides; review
+your effective OpenCode permissions before use. Instructions are not a sandbox.
+Check for an existing agent named `godot` in project or JSON configuration if the
+loaded behavior differs. [OpenCode agent documentation](https://opencode.ai/docs/agents/)
+
+Start with a read-only request such as:
+
+> Inspect this project and its AGENTS.md. Identify the expected Godot version,
+> main scene, available checks, and one small improvement. Do not edit or run the
+> game yet.
+
+Then authorize a particular change and its validation. A game-specific checklist
+is in [docs/project-AGENTS.example.md](docs/project-AGENTS.example.md); merge useful
+parts into an existing file rather than overwriting it. The repository root's
+`AGENTS.md` is for developing **this tool**, not for installing into a game.
+
+## Check a trusted game
+
+First inspect project startup code/addons and match the binary to the game's
+engine pin. Importing may execute tool scripts/plugins and write `.godot/` or
+resource metadata. It is **not read-only or sandboxed**, even in headless mode.
+
+```sh
+# Import only. Replace the executable and project path with your actual paths.
+python3 scripts/check_project.py /absolute/path/to/game --godot /path/to/godot
+
+# Also start the configured main scene for up to 60 engine iterations.
+python3 scripts/check_project.py /absolute/path/to/game \
+  --godot /path/to/godot --smoke-frames 60 --timeout 120
+```
+
+The helper checks the binary's reported major version and required CLI flags,
+then runs import and, optionally, the main scene. `--timeout` is a wall-clock
+limit **per process**; `--smoke-frames` is not a duration in seconds. It fails on
+nonzero exit codes, timeouts, or recognized Godot error lines even with exit zero.
+It prints command output for review; warnings are not automatically failures.
+It does not enforce a project's exact version pin, detect every diagnostic,
+exercise every scene/script, build C#, or contain child processes started by game
+code. Run only trusted projects and use their established tests too.
+
+No images or input events are produced. Visual changes still need a graphical
+run, real evidence from whatever capture tools are available, and human review.
+[Godot CLI reference](https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html)
+
+## Tests
+
+```sh
+# No dependencies, engine, network, or user-config writes.
+python3 -m unittest discover -s tests -v
+
+# Opt into real-engine happy-path and broken-script tests, in temporary copies.
+GODOT_BIN=/absolute/path/to/godot python3 -m unittest discover -s tests -v
+```
+
+CI runs the first command only. It does not download Godot or exercise OpenCode.
+The fixture is a minimal synthetic project, not a sample game. The real-engine
+tests were checked with Godot **4.6.3** in a cloud environment; this is test evidence,
+not a request to upgrade a game. OpenCode discovery and a real game/desktop loop
+still need verification on the intended machine.
+
+## Next milestone
+
+Prove one authorized change end-to-end in a real game before adding integrations.
+See [the roadmap and acceptance criteria](docs/ROADMAP.md). No license has been
+selected; this private starter does not grant an open-source license.

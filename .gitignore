@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.godot/
+.venv/
+.env
+.env.*
+!.env.example
