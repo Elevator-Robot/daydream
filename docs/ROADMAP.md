@@ -1,8 +1,14 @@
-# Scope and next milestones
+# Daydream — scope and next milestones
+
+## Vision
+
+**Dream it. Make it playable.** Daydream aims to create sprites, effects, and
+assets, then assemble them into playable Godot scenes. This is the product
+direction, not a claim that generation or automated assembly works today.
 
 ## Boundaries
 
-- **godot-agent:** reusable instructions, narrow helpers, tests, installation docs.
+- **Daydream:** reusable instructions, narrow helpers, tests, installation docs.
 - **dotfiles:** optional global wiring only, added separately when authorized.
 - **each game:** engine pin, controls, architecture, design intent, assets, tests,
   and its own `AGENTS.md`. A test game is not a global dependency.
@@ -56,11 +62,13 @@ Document version/OS support, installation, authentication, scope of filesystem
 and process access, shutdown behavior, and reliable failure handling. Keep
 services local by default and never open remote-control ports implicitly.
 
-## Later — Optional asset assistance (not implemented)
+## Later — Asset creation and scene assembly (not implemented)
 
-Only if useful after the development loop is reliable: generation, licensing and
-provenance records, reproducible imports, collision/resource validation, and
-human art-direction review. Do not make any provider or paid API a prerequisite
+After the development loop is reliable, design sprite, effect, and asset
+generation alongside Godot scene assembly. Include licensing and provenance
+records, reproducible imports, collision/resource validation, and human
+art-direction review. Concrete providers, asset formats, and integrations need
+separate design and approval. Do not make any provider or paid API a prerequisite
 for the core agent.
 
 ## References checked during initialization (2026-10-25)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preview or create one OpenCode agent symlink; never overwrite a destination."""
+"""Preview or install the Daydream OpenCode agent; never overwrite a destination."""
 
 import argparse
 import os
@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 
 
-SOURCE = Path(__file__).resolve().parents[1] / "agents" / "godot.md"
+SOURCE = Path(__file__).resolve().parents[1] / "agents" / "daydream.md"
 
 
 def main(argv=None):
@@ -18,7 +18,7 @@ def main(argv=None):
     )
     parser.add_argument("--apply", action="store_true", help="create the symlink")
     args = parser.parse_args(argv)
-    destination = args.config_dir.expanduser().absolute() / "agents" / "godot.md"
+    destination = args.config_dir.expanduser().absolute() / "agents" / "daydream.md"
 
     try:
         if not SOURCE.is_file():
@@ -35,7 +35,7 @@ def main(argv=None):
         destination.parent.mkdir(parents=True, exist_ok=True)
         # symlink_to is exclusive: a destination created since the check is not replaced.
         destination.symlink_to(SOURCE)
-        print("Installed. Restart OpenCode to discover the godot agent.")
+        print("Installed. Restart OpenCode to discover the daydream agent.")
         return 0
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"Installation failed: {exc}", file=sys.stderr)

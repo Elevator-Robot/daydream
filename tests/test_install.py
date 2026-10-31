@@ -8,7 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "install.py"
-SOURCE = ROOT / "agents" / "godot.md"
+SOURCE = ROOT / "agents" / "daydream.md"
 
 
 class InstallTests(unittest.TestCase):
@@ -17,7 +17,7 @@ class InstallTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.home = Path(self.temp.name)
         self.config = self.home / "config with spaces"
-        self.destination = self.config / "agents" / "godot.md"
+        self.destination = self.config / "agents" / "daydream.md"
 
     def install(self, *args, default=False):
         command = [sys.executable, str(SCRIPT)]
@@ -33,7 +33,7 @@ class InstallTests(unittest.TestCase):
 
     def test_default_is_documented_global_directory(self):
         result = self.install(default=True)
-        self.assertIn(str(self.home / ".config" / "opencode" / "agents" / "godot.md"), result.stdout)
+        self.assertIn(str(self.home / ".config" / "opencode" / "agents" / "daydream.md"), result.stdout)
         self.assertFalse((self.home / ".config").exists())
 
     def test_apply_and_repeat_are_safe(self):

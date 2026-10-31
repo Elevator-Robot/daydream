@@ -1,10 +1,12 @@
-# Working on godot-agent
+# Working on Daydream
 
-This repository builds reusable Godot development instructions and small, local
-tools for OpenCode. It is not a game project.
+Daydream aims to turn ideas into playable Godot games, including sprites,
+effects, asset creation, and scene assembly. Today this repository builds reusable
+Godot development instructions and small, local tools for OpenCode. It is not a
+game project; the broader creative workflow is not yet implemented.
 
 - Read `README.md` and `docs/ROADMAP.md` before changing the scope.
-- `agents/godot.md` is the installable agent. This file is only for contributors
+- `agents/daydream.md` is the installable agent. This file is only for contributors
   working on this repository; never install it as global game instructions.
 - Keep game-specific paths, engine pins, design decisions, and test commands in
   the game's own `AGENTS.md`, not in the global agent.

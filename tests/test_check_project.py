@@ -20,7 +20,7 @@ HELP = "--headless\n--path <directory>\n--import\n--quit-after <int>\n"
 
 class CheckTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix="godot agent test ")
+        self.temp = tempfile.TemporaryDirectory(prefix="daydream test ")
         self.addCleanup(self.temp.cleanup)
         self.project = Path(self.temp.name)
         (self.project / "project.godot").write_text("config_version=5\n")
@@ -100,7 +100,7 @@ class CheckTests(unittest.TestCase):
 @unittest.skipUnless(os.environ.get("GODOT_BIN"), "set GODOT_BIN to opt into real-engine tests")
 class RealGodotTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix="godot agent integration ")
+        self.temp = tempfile.TemporaryDirectory(prefix="daydream integration ")
         self.addCleanup(self.temp.cleanup)
         self.project = Path(self.temp.name) / "project"
         shutil.copytree(ROOT / "tests" / "fixtures" / "smoke", self.project)

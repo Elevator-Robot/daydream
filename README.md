@@ -1,8 +1,12 @@
-# godot-agent
+# Daydream
 
-A small, reusable **Godot development agent for OpenCode**. Keep the expertise
-here, your global wiring in dotfiles, and each game's rules in that game's
-`AGENTS.md`.
+**Dream it. Make it playable.**
+
+Daydream is an AI-powered game creation toolkit for Godot, built around OpenCode.
+The vision is to create sprites, effects, and assets, then assemble them into
+playable Godot scenes. Today, it provides a small, reusable **Godot development
+agent for OpenCode** and local validation tools. Keep the expertise here, your
+global wiring in dotfiles, and each game's rules in that game's `AGENTS.md`.
 
 This is a starter, not a replacement game editor or an autonomous game studio.
 The first target is a dependable loop: **inspect → make one scoped change → run
@@ -26,8 +30,8 @@ existing OpenCode installation; checking a game requires its compatible Godot 4
 Clone this repository to a permanent location, then review and preview:
 
 ```sh
-git clone git@github.com:Elevator-Robot/godot-agent.git
-cd godot-agent
+git clone git@github.com:Elevator-Robot/daydream.git
+cd daydream
 python3 scripts/install.py
 ```
 
@@ -38,7 +42,7 @@ python3 scripts/install.py --apply
 ```
 
 This creates exactly one symlink:
-`~/.config/opencode/agents/godot.md` → this checkout's `agents/godot.md`.
+`~/.config/opencode/agents/daydream.md` → this checkout's `agents/daydream.md`.
 It refuses existing files, directories, and other symlinks, including dangling
 links; it leaves `opencode.json`, model settings, permissions, and game repos alone.
 Re-running it for the same link is harmless. Keep the checkout in place: reviewed
@@ -50,12 +54,21 @@ not infer environment overrides. Check `opencode debug paths` and any
 `OPENCODE_CONFIG_DIR` setting first. To uninstall, inspect the installed symlink
 and remove **only that link**, not the checkout or the surrounding config directory.
 
-Restart OpenCode, run `opencode agent list`, and look for `godot`. Inside a game
-repository, select it as a primary agent or invoke `@godot`. `mode: all` supports
+Restart OpenCode, run `opencode agent list`, and look for `daydream`. Inside a game
+repository, select it as a primary agent or invoke `@daydream`. `mode: all` supports
 both. The definition deliberately sets no model or permission overrides; review
 your effective OpenCode permissions before use. Instructions are not a sandbox.
-Check for an existing agent named `godot` in project or JSON configuration if the
+Check for an existing agent named `daydream` in project or JSON configuration if the
 loaded behavior differs. [OpenCode agent documentation](https://opencode.ai/docs/agents/)
+
+### Upgrading from the previous name
+
+The agent file and invocation are now `daydream.md` and `@daydream`. The installer
+does not migrate existing installations or modify old links. If you previously
+installed this project, inspect the old agent symlink and remove only that link
+after confirming it belongs to this checkout, then preview and apply the new
+installation. Moving the checkout also requires updating any links to its old
+location. No global configuration is changed by the rename itself.
 
 Start with a read-only request such as:
 
