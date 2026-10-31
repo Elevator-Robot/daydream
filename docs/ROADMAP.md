@@ -26,6 +26,9 @@ and permissions. Future integrations need their own permission/trust review.
 - Installable Markdown agent with project discovery, scoped edits, validation,
   evidence boundaries, and human review in its workflow.
 - Preview-first installation of a single symlink, with collision refusal.
+- Optional, separately opted-in OpenCode V2 TUI laser intro plugin with bounded
+  playback, reduced motion, and session scoping. This is cosmetic UI, not a
+  server workflow hook. [Live UI verification remains pending](INTRO.md).
 - Preview-first, non-overwriting `.daydream/` initialization with versioned
   config/metadata containers, path validation, and agent consent instructions.
   See [project-local configuration](PROJECT_CONFIG.md). This does not implement

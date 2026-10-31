@@ -83,6 +83,30 @@ class InstallTests(unittest.TestCase):
         self.assertNotIn("Traceback", result.stderr)
         self.assertEqual(self.config.read_text(), "not a directory")
 
+    def test_intro_preview_creates_nothing(self):
+        result = self.install("--with-intro")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(str(self.config / "plugins" / "daydream-intro"), result.stdout)
+        self.assertFalse(self.config.exists())
+
+    def test_intro_is_opt_in_and_repeatable(self):
+        self.assertEqual(self.install("--apply").returncode, 0)
+        self.assertFalse((self.config / "plugins").exists())
+        self.assertEqual(self.install("--with-intro", "--apply").returncode, 0)
+        plugin = self.config / "plugins" / "daydream-intro"
+        self.assertTrue(plugin.is_symlink())
+        self.assertEqual(plugin.resolve(), ROOT / "plugins" / "daydream-intro")
+        self.assertEqual(self.install("--with-intro", "--apply").returncode, 0)
+
+    def test_intro_collision_blocks_agent_install(self):
+        plugin = self.config / "plugins" / "daydream-intro"
+        plugin.parent.mkdir(parents=True)
+        plugin.write_text("user plugin")
+        result = self.install("--with-intro", "--apply")
+        self.assertEqual(result.returncode, 1)
+        self.assertFalse(self.destination.exists())
+        self.assertEqual(plugin.read_text(), "user plugin")
+
 
 if __name__ == "__main__":
     unittest.main()

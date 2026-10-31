@@ -21,6 +21,7 @@ checks → inspect the real game → iterate → human play-feel review**.
 | Bounded Godot 4 import / optional headless smoke helper | Asset generation, import pipelines, or model-specific setup |
 | Standard-library tests and an isolated Godot fixture | A proven end-to-end loop on your game or desktop |
 | Preview-first `.daydream/` configuration generator | Asset provenance recording or approval enforcement |
+| Optional in-TUI laser intro plugin (live UI verification pending) | Automatic visual validation of generated assets |
 
 Optional OpenCode plugin hooks are also planned for validation, previews, and
 workflow summaries, after explicit tools are proven. No hooks are installed or
@@ -52,6 +53,11 @@ It refuses existing files, directories, and other symlinks, including dangling
 links; it leaves `opencode.json`, model settings, permissions, and game repos alone.
 Re-running it for the same link is harmless. Keep the checkout in place: reviewed
 updates to its agent file are reflected through the link.
+
+For the optional **laser-etched Daydream intro**, preview with
+`python3 scripts/install.py --with-intro`, then add `--apply` to link both the
+agent and the OpenCode V2 TUI plugin. The default install remains agent-only.
+See [intro behavior, reduced motion, and verification](docs/INTRO.md).
 
 For a nonstandard OpenCode config location, explicitly pass
 `--config-dir /absolute/config/path` to both preview and apply. This installer does

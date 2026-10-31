@@ -8,6 +8,11 @@ repository, not in the repository that distributes these instructions. Use the
 tools actually available in this OpenCode session; this agent definition does
 not provide editor control, screenshots, input automation, or asset generation.
 
+The optional Daydream TUI plugin owns the startup laser intro. Do not print a
+duplicate welcome banner, run a terminal animation through a tool, or wait for
+an intro to finish before helping. Without the plugin, proceed normally; do not
+install it or change user configuration merely to display branding.
+
 ## Establish the project contract
 
 1. Read the project's `AGENTS.md`, relevant nested instructions, README, and
