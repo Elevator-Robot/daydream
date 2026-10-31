@@ -1,15 +1,40 @@
-# Daydream laser intro
+# Daydream intro — Omarchy's actual laser effect
 
-An optional **OpenCode V2 TUI plugin** displays a non-modal text-art intro above
-the session composer. A cyan laser sweeps across a violet block-letter
-`DAYDREAM` wordmark, etching the letters into place with small sparks. The finished
-art holds briefly, then disappears. Total duration: **2.4 seconds**, at no more
-than 20 updates per second. It does not flash or loop.
+The optional OpenCode V2 TUI plugin runs **`ttfx laseretch`**, the same terminal
+effects engine Omarchy's screensaver uses. This is not a JavaScript approximation
+of the laser. The earlier custom sweep has been removed.
 
-The effect is inspired by Omarchy's terminal screensaver aesthetic, but uses
-original artwork and a small in-process renderer. No Omarchy, `ttfx`, external
-font, child process, or background service is required. It does not modify your
-screensaver, terminal settings, or desktop configuration.
+Omarchy selects random effects from `ttfx`. Daydream selects `laseretch`
+explicitly, at the same **120 FPS setting**, and leaves its effect defaults alone:
+the real diagonal beam, flying sparks, hot-character cooling, and final gradient.
+The plugin preserves the emitted RGB colors and character positions. The artwork
+is Daydream's own outlined/shadowed Unicode wordmark, not Omarchy's branding.
+
+## Integration and dependency
+
+- Requires an existing **`ttfx` executable on the TUI client's PATH**. This was
+  tested with the installed `ttfx 0.5.0`. Nothing downloads or installs it.
+- Starts one bounded child process with a fixed argument list and `shell: false`.
+  Original artwork is sent over stdin; no temporary files or game assets.
+- Captures stdout, decodes complete truecolor canvas frames, and draws those
+  frames in OpenCode's `session.composer.top` slot on black, as in the screensaver.
+- Cursor controls are consumed by the decoder, **never written to the terminal**.
+  OpenTUI keeps ownership of input, terminal restoration, and permission dialogs.
+- A bounded, centered intro canvas replaces the screensaver's fullscreen canvas.
+  Small terminals use `DAYDREAM` text without resizing the glyphs. Very small
+  terminals suppress the UI. The animation itself is still the real effect.
+- Plays to completion, holds the last frame for 700 ms, then hides. A 30-second
+  watchdog terminates abnormal runs; it is not forced into the previous 2.4-second
+  imitation. Canvas dimensions and buffered output are bounded too.
+- Dismissal, agent/route changes, resize, unmount, or unload stop the owned child.
+  Termination escalates to SIGKILL after 500 ms if necessary. No `pkill`, unrelated
+  process termination, screensaver launch, desktop changes, or background daemon.
+- Missing/incompatible `ttfx`, unsupported output, or timeout produces a warning.
+  There is **no imitation fallback** and no automatic software installation.
+
+This is a concrete local-process integration, not a server workflow hook. The
+standard Python helpers and agent-only installation retain their existing
+dependencies and behavior.
 
 ## Opt-in installation
 
@@ -20,50 +45,44 @@ python3 scripts/install.py --with-intro          # preview both links
 python3 scripts/install.py --with-intro --apply  # opt in
 ```
 
-In addition to the normal agent link, this links
-`~/.config/opencode/plugins/daydream-intro` to this checkout's
+Besides the agent link, this links
+`~/.config/opencode/plugins/daydream-intro` to the checkout's
 `plugins/daydream-intro` directory. Use `--config-dir` for a nonstandard OpenCode
-configuration directory. Both requested destinations are checked before writes;
-existing conflicting paths are never overwritten. Rerunning is safe. As with
-agent installation, an I/O error or concurrent change can leave a partial install:
-inspect the result and rerun after resolving the error.
+config directory. Existing conflicting paths are never overwritten; requested
+links are preflighted before writes. An I/O error or concurrent change can still
+leave a partial install: inspect the result before retrying.
 
-The installer does **not** edit `opencode.json`, `cli.json`, game projects, or
-model/permission settings, install npm packages, or enable the plugin itself in
-the running client. Restart OpenCode after opting in. OpenCode discovers the
-plugin directory and supplies its UI runtime imports.
-
-Running the installer without `--with-intro` still requests **only the agent**;
-it does not remove an intro installed previously.
+The installer does not edit `opencode.json`, `cli.json`, game files, models, or
+permissions, or install `ttfx`/npm packages. Restart OpenCode after installing or
+updating. Keep the checkout in place. The default installer remains agent-only;
+running it without `--with-intro` does not remove a previously installed plugin.
 
 ## When it plays
 
-- Automatically once per visible **primary Daydream session** per TUI process,
-  after a session exists and its saved `agent` is `daydream`.
-- Opening another Daydream session plays that session's intro. Returning to an
-  already-seen session does not replay it. Memory survives plugin hot reloads;
-  restarting the TUI resets it.
-- Selecting an agent on the home screen before a session exists is not detectable
-  through the public selected-agent UI API verified for OpenCode 2.0.32. The intro
-  therefore appears when the Daydream session composer mounts, not at that earlier
-  selection. It does not run for unrelated agents, background sessions, or
-  subagents. An `@daydream` mention alone does not switch the active primary agent.
-- `/daydream-intro` replays it in a primary Daydream session;
-  `/daydream-hide-intro` dismisses it. Both also appear in the command palette.
-- Small terminals get a compact wordmark; extremely small terminals suppress the
-  intro. The animation never grabs input, opens a modal, replaces a permission
-  prompt, or delays agent work.
-
-Switching away, unmounting the composer, dismissing, or unloading the plugin
-cancels scheduled animation work. No terminal escape sequences are printed:
-OpenTUI owns rendering, terminal restoration, and normal input handling.
+- **To enter without sending a message:** choose **Open Daydream** in the command
+  palette, or run the client-side `/daydream` action. It creates an empty primary
+  Daydream session in the current location, syncs its data, and opens it. The intro
+  starts on entry, before any prompt, model request, tool run, or game-file write.
+  Your currently selected model/variant is carried into the new session without
+  changing defaults. Each deliberate activation opens a new session; duplicate
+  concurrent activations are ignored. Errors are surfaced, and a failed sync can
+  retry the same empty session rather than creating duplicates.
+- **Explicit-only:** `/agent`, the built-in agent selector, agent cycling,
+  `@daydream` invocation, session restoration, and ordinary messages do not request
+  or trigger art. Opening an existing session or restarting OpenCode does not
+  replay it either. There is no automatic selected-agent/session-mount trigger.
+- **Open Daydream** sends a one-shot client-local intro request after opening its
+  empty primary session. The request is consumed once; returning to that session
+  or switching agents cannot reuse it. No persisted startup flags are written.
+  Background sessions, unrelated agents, and subagents cannot display the art.
+- `/daydream-intro` replays it; `/daydream-hide-intro` dismisses it. Both are in
+  the command palette. There is no input grab, modal, or delay to model work.
 
 ## Reduced motion and disabling
 
-For advanced configuration, load the local plugin through the documented
-OpenCode plugin options. Use **one** installation route: do not also symlink the
-same plugin through the installer. For a TUI-only plugin, merge an entry into your
-existing global `cli.json` without replacing other settings:
+For explicit plugin options, use one installation route rather than loading the
+same plugin both through discovery and configuration. For the config route, merge
+an entry into the existing global `cli.json` without replacing other settings:
 
 ```json
 {
@@ -76,46 +95,55 @@ existing global `cli.json` without replacing other settings:
 }
 ```
 
-`reducedMotion: true` shows only the completed art for 2.4 seconds, without an
-animation loop. `enabled: false` disables the plugin's UI and commands. These are
-plugin options, not `.daydream/config.json` fields; no new project metadata is
-needed for a purely client-local visual.
+`reducedMotion: true` displays static artwork for 2.4 seconds and starts no child.
+`enabled: false` disables the plugin's UI and commands. Neither is a project-local
+`.daydream/config.json` field. If moving from the installer to explicit options,
+inspect and remove only the installed plugin symlink first.
 
-To uninstall the symlink route, inspect the installed plugin symlink and remove
-**only that symlink**. Keep the agent link if desired. For the explicit config
-route, remove only its plugin entry. Restart OpenCode after changing installation.
+To uninstall, remove only the confirmed plugin symlink or its explicit config
+entry, then restart OpenCode. The agent link may remain.
 
-## Validation and compatibility
+## Validation and remaining visual review
 
-The public TUI plugin interfaces, session `agent`/`parentID` fields, slot, and
-runtime imports were checked against OpenCode V2 documentation and the published
-2.0.32 package declarations. The implementation uses the supported
-`session.composer.top` slot, in-memory plugin storage, and Solid lifecycle cleanup.
-It does not register server workflow hooks or change model prompts/history.
-
-Run the dependency-free animation tests with **Node.js 18+**:
+The TUI interfaces, session fields, slot, and UI imports were checked against
+OpenCode V2 documentation and published 2.0.32 declarations. Captured output from
+the installed `ttfx` established the decoder's canvas framing and truecolor
+format. Automated tests exercise the real engine as well as synthetic cases:
 
 ```sh
+# Node.js 18+: parser, scope, process arguments, errors, cancellation, reduced motion.
 node --test tests/intro.test.mjs
+node --test tests/open-daydream.test.mjs
+
+# Opt into the installed engine; nothing is downloaded.
+TTFX_BIN=/usr/bin/ttfx node --test tests/intro.test.mjs
 ```
 
-The Python suite runs these and the plugin's JavaScript syntax check when Node is
-available, otherwise it skips those checks. Python helpers still have no new
-dependencies. Tests cover final artwork, bounds, agent/session scope, timing,
-reduced motion, cancellation, and stale callbacks. Installer tests use temporary
-config directories only.
+The Python suite runs the dependency-free Node tests and JavaScript syntax check
+when Node is available, otherwise it skips them. Installer tests write only to
+temporary config directories. The real-engine test verifies decoded frames,
+original colors, and final text; it does not establish live TUI appearance.
 
-**Not yet verified:** live plugin loading and graphical appearance in the target
-OpenCode TUI. Syntax and pure lifecycle tests are not a graphical integration
-test. After installing, manually check:
+The home-screen entry was also exercised in the installed OpenCode 2.0.32 TUI
+through a real pseudo-terminal: open the command palette, select **Open Daydream**,
+and capture the resulting laser frames without submitting a chat message. This
+reproduced and fixed a command-scope bug: the keymap layer must use `mode: "global"`
+to be reachable while the home prompt owns input. A unit regression test now
+asserts that scope. This validates runtime entry and rendering output, not a
+human visual judgment of the effect or every terminal/font combination.
 
-1. Start/open a primary Daydream session; confirm the cyan sweep and final art.
-2. Type during the intro; check input remains usable and permission UI is intact.
-3. Return to the session, switch agents, and open an unrelated session; verify no
-   unwanted repeats or background animations.
-4. Replay, dismiss, resize, and try reduced motion in light/dark themes.
-5. Disable/unload during playback; verify no remaining timers or stale UI.
+**Human visual review remains pending.** After restarting OpenCode:
 
-References: [TUI plugin API](https://opencode.ai/v2/docs/build/plugins/cli),
-[plugin discovery/options](https://opencode.ai/v2/docs/cli/plugins), and
-[agent selection](https://opencode.ai/v2/docs/agents).
+1. Choose **Open Daydream** from the home-screen command palette, without sending
+   a message. Verify the new empty session opens and the intro begins. Replay
+   it if needed. Compare its beam, sparks,
+   cooling, and gradient with `ttfx laseretch`, not the old custom sweep.
+2. Confirm the wordmark is not clipped and normal typing/permission UI still work.
+3. Switch agents/routes, resize, dismiss, and unload during playback. Confirm the
+   child exits and unrelated sessions do not trigger the intro.
+4. Try reduced motion and a missing dependency; verify static mode and the warning
+   respectively, without an animation substitute or software download.
+
+References: [OpenCode TUI API](https://opencode.ai/v2/docs/build/plugins/cli),
+[plugin discovery/options](https://opencode.ai/v2/docs/cli/plugins), and the local
+read-only `/usr/share/omarchy/bin/omarchy-screensaver` and `ttfx laseretch --help`.

@@ -21,7 +21,7 @@ checks → inspect the real game → iterate → human play-feel review**.
 | Bounded Godot 4 import / optional headless smoke helper | Asset generation, import pipelines, or model-specific setup |
 | Standard-library tests and an isolated Godot fixture | A proven end-to-end loop on your game or desktop |
 | Preview-first `.daydream/` configuration generator | Asset provenance recording or approval enforcement |
-| Optional in-TUI laser intro plugin (live UI verification pending) | Automatic visual validation of generated assets |
+| Optional in-TUI `ttfx laseretch` intro (entry verified in a real TUI; human visual review pending) | Automatic visual validation of generated assets |
 
 Optional OpenCode plugin hooks are also planned for validation, previews, and
 workflow summaries, after explicit tools are proven. No hooks are installed or
@@ -57,7 +57,16 @@ updates to its agent file are reflected through the link.
 For the optional **laser-etched Daydream intro**, preview with
 `python3 scripts/install.py --with-intro`, then add `--apply` to link both the
 agent and the OpenCode V2 TUI plugin. The default install remains agent-only.
+The animated intro uses an existing `ttfx` executable—the same effects engine as
+Omarchy's screensaver—without installing it or altering desktop settings.
 See [intro behavior, reduced motion, and verification](docs/INTRO.md).
+
+With the plugin enabled, choose **Open Daydream** from OpenCode's command palette
+to enter an empty Daydream session and play the intro immediately—no first
+message needed. The client-side `/daydream` action does the same thing.
+The art is explicit-only: normal `/agent` selection, `@daydream` invocation,
+session restoration, and ordinary messages do not display it. Use
+`/daydream-intro` only when you want to replay it.
 
 For a nonstandard OpenCode config location, explicitly pass
 `--config-dir /absolute/config/path` to both preview and apply. This installer does

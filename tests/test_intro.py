@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 class IntroTests(unittest.TestCase):
     def test_animation_and_lifecycle(self):
         result = subprocess.run(
-            [shutil.which("node"), "--test", str(ROOT / "tests" / "intro.test.mjs")],
+            [shutil.which("node"), "--test", str(ROOT / "tests" / "intro.test.mjs"),
+             str(ROOT / "tests" / "open-daydream.test.mjs")],
             capture_output=True, text=True, timeout=30,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
