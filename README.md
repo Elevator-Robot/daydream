@@ -20,6 +20,11 @@ checks → inspect the real game → iterate → human play-feel review**.
 | Preview-first, non-overwriting symlink installer | Screenshot capture or automated gameplay input |
 | Bounded Godot 4 import / optional headless smoke helper | Asset generation, import pipelines, or model-specific setup |
 | Standard-library tests and an isolated Godot fixture | A proven end-to-end loop on your game or desktop |
+| Preview-first `.daydream/` configuration generator | Asset provenance recording or approval enforcement |
+
+Optional OpenCode plugin hooks are also planned for validation, previews, and
+workflow summaries, after explicit tools are proven. No hooks are installed or
+implemented today; see the [feature and hook plan](docs/FEATURES.md).
 
 The scripts require **Python 3.9+ on Linux/macOS**. Using the agent requires an
 existing OpenCode installation; checking a game requires its compatible Godot 4
@@ -81,6 +86,22 @@ is in [docs/project-AGENTS.example.md](docs/project-AGENTS.example.md); merge us
 parts into an existing file rather than overwriting it. The repository root's
 `AGENTS.md` is for developing **this tool**, not for installing into a game.
 
+## Project-local configuration
+
+For authorized write tasks, the agent is instructed to initialize missing
+`.daydream/` metadata without redundant confirmation. Read-only requests never
+create files, and project rules and OpenCode permissions still apply.
+
+```sh
+python3 scripts/init_project.py /absolute/path/to/game          # preview only
+python3 scripts/init_project.py /absolute/path/to/game --apply  # create missing files
+```
+
+This creates versioned `config.json`, an empty `assets.json`, `.gitignore`, and
+`.gdignore` inside `.daydream/`. Existing files are validated and preserved;
+no assets are generated and no engine is launched. See
+[configuration, consent, and recovery](docs/PROJECT_CONFIG.md).
+
 ## Check a trusted game
 
 First inspect project startup code/addons and match the binary to the game's
@@ -128,5 +149,6 @@ still need verification on the intended machine.
 ## Next milestone
 
 Prove one authorized change end-to-end in a real game before adding integrations.
-See [the roadmap and acceptance criteria](docs/ROADMAP.md). No license has been
+See [the roadmap and acceptance criteria](docs/ROADMAP.md) and the proposed
+[features and enabling tools](docs/FEATURES.md). No license has been
 selected; this private starter does not grant an open-source license.

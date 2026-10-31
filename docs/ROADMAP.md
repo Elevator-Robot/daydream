@@ -6,6 +6,9 @@
 assets, then assemble them into playable Godot scenes. This is the product
 direction, not a claim that generation or automated assembly works today.
 
+See [features and enabling tools](FEATURES.md) for the proposed creative feature
+set, candidate tools, and a first asset-creation milestone.
+
 ## Boundaries
 
 - **Daydream:** reusable instructions, narrow helpers, tests, installation docs.
@@ -23,6 +26,10 @@ and permissions. Future integrations need their own permission/trust review.
 - Installable Markdown agent with project discovery, scoped edits, validation,
   evidence boundaries, and human review in its workflow.
 - Preview-first installation of a single symlink, with collision refusal.
+- Preview-first, non-overwriting `.daydream/` initialization with versioned
+  config/metadata containers, path validation, and agent consent instructions.
+  See [project-local configuration](PROJECT_CONFIG.md). This does not implement
+  asset generation, record-level provenance validation, or runtime hooks.
 - Godot 4 CLI helper with project validation, supported-flag checks, per-process
   timeout, error-output inspection, and optional main-scene smoke run.
 - Dependency-free unit tests, opt-in real-engine tests in temporary fixture
@@ -61,6 +68,22 @@ the first experiment. Prefer maintained, official interfaces where available.
 Document version/OS support, installation, authentication, scope of filesystem
 and process access, shutdown behavior, and reliable failure handling. Keep
 services local by default and never open remote-control ports implicitly.
+
+### Optional workflow hooks (proposed; not implemented)
+
+After explicit tools and commands are proven, evaluate a small, opt-in OpenCode
+plugin to coordinate preflight validation, asset previews/provenance, authorized
+post-assembly checks, and completion summaries. See the
+[hook plan and safeguards](FEATURES.md#7-opencode-plugin-hooks--optional-workflow-automation).
+This is workflow automation, not a replacement for asset tools, tool-level
+validation, OpenCode permissions, or human approval. No plugin is required for
+the first asset milestone.
+
+**Done when:** the target OpenCode V2 SDK's supported hooks are verified, the
+workflow still works without the plugin, installation is previewable and opt-in,
+and isolated tests cover scope filtering, duplicate events, recursion, timeout,
+cancellation, permission denial, and validation failures. No hook may silently
+authorize paid calls, uploads, overwrites, or game launches.
 
 ## Later — Asset creation and scene assembly (not implemented)
 

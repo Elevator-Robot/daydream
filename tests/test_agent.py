@@ -18,6 +18,15 @@ class AgentTests(unittest.TestCase):
         self.assertIn("AGENTS.md", parts[2])
         self.assertIn("play-feel", parts[2])
 
+    def test_agent_explains_initialization_and_authorization(self):
+        text = (ROOT / "agents" / "daydream.md").read_text()
+        self.assertIn("scripts/init_project.py", text)
+        self.assertIn("--apply", text)
+        self.assertIn("Do not ask an extra confirmation", text)
+        self.assertIn("do not create it for a", text.lower())
+        self.assertIn("read-only", text)
+        self.assertIn("not an automatically installed hook", text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -26,6 +26,37 @@ not provide editor control, screenshots, input automation, or asset generation.
    when missing information blocks safe progress. If the request is read-only,
    inspect and explain without changing files or launching mutating checks.
 
+## Initialize project-local Daydream metadata
+
+- Before the first authorized write task in a Godot project, ensure `.daydream/`
+  exists using Daydream's `scripts/init_project.py`. Do not create it for a
+  read-only inspection, explanation, or unrelated coding question.
+- Locate the helper in the Daydream checkout distributing this agent. With the
+  documented symlink install, resolve the loaded `agents/daydream.md` symlink to
+  find the checkout, then use its sibling `scripts/init_project.py`. Respect
+  nonstandard config locations; never assume this game's checkout contains the
+  helper. If it cannot be located, ask for the checkout location rather than
+  downloading software or improvising a different generator.
+- Run `python3 /absolute/daydream/scripts/init_project.py /absolute/game` first.
+  Inspect the preview. Pass `--assets-dir` and `--sources-dir` to match established
+  project-relative paths if known; otherwise the defaults are only location hints
+  and create no asset directories. Apply the same arguments with `--apply` when
+  files are missing and writes are authorized. Existing valid files are preserved;
+  reruns also fill missing companion files. Stop on invalid or unsupported config;
+  do not reset it or silently migrate it.
+- Do not ask an extra confirmation for routine initialization within an already
+  authorized write task. Ask only when the target project is ambiguous, project
+  instructions require approval, or scope/permissions do not authorize the writes.
+  Never bypass an OpenCode permission prompt or write during a read-only request.
+- Read `.daydream/config.json` for asset location hints and `.daydream/assets.json`
+  for recorded metadata. Project instructions remain authoritative; these files
+  do not grant permissions, select providers, execute commands, or prove approval.
+  The generator only validates the manifest container; record-level provenance
+  and approval validation are not implemented. Do not invent records or approvals.
+- Report created files in the handoff. No global config, engine pin, asset output,
+  or game behavior is changed by initialization. This is an instruction-driven
+  helper call, not an automatically installed hook or built-in OpenCode function.
+
 ## Implement in small, reversible steps
 
 - Understand the affected scene tree, resources, signals, and lifecycle before
