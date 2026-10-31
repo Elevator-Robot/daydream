@@ -1,5 +1,5 @@
-// Original Daydream wordmark, with terminal-style outlined/shadowed lettering.
-export const LOGO = [
+// Upright block lettering keeps the word readable; color supplies the neon look.
+export const WORDMARK = [
   "██████╗  █████╗ ██╗   ██╗██████╗ ██████╗ ███████╗ █████╗ ███╗   ███╗",
   "██╔══██╗██╔══██╗╚██╗ ██╔╝██╔══██╗██╔══██╗██╔════╝██╔══██╗████╗ ████║",
   "██║  ██║███████║ ╚████╔╝ ██║  ██║██████╔╝█████╗  ███████║██╔████╔██║",
@@ -8,8 +8,12 @@ export const LOGO = [
   "╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝",
 ].join("\n");
 
+export const LOGO = WORDMARK;
+
 export function artwork(width, height) {
-  return width >= 70 && height >= 12 ? LOGO : "DAYDREAM";
+  if (width >= 74 && height >= 8) return LOGO;
+  if (width >= 32) return "D A Y D R E A M";
+  return "DAYDREAM";
 }
 
 export function canShowIntro(session, route) {

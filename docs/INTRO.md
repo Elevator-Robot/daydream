@@ -5,10 +5,23 @@ effects engine Omarchy's screensaver uses. This is not a JavaScript approximatio
 of the laser. The earlier custom sweep has been removed.
 
 Omarchy selects random effects from `ttfx`. Daydream selects `laseretch`
-explicitly, at the same **120 FPS setting**, and leaves its effect defaults alone:
-the real diagonal beam, flying sparks, hot-character cooling, and final gradient.
-The plugin preserves the emitted RGB colors and character positions. The artwork
-is Daydream's own outlined/shadowed Unicode wordmark, not Omarchy's branding.
+explicitly, at the same **120 FPS setting**, preserving its real diagonal beam,
+flying sparks, hot-character cooling, and gradient animation. The foreground
+colors are now deliberately customized with documented `ttfx` gradient options:
+neon cyan, hot magenta, electric violet, and amber/white highlights. The plugin
+preserves the resulting emitted RGB colors and character positions.
+Frames are written with native `StyledText` chunks containing explicit RGBA
+foregrounds, rather than relying on reactive nested span styling. A terminal
+capture verified the rendered word has distinct magenta/violet/cyan RGB values;
+playback acknowledgement alone is not used as evidence of correct color.
+
+Daydream's retro-cyberpunk typography uses only a readable, upright block
+wordmark with no diagonal cuts or shear: no text above or below it. Narrow
+layouts use a letter-spaced wordmark
+instead of compressing or clipping the large lettering.
+Reduced-motion artwork uses the same cyan/magenta/violet foreground gradient.
+This is text-art typography, not a terminal font installation or a change to
+OpenCode's surrounding UI font. The artwork is original Daydream branding.
 
 ## Integration and dependency
 
@@ -17,13 +30,19 @@ is Daydream's own outlined/shadowed Unicode wordmark, not Omarchy's branding.
 - Starts one bounded child process with a fixed argument list and `shell: false`.
   Original artwork is sent over stdin; no temporary files or game assets.
 - Captures stdout, decodes complete truecolor canvas frames, and draws those
-  frames in OpenCode's `session.composer.top` slot on black, as in the screensaver.
+  frames in OpenCode's `session.composer.top` slot. **No background is painted**:
+  boxes, text, and spans inherit the existing OpenCode background, including any
+  transparency supplied by the host. ANSI background/terminal-background controls
+  are ignored rather than forwarded. No black rectangle or global theme override.
 - Cursor controls are consumed by the decoder, **never written to the terminal**.
   OpenTUI keeps ownership of input, terminal restoration, and permission dialogs.
 - A bounded, centered intro canvas replaces the screensaver's fullscreen canvas.
   Small terminals use `DAYDREAM` text without resizing the glyphs. Very small
   terminals suppress the UI. The animation itself is still the real effect.
-- Plays to completion, holds the last frame for 700 ms, then hides. A 30-second
+- Plays to completion, holds the last frame for 350 ms, then breaks the wordmark
+  into colored particles which scatter and dissipate over about 660 ms. This short
+  bounded outro is local particle animation, not a claim that `ttfx laseretch`
+  provides an explosion phase. Reduced-motion mode has no explosion. A 30-second
   watchdog terminates abnormal runs; it is not forced into the previous 2.4-second
   imitation. Canvas dimensions and buffered output are bounded too.
 - Dismissal, agent/route changes, resize, unmount, or unload stop the owned child.
@@ -122,7 +141,7 @@ TTFX_BIN=/usr/bin/ttfx node --test tests/intro.test.mjs
 The Python suite runs the dependency-free Node tests and JavaScript syntax check
 when Node is available, otherwise it skips them. Installer tests write only to
 temporary config directories. The real-engine test verifies decoded frames,
-original colors, and final text; it does not establish live TUI appearance.
+emitted colors, and final text; it does not establish live TUI appearance.
 
 The home-screen entry was also exercised in the installed OpenCode 2.0.32 TUI
 through a real pseudo-terminal: open the command palette, select **Open Daydream**,
@@ -137,7 +156,9 @@ human visual judgment of the effect or every terminal/font combination.
 1. Choose **Open Daydream** from the home-screen command palette, without sending
    a message. Verify the new empty session opens and the intro begins. Replay
    it if needed. Compare its beam, sparks,
-   cooling, and gradient with `ttfx laseretch`, not the old custom sweep.
+   cooling, and gradient with the actual `ttfx laseretch` engine, not the old
+   custom sweep; expect Daydream's intentional cyberpunk palette rather than the
+   screensaver's default palette. Check the existing background shows through.
 2. Confirm the wordmark is not clipped and normal typing/permission UI still work.
 3. Switch agents/routes, resize, dismiss, and unload during playback. Confirm the
    child exits and unrelated sessions do not trigger the intro.

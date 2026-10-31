@@ -1,16 +1,51 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { test } from "node:test";
-import { artwork, LOGO, canShowIntro, hasIntroRequest } from "../plugins/daydream-intro/artwork.js";
+import { artwork, LOGO, WORDMARK, canShowIntro, hasIntroRequest } from "../plugins/daydream-intro/artwork.js";
+import { createExplosion } from "../plugins/daydream-intro/outro.js";
 import { createDecoder, createPlayback, MAX_DURATION_MS, parseCanvas } from "../plugins/daydream-intro/ttfx.js";
+import { effectThemeArgs, PALETTE } from "../plugins/daydream-intro/theme.js";
+import { paintCanvas } from "../plugins/daydream-intro/text.js";
 
 const MARKER = "\x1b8\x1b7\x1b[4A";
 const PAYLOAD = "  \x1b[38;2;119;155;255m/\x1b[0m \n \x1b[38;2;255;230;128mD\x1b[0m  \n    \n    ";
 
+test("native text receives explicit RGB chunks without white overrides or backgrounds", () => {
+  const node = {};
+  class StyledText { constructor(chunks) { this.chunks = chunks; } }
+  const RGBA = { fromHex: (hex) => ({ hex }) };
+  paintCanvas(node, [{ text: "DAY", color: "#ff2bd6" }, { text: "DREAM", color: "#00f5ff" }], StyledText, RGBA);
+  assert.deepEqual(node.content.chunks.map((chunk) => chunk.fg.hex), ["#ff2bd6", "#00f5ff"]);
+  assert.equal(node.content.chunks.map((chunk) => chunk.text).join(""), "DAYDREAM");
+  assert.ok(node.content.chunks.every((chunk) => chunk.__isChunk && !("bg" in chunk)));
+  paintCanvas(node, [], StyledText, RGBA);
+  assert.deepEqual(node.content.chunks, []);
+});
+
 test("artwork fits its intended canvas without resizing glyphs", () => {
   assert.equal(artwork(80, 16), LOGO);
-  assert.equal(artwork(40, 12), "DAYDREAM");
-  assert.ok(LOGO.split("\n").every((line) => [...line].length <= 70));
+  assert.match(artwork(40, 12), /D A Y D R E A M/);
+  assert.equal(artwork(20, 6), "DAYDREAM");
+  assert.ok(LOGO.split("\n").every((line) => [...line].length <= 74));
+  assert.ok(LOGO.split("\n").length <= 14);
+  assert.equal(LOGO, WORDMARK);
+  assert.match(WORDMARK, /[╗╝╔╚═║]/u);
+  assert.doesNotMatch(WORDMARK, /[╱╲]/u);
+  assert.deepEqual(WORDMARK.split("\n").map((line) => line.match(/^ */)[0].length), [0, 0, 0, 0, 0, 0]);
+  assert.doesNotMatch(artwork(40, 12), /DREAM IT|GODOT|\/\//);
+});
+
+test("the wordmark breaks into bounded colored particles before disappearing", () => {
+  const original = [{ text: " DAYDREAM\n DAYDREAM", color: "#00f5ff" }];
+  const burst = createExplosion(original, 20, 8);
+  assert.equal(burst(0), original);
+  const middle = burst(0.3);
+  const text = middle.map((span) => span.text).join("");
+  assert.match(text, /[*·]/u);
+  assert.doesNotMatch(text, /DAYDREAM/);
+  assert.ok(text.split("\n").every((line) => [...line].length <= 20));
+  assert.ok(middle.some((span) => span.color === "#00f5ff" && span.text.trim()));
+  assert.deepEqual(burst(1), []);
 });
 
 test("the adapter preserves ttfx's actual character positions and RGB colors", () => {
@@ -37,6 +72,12 @@ test("parser bounds the canvas and drops terminal operations", () => {
   assert.equal(spans.map((span) => span.text).join(""), "ABCD\nFGHI");
   assert.throws(() => createDecoder(4, 4, () => {}).finish(), /no supported canvas/);
   assert.throws(() => createDecoder(4, 4, () => {}).push("x".repeat(1024 * 1024 + 1)), /safety limit/);
+});
+
+test("background RGB and OSC controls cannot introduce a black rectangle or reset foreground", () => {
+  const spans = parseCanvas("\x1b[38;2;0;245;255mA\x1b[48;2;0;0;0mB\x1b[49mC", 8, 4);
+  assert.deepEqual(spans, [{ text: "ABC", color: "#00f5ff" }]);
+  assert.ok(spans.every((span) => !Object.keys(span).some((key) => /background|bg/i.test(key))));
 });
 
 test("only a visible primary Daydream session is eligible to show requested art", () => {
@@ -89,14 +130,15 @@ function fixture() {
   return { playback, frames, errors, timers, children, invocations, get hides() { return hides; } };
 }
 
-test("playback invokes the real engine with Omarchy timing/default laser settings", () => {
+test("playback keeps the real laser engine/timing and applies foreground-only cyberpunk colors", () => {
   const state = fixture();
   state.playback.start({ text: "DAYDREAM", width: 30, height: 10 });
   const [executable, args, options] = state.invocations[0];
   assert.equal(executable, "ttfx");
-  assert.equal(args.at(-1), "laseretch");
+  assert.ok(args.includes("laseretch"));
   assert.deepEqual(args.slice(0, 2), ["--frame-rate", "120"]);
-  assert.equal(args.some((arg) => /gradient|etch-speed|etch-delay/.test(arg)), false);
+  assert.deepEqual(args.slice(args.indexOf("laseretch") + 1), effectThemeArgs());
+  assert.equal(args.some((arg) => /background|etch-speed|etch-delay/.test(arg)), false);
   assert.equal(options.shell, false);
   assert.deepEqual(options.stdio, ["pipe", "pipe", "pipe"]);
   const child = state.children[0];
@@ -106,8 +148,13 @@ test("playback invokes the real engine with Omarchy timing/default laser setting
   assert.equal(state.frames.length, 1);
   assert.equal(state.errors.length, 0);
   assert.equal(state.timers.size, 1);
-  [...state.timers.values()][0].callback();
+  for (let i = 0; i < 25 && state.timers.size; i++) {
+    const [id, timer] = [...state.timers][0];
+    state.timers.delete(id);
+    timer.callback();
+  }
   assert.equal(state.hides, 1);
+  assert.deepEqual(state.frames.at(-1), []);
 });
 
 test("reduced motion is static and never spawns a process", () => {
@@ -115,6 +162,8 @@ test("reduced motion is static and never spawns a process", () => {
   state.playback.start({ text: "DAYDREAM", width: 30, height: 10, reducedMotion: true });
   assert.equal(state.children.length, 0);
   assert.equal(state.frames[0].map((span) => span.text).join(""), "DAYDREAM");
+  assert.equal(state.frames[0][0].color, "#" + PALETTE.final[0]);
+  assert.equal(state.frames[0].at(-1).color, "#" + PALETTE.final.at(-1));
   state.playback.stop();
   assert.equal(state.timers.size, 0);
 });
@@ -164,7 +213,10 @@ test("real ttfx laseretch output decodes with its original colors", {
         try {
           assert.ok(frames.length > 10);
           assert.ok(frames.some((frame) => frame.some((span) => span.color !== "#ffffff")));
-          assert.match(frames.at(-1).map((span) => span.text).join(""), /DAYDREAM/);
+          assert.ok(frames.some((frame) => /DAYDREAM/.test(frame.map((span) => span.text).join(""))));
+          const settled = frames.filter((frame) => /DAYDREAM/.test(frame.map((span) => span.text).join(""))).at(-1);
+          assert.ok(new Set(settled.filter((span) => span.text.trim()).map((span) => span.color)).size >= 3);
+          assert.deepEqual(frames.at(-1), []);
           resolve();
         } catch (error) { reject(error); }
       },

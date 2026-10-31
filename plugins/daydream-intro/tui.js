@@ -1,11 +1,13 @@
 import { Plugin } from "@opencode/plugin/tui";
 import { jsx } from "@opentui/solid/jsx-runtime";
 import { useTerminalDimensions } from "@opentui/solid";
+import { RGBA, StyledText } from "@opentui/core";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
 import { artwork, canShowIntro, hasIntroRequest } from "./artwork.js";
 import { createPlayback } from "./ttfx.js";
 import { createOpenDaydream } from "./open.js";
 import { commandLayer } from "./commands.js";
+import { paintCanvas } from "./text.js";
 
 export default Plugin.define({
   id: "daydream.intro",
@@ -57,18 +59,11 @@ export default Plugin.define({
             width: "100%",
             flexDirection: "column",
             alignItems: "center",
-            backgroundColor: "#000000",
             paddingTop: 1,
             paddingBottom: 1,
             children: jsx("text", {
-              fg: "#ffffff",
               wrapMode: "none",
-              get children() {
-                return canvas().map((part) => jsx("span", {
-                  fg: part.color,
-                  children: part.text,
-                }));
-              },
+              ref: (node) => createEffect(() => paintCanvas(node, canvas(), StyledText, RGBA)),
             }),
           });
         },

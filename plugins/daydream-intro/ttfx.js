@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { effectThemeArgs, staticArtwork } from "./theme.js";
+import { createExplosion } from "./outro.js";
 
 // ttfx --reuse-canvas emits a complete canvas between restore/save/move-up markers.
 // Never send these cursor controls to OpenCode's terminal: only render text/colors.
@@ -25,6 +27,10 @@ export function parseCanvas(payload, width, height) {
       if (!match) continue;
       const codes = (match[1] || "0").split(";").map(Number);
       for (let i = 0; i < codes.length; i++) {
+        // Ignore background colors entirely, including RGB channel zeroes
+        // which must not accidentally reset the active foreground color.
+        if ((codes[i] === 38 || codes[i] === 48) && codes[i + 1] === 5) { i += 2; continue; }
+        if (codes[i] === 48 && codes[i + 1] === 2) { i += 4; continue; }
         if (codes[i] === 0 || codes[i] === 39) color = "#ffffff";
         if (codes[i] === 38 && codes[i + 1] === 2 && codes.length >= i + 5) {
           const rgb = codes.slice(i + 2, i + 5);
@@ -113,14 +119,14 @@ export function createPlayback({
     };
     if (reducedMotion) {
       // Explicit reduced-motion mode, not a fake substitute for a missing engine.
-      onFrame(parseCanvas(text, width, height));
+      onFrame(parseCanvas(staticArtwork(text), width, height));
       run.timeout = schedule(stop, 2400);
       return;
     }
     const args = [
       "--frame-rate", "120", "--canvas-width", String(width), "--canvas-height", String(height),
       "--ignore-terminal-dimensions", "--reuse-canvas", "--anchor-canvas", "c", "--anchor-text", "c",
-      "--no-eol", "--no-restore-cursor", "laseretch",
+      "--no-eol", "--no-restore-cursor", "laseretch", ...effectThemeArgs(),
     ];
     try {
       run.child = spawnProcess(executable, args, { stdio: ["pipe", "pipe", "pipe"], shell: false });
@@ -129,8 +135,9 @@ export function createPlayback({
       return;
     }
     let stderr = "";
+    let finalCanvas = [];
     const decoder = createDecoder(width, height, (canvas) => {
-      if (current === run) onFrame(canvas);
+      if (current === run) { finalCanvas = canvas; onFrame(canvas); }
     });
     run.timeout = schedule(() => fail(new Error("ttfx intro exceeded 30 seconds")), MAX_DURATION_MS);
     run.child.stdout.setEncoding("utf8");
@@ -154,7 +161,15 @@ export function createPlayback({
         return;
       }
       try { decoder.finish(); } catch (error) { fail(error); return; }
-      run.hold = schedule(stop, 700);
+      const burst = createExplosion(finalCanvas, width, height);
+      let frame = 0;
+      const tick = () => {
+        if (current !== run) return;
+        onFrame(burst(++frame / 20));
+        if (frame >= 20) stop();
+        else run.hold = schedule(tick, 33);
+      };
+      run.hold = schedule(tick, 350);
     });
     run.child.stdin.end(text + "\n");
   }

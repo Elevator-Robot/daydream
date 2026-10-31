@@ -59,6 +59,8 @@ For the optional **laser-etched Daydream intro**, preview with
 agent and the OpenCode V2 TUI plugin. The default install remains agent-only.
 The animated intro uses an existing `ttfx` executable—the same effects engine as
 Omarchy's screensaver—without installing it or altering desktop settings.
+Its foreground-only retro-cyberpunk typography and neon palette inherit your
+existing OpenCode background; the intro does not paint a black panel.
 See [intro behavior, reduced motion, and verification](docs/INTRO.md).
 
 With the plugin enabled, choose **Open Daydream** from OpenCode's command palette

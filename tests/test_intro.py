@@ -9,6 +9,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @unittest.skipUnless(shutil.which("node"), "Node.js is optional; needed only for intro plugin tests")
 class IntroTests(unittest.TestCase):
+    def test_intro_inherits_background_instead_of_painting_a_panel(self):
+        source = (ROOT / "plugins" / "daydream-intro" / "tui.js").read_text()
+        self.assertNotIn("backgroundColor", source)
+        self.assertNotIn('bg:', source)
+
     def test_animation_and_lifecycle(self):
         result = subprocess.run(
             [shutil.which("node"), "--test", str(ROOT / "tests" / "intro.test.mjs"),
