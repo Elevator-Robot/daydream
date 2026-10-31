@@ -2,18 +2,24 @@ import { Plugin } from "@opencode/plugin/tui";
 import { jsx } from "@opentui/solid/jsx-runtime";
 import { useTerminalDimensions } from "@opentui/solid";
 import { RGBA, StyledText } from "@opentui/core";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import { artwork, canShowIntro, hasIntroRequest } from "./artwork.js";
 import { createPlayback } from "./ttfx.js";
 import { createOpenDaydream } from "./open.js";
 import { commandLayer } from "./commands.js";
 import { paintCanvas } from "./text.js";
+import { LAUNCH_MARKER, launcherRequest } from "./launch.js";
 
 export default Plugin.define({
   id: "daydream.intro",
   setup(context) {
+    const launchMarker = process.env[LAUNCH_MARKER];
+    delete process.env[LAUNCH_MARKER]; // Do not leak startup intent to nested clients.
     if (context.options.enabled === false) return;
     const reducedMotion = context.options.reducedMotion === true;
+    const [launchMemory, updateLaunchMemory] = context.storage.memory("terminal-launch", { initial: { consumed: [], pending: null } });
+    if (launchMarker) updateLaunchMemory((draft) => { draft.pending = launchMarker; });
+    const launchSession = launchMemory.pending;
     const [replay, setReplay] = createSignal(undefined);
     const [dismissal, setDismissal] = createSignal(0);
     const [opening, setOpening] = createSignal(false);
@@ -40,6 +46,16 @@ export default Plugin.define({
       const active = createMemo(() => canShowIntro(
         context.data.session.get(props.sessionID), context.ui.router.current(),
       ));
+      createEffect(() => {
+        const session = context.data.session.get(props.sessionID);
+        const route = context.ui.router.current();
+        untrack(() => {
+          const request = launcherRequest(launchSession, session, route, launchMemory.consumed);
+          if (!request) return;
+          updateLaunchMemory((draft) => { draft.consumed.push(request.sessionID); draft.pending = null; });
+          setReplay(request);
+        });
+      });
       createEffect(on([active, replay], ([selected, request]) => {
         playback.stop();
         // Agent selection, session restore, and /agent alone never request art.

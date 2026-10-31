@@ -2,6 +2,19 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createOpenDaydream } from "../plugins/daydream-intro/open.js";
 import { commandLayer } from "../plugins/daydream-intro/commands.js";
+import { launcherRequest } from "../plugins/daydream-intro/launch.js";
+
+test("terminal startup is one-shot and cannot trigger for an ordinary /agent entry", () => {
+  const session = { id: "ses_launch", agent: "daydream" };
+  const route = { type: "session", sessionID: session.id };
+  assert.deepEqual(launcherRequest(session.id, session, route, []), { sessionID: session.id });
+  assert.equal(launcherRequest(undefined, session, route, []), undefined);
+  assert.equal(launcherRequest(session.id, session, route, [session.id]), undefined);
+  assert.equal(launcherRequest("ses_other", session, route, []), undefined);
+  assert.equal(launcherRequest(session.id, { ...session, parentID: "parent" }, route, []), undefined);
+  assert.equal(launcherRequest(session.id, { ...session, agent: "build" }, route, []), undefined);
+  assert.equal(launcherRequest(session.id, session, { type: "home" }, []), undefined);
+});
 
 function fixture() {
   const calls = [];

@@ -18,7 +18,7 @@ game project; the broader creative workflow is not yet implemented.
 - Keep implemented capabilities distinct from planned ones. Headless checks do
   not establish graphical correctness, editor interaction, or play feel.
 - Run `python3 -m unittest discover -s tests -v` after changes. If a Godot 4 editor
-  is available, also run the isolated fixture check documented in the README.
+  is available, also run the isolated fixture check in `docs/DEVELOPMENT.md`.
 - Preserve user edits. Do not publish, merge, install software, or broaden
   permissions beyond the current request. Do not add secrets or choose a license
   on the owner's behalf.

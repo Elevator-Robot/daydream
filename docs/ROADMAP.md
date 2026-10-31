@@ -1,5 +1,8 @@
 # Daydream — scope and next milestones
 
+Internal milestones and acceptance criteria. For installation and everyday use,
+see the [user README](../README.md).
+
 ## Vision
 
 **Dream it. Make it playable.** Daydream aims to create sprites, effects, and
@@ -25,8 +28,9 @@ and permissions. Future integrations need their own permission/trust review.
 
 - Installable Markdown agent with project discovery, scoped edits, validation,
   evidence boundaries, and human review in its workflow.
-- Preview-first installation of a single symlink, with collision refusal.
-- Optional, separately opted-in OpenCode V2 TUI intro using the actual installed
+- Preview-first, non-overwriting installation of launcher, agent, and intro by
+  default, with `--agent-only` for lightweight OpenCode integration.
+- Optional OpenCode V2 TUI intro, included in the full install, using the installed
   `ttfx laseretch` engine, with bounded playback, reduced motion, and session
   scoping. Its frame decoder is tested against the real engine. This is cosmetic UI, not a
   server workflow hook. Entry without a message was verified in the installed
@@ -34,6 +38,10 @@ and permissions. Future integrations need their own permission/trust review.
 - An **Open Daydream** client-side menu action opens an empty primary session
   and triggers the intro before any message/model call. It does not change the
   built-in home-screen agent selector, whose selection state is not exposed.
+- A [terminal launcher](LAUNCHER.md), `daydream [directory]`, with bounded
+  preflight, an empty primary-agent session, immediate client-local intro intent,
+  and `--doctor`/`--no-intro`. It changes no model defaults, permissions, or game
+  files. Installation is preview-first; `--apply` is still required for writes.
 - Preview-first, non-overwriting `.daydream/` initialization with versioned
   config/metadata containers, path validation, and agent consent instructions.
   See [project-local configuration](PROJECT_CONFIG.md). This does not implement
@@ -50,7 +58,7 @@ or that the agent can complete a game change autonomously.
 
 On an authorized development machine with a trusted Godot project:
 
-1. Install or manually wire the agent; verify `opencode agent list` discovers it.
+1. Install or manually wire the agent; verify `opencode debug agents` discovers it.
 2. Capture a baseline: game commit/working changes, exact engine and OpenCode
    versions, test commands, and a reproducible scene/interaction.
 3. Choose one small observable change with acceptance criteria. No redesign,

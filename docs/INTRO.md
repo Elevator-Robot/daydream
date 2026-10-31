@@ -73,11 +73,17 @@ leave a partial install: inspect the result before retrying.
 
 The installer does not edit `opencode.json`, `cli.json`, game files, models, or
 permissions, or install `ttfx`/npm packages. Restart OpenCode after installing or
-updating. Keep the checkout in place. The default installer remains agent-only;
-running it without `--with-intro` does not remove a previously installed plugin.
+updating. Keep the checkout in place. The default installs the launcher, agent,
+and intro plugin; `--agent-only` opts into only the agent and `--with-intro`
+retains the agent-plus-intro-only mode. These choices do not remove previously
+installed components. All modes still preview unless `--apply` is given.
 
 ## When it plays
 
+- **From a terminal:** `daydream [directory]` creates an empty primary Daydream
+  session and explicitly requests this intro once through a client-local startup
+  marker. No message is needed. `daydream --no-intro` opts out; normal agent
+  selection still never requests art. See [the launcher](LAUNCHER.md).
 - **To enter without sending a message:** choose **Open Daydream** in the command
   palette, or run the client-side `/daydream` action. It creates an empty primary
   Daydream session in the current location, syncs its data, and opens it. The intro

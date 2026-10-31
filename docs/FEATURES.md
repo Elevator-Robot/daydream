@@ -1,5 +1,8 @@
 # Daydream — features and enabling tools
 
+Internal feature planning. For installation and everyday use, see the
+[user README](../README.md).
+
 **Dream it. Make it playable.**
 
 This is a proposed feature and tooling plan, not a list of working capabilities.
