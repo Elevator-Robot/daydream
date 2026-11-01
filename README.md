@@ -2,12 +2,12 @@
 
 **Dream it. Make it playable.**
 
-Your AI coding companion for Godot. Open a project, describe what you want to
-change, and work with Daydream on scripts, scenes, and debugging.
+Your AI coding and pixel-art companion for Godot. Open a project, describe what
+you want to change, and work with Daydream on scripts, scenes, sprites, and debugging.
 
-> **Early access:** Daydream currently helps with coding and project checks.
-> Sprite generation, asset editing, and automatic game assembly are not available
-> yet. You still need to review changes and playtest in Godot.
+> **Early access:** Daydream supports coding and a first static pixel-art workflow.
+> General AI image generation, sprite animation, and automatic game assembly are
+> not available yet. You still need to review artwork and playtest in Godot.
 
 ## Before you start
 
@@ -81,6 +81,27 @@ Or investigate a problem:
 Give Daydream the scene, behavior, and expected result when possible. Use version
 control, review its changes, and playtest the result in Godot. Only open projects
 you trust.
+
+## Pixel-art sprites (optional)
+
+Enable sprite creation and editing once from your Daydream checkout:
+
+```sh
+cd ~/Code/daydream
+python3 -m venv .venv-sprites
+.venv-sprites/bin/python -m pip install -r requirements-sprites.txt
+```
+
+Then open your game with `daydream` and try:
+
+> Create a transparent 32×32 slime using five colors. Show me the preview before
+> adding anything to the game.
+
+> Make the outline darker and keep the original version.
+
+Review the preview before approving it. Daydream can then add the approved sprite
+as a static Godot scene, without replacing existing assets. This first workflow
+uses explicit pixel designs, not a paid image-generation service.
 
 ## Useful options
 

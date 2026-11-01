@@ -32,6 +32,23 @@ request to upgrade a game's engine pin.
 
 ## Check a trusted Godot project
 
+### Optional sprite workflow checks
+
+Pillow is intentionally separate from the core dependency-free helpers:
+
+```sh
+python3 -m venv .venv-sprites
+.venv-sprites/bin/python -m pip install -r requirements-sprites.txt
+GODOT_BIN=/absolute/path/to/godot .venv-sprites/bin/python -m unittest discover -s tests -v
+```
+
+Sprite tests are skipped without Pillow; schema validation still runs. Real
+resource checks use temporary Godot fixtures, not another game repository.
+See [the sprite slice](SPRITES.md) for source/edit formats, approval boundaries,
+import recovery, and the remaining human/graphical acceptance criteria.
+
+### Project import/smoke helper
+
 Inspect startup code, tool scripts, addons, native extensions, and external
 services before import. Importing can execute code and write `.godot/` or resource
 metadata. Headless execution is not read-only or sandboxed.
@@ -77,6 +94,7 @@ play-feel review. Never infer appearance or usability from headless success.
 - [Launcher](LAUNCHER.md): installation modes, startup, dependencies, and consent.
 - [Intro](INTRO.md): playback, reduced motion, and visual verification.
 - [Project configuration](PROJECT_CONFIG.md): local initialization and recovery.
+- [Static sprites](SPRITES.md): create/edit/approve/import workflow and limits.
 - [Feature plan](FEATURES.md): proposed creative tools and hook safeguards.
 - [Roadmap](ROADMAP.md): implemented capabilities and acceptance criteria.
 

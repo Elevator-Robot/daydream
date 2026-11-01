@@ -54,15 +54,33 @@ and permissions. Future integrations need their own permission/trust review.
 This milestone does **not** prove OpenCode loads the agent on the user's machine
 or that the agent can complete a game change autonomously.
 
-## 1 — Prove the real game loop (next; not yet done)
+## 1 — Static sprite workflow (implemented tools; human/real-game acceptance pending)
+
+- Optional Pillow-backed pixel-grid rendering, transparent PNG output, and
+  enlarged checkerboard previews. No image-generation API or automatic install.
+- Fresh revision bundles for recolor, mirror, paint, and rectangle edits, plus
+  bounded conversion of existing palette-limited PNGs.
+- Revision/preview hashes, explicit user-review records, and rejection of stale
+  approvals or tampered artifacts. Records are not authenticated identity.
+- Preview-first, non-overwriting static Godot PNG/source/scene import and
+  project-local provenance records. Existing scenes and main-scene settings stay
+  untouched; generated `Sprite2D` scenes use nearest filtering.
+- Isolated unit tests, actual PNG preview inspection, and a real Godot resource
+  import/startup check. See [scope, commands, and remaining review](SPRITES.md).
+
+**Still pending:** user art approval, graphical verification in a real game, and
+the broader loop below. Animation, resize, provider generation, and full scene
+assembly remain out of scope for this slice.
+
+## 2 — Prove the real game loop (next; not yet done)
 
 On an authorized development machine with a trusted Godot project:
 
 1. Install or manually wire the agent; verify `opencode debug agents` discovers it.
 2. Capture a baseline: game commit/working changes, exact engine and OpenCode
    versions, test commands, and a reproducible scene/interaction.
-3. Choose one small observable change with acceptance criteria. No redesign,
-   engine migration, or generated asset pipeline in this experiment.
+3. Choose one small observable code or approved-static-sprite change with
+   acceptance criteria. No redesign, engine migration, or animation pipeline.
 4. Let the agent inspect, edit, and run appropriate checks; inspect the diff and
    distinguish pre-existing failures from regressions.
 5. Launch the actual game with its normal renderer. Capture and inspect a real
@@ -77,7 +95,7 @@ visible result is retained, human feedback is recorded, and manual vs automated
 steps are explicit. The resulting report should identify the bottleneck worth
 automating next, not assume an editor bridge is necessary.
 
-## 2 — Close measured gaps (proposed)
+## 3 — Close measured gaps (proposed)
 
 Evaluate editor/LSP/debugger integration and screenshot/input tooling only after
 the first experiment. Prefer maintained, official interfaces where available.
@@ -101,10 +119,11 @@ and isolated tests cover scope filtering, duplicate events, recursion, timeout,
 cancellation, permission denial, and validation failures. No hook may silently
 authorize paid calls, uploads, overwrites, or game launches.
 
-## Later — Asset creation and scene assembly (not implemented)
+## Later — Broader asset creation and scene assembly (not implemented)
 
-After the development loop is reliable, design sprite, effect, and asset
-generation alongside Godot scene assembly. Include licensing and provenance
+After the real-game loop is reliable, extend the static sprite slice into
+animation, effects, tilesets, optional generation providers, and broader Godot
+scene assembly. Include licensing and provenance
 records, reproducible imports, collision/resource validation, and human
 art-direction review. Concrete providers, asset formats, and integrations need
 separate design and approval. Do not make any provider or paid API a prerequisite

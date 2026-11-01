@@ -27,6 +27,14 @@ class AgentTests(unittest.TestCase):
         self.assertIn("read-only", text)
         self.assertIn("not an automatically installed hook", text)
 
+    def test_agent_wires_static_sprite_tools_without_self_approval_or_auto_dependencies(self):
+        text = (ROOT / "agents" / "daydream.md").read_text()
+        self.assertIn("scripts/sprites.py", text)
+        self.assertIn(".venv-sprites/bin/python", text)
+        self.assertIn("Do not self-approve", text)
+        self.assertIn("ask before installing dependencies", text)
+        self.assertIn("A changed revision needs a new preview and approval", text)
+
 
 if __name__ == "__main__":
     unittest.main()

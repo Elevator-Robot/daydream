@@ -5,16 +5,18 @@ Internal feature planning. For installation and everyday use, see the
 
 **Dream it. Make it playable.**
 
-This is a proposed feature and tooling plan, not a list of working capabilities.
-Today Daydream provides agent instructions, a safe opt-in installer, and bounded
-Godot import/headless smoke checks. Asset creation, visual inspection, and scene
-assembly automation below are **not implemented**.
+This separates the creative feature plan from implemented slices. Daydream now
+provides agent instructions, safe installation/launching, bounded Godot checks,
+and a first [static sprite create/edit/approve/import workflow](SPRITES.md).
+General image generation, animation, editor control, and full scene/game assembly
+are **not implemented**. PNG preview inspection is not graphical Godot validation.
 OpenCode plugin hooks are also planned, not implemented.
 
 Project-local [configuration initialization](PROJECT_CONFIG.md) is implemented:
 the helper creates versioned location hints and an empty asset metadata container
-without overwrites. Asset specifications, provenance recording, and approval
-enforcement below remain proposed; initialization alone does not provide them.
+without overwrites. The sprite helper now validates its own pixel specifications,
+revision/provenance hashes, and approval records. Initialization alone does not
+provide these checks, and other asset types remain proposed.
 
 See [ROADMAP.md](ROADMAP.md) for sequencing and acceptance of the existing game
 development loop. This document does not authorize installing software, choosing
@@ -35,19 +37,20 @@ do not try to build every pipeline at once.
 
 ## Feature map
 
-All rows are proposed. “Tools needed” describes capabilities to add, not packages
-that are already installed or selected.
+Rows marked **initial slice** have bounded static functionality; their broader
+target behaviors are not all implemented. Other rows are proposed. “Tools needed”
+describes target capabilities, not packages already installed or selected.
 
 | Feature | What the user should be able to request | Tools or components needed | Acceptance check |
 | --- | --- | --- | --- |
-| Pixel-art creation | “Make a 32×32 slime using this palette.” | Structured pixel drawing, PNG export, palette/alpha validation, enlarged nearest-neighbor preview | Correct size, allowed colors, transparent background, approved silhouette |
-| Sprite editing | Recolor, resize, mirror, or revise an existing sprite | Image reader/writer, palette replacement, nearest-neighbor transforms, protected source copies | Only requested pixels or properties change; source is preserved |
+| Pixel-art creation — initial slice | “Make a 32×32 slime using this palette.” | Editable pixel-grid JSON, local PNG export, palette/alpha validation, enlarged nearest-neighbor preview | Dimensions/palette/transparency checked; human silhouette approval still required |
+| Sprite editing — initial slice | Recolor, mirror, paint pixels, or fill a rectangle; resize is still planned | Pillow, fresh revision bundles, protected source copies | Only requested pixels/properties change; originals and their approvals are preserved |
 | Sprite animation | Idle, walk, attack, and hit animations | Frame editing, sprite-sheet packing, timing/loop metadata, playback preview | Consistent canvas/pivot, correct order and timing, no frame jitter |
 | Tilesets and terrain | Ground, walls, corners, and transitions | Tile atlas builder, seam preview, Godot `TileSet` and terrain configuration | Tiles join without visible seams and terrain connections work in-engine |
 | Backgrounds and props | Layered scenery, decorations, and parallax | Image creation/editing, layer export, composition preview, Godot scene templates | Consistent style and scale; layers align and scroll correctly |
 | Visual effects | Sparks, smoke, explosions, magic, and trails | Flipbook tooling, Godot particle resources, shader templates, graphical preview | Effect looks right in motion, cleans up, and meets a project-defined performance budget |
 | UI assets | Icons, panels, buttons, and HUD elements | Pixel/vector drawing, scalable panel rules, Godot `Control`/`Theme` resources | Readable at target resolutions; focus, scaling, and interaction work |
-| Asset import | Bring approved artwork into the game | Staging/import helper, path collision checks, explicit texture import settings | No overwrites; intended filtering, compression, and resource references survive reimport |
+| Asset import — initial slice | Bring an approved static sprite into the game | Hash-bound approval, preview-first PNG/source/scene writes, provenance records, nearest-filtered `Sprite2D` | No overwrites; real fixture import/startup checked; graphical review remains pending |
 | Scene assembly | “Turn this sprite into a playable character.” | Version-aware scene/resource writer, reusable node templates, input/collision wiring | Scene opens, references resolve, movement and collisions work in a graphical run |
 | Level assembly | Build a small room from approved tiles and props | Layout specification, tile placement, spawn/exit markers, collision/navigation checks | Room is traversable; scale, collision, and entry/exit behavior are reviewed |
 | Visual iteration | “The outline is too thick; make the impact brighter.” | Screenshot/frame capture, image viewing, before/after comparison, bounded revision workflow | Evidence shows the requested change; user approves the result |
@@ -69,9 +72,9 @@ that are already installed or selected.
 
 - A deterministic drawing route for primitives, outlines, fills, palettes, and
   frame edits. This should work without an image-generation API.
-- Candidate: **Pillow** for PNG manipulation and sprite-sheet assembly. It is an
-  optional dependency proposal; approve it separately rather than adding it to
-  the current standard-library-only core without review.
+- **Pillow** is now the optional static-sprite dependency, approved separately and
+  tested in an isolated environment. The normal installer/core helpers remain
+  standard-library-only. Sprite-sheet assembly is not implemented yet.
 - Candidate: **Aseprite** for editable pixel-art sources and batch exports, when
   the user already has an appropriately licensed copy. **LibreSprite** is another
   candidate to evaluate; do not assume identical automation support.
@@ -156,7 +159,7 @@ Implementation requirements:
   Hooks are convenience automation, not a security boundary or a replacement for
   OpenCode permissions.
 - Keep installation previewable and opt-in. Document plugin/runtime dependencies
-  separately; do not silently expand the existing single-agent installer.
+  separately; do not silently expand installation with workflow services.
 - Require authorization for paid generation, uploads, overwrites, and game
   launches. Hooks must not broaden an operation's approved scope.
 - Use operation IDs and output hashes to avoid duplicate processing. Bound work
@@ -173,28 +176,30 @@ Reference: [OpenCode V2 plugins](https://opencode.ai/v2/docs/build/plugins).
 Exact hook coverage and failure/approval behavior need verification during the
 plugin design; this table describes intended behavior, not existing SDK support.
 
-## Suggested first asset milestone
+## First static asset slice — implemented tools, acceptance still partial
 
-After the roadmap's real-game loop is proven, build one narrow vertical slice:
+The authorized first slice is intentionally static rather than animated:
 
-> Create a palette-limited 32×32 slime with a four-frame idle animation, preview
-> it for approval, then assemble a standalone animated Godot scene.
+> Create a palette-limited 32×32 slime, preview a darker-outline revision for
+> approval, then import an approved static Godot scene.
 
 Deliverables:
 
-- [ ] Asset specification, palette, and editable source representation.
-- [ ] Local deterministic pixel drawing and PNG/sprite-sheet export.
-- [ ] Enlarged contact sheet and animation preview for human approval.
-- [ ] Manifest with provenance, frame timing, and approval state.
-- [ ] Preview-first import and scene assembly into an isolated fixture.
-- [ ] `SpriteFrames` resource and an `AnimatedSprite2D` scene with explicit pivot.
-- [ ] Unit tests, real-engine import/smoke checks, and a graphical review record.
-- [ ] Documented limitations and a reversible import procedure.
+- [x] Versioned pixel specification, palette, and editable source.
+- [x] Local PNG rendering and non-destructive recolor/mirror/pixel/rectangle edits.
+- [x] Enlarged nearest-neighbor previews, actually read for the sample revision.
+- [x] Hashed revision/provenance metadata and an explicit approval-record action.
+- [x] Preview-first static PNG/source/scene import into an isolated fixture.
+- [x] Standalone nearest-filtered `Sprite2D` resource, checked in real Godot.
+- [x] Unit tests, tamper/collision checks, and real-engine import/smoke checks.
+- [x] Recovery limits and manual, non-destructive undo guidance.
+- [ ] User art-direction approval and a graphical Godot review in a real game.
+- [ ] Animation frames, contact sheets, `SpriteFrames`, and `AnimatedSprite2D`.
 
 **Not needed for this slice:** a paid image API, a local diffusion service, an
 MCP server, an editor-control daemon, 3D generation, or a complete game generator.
 Automatic plugin hooks are not required either: prove the explicit tools first.
 
-Once that slice works, add sprite revisions and more animations, then a tileset
-and small level, then particles/shaders. Add optional providers only when they
+After human/real-game acceptance of the static slice, add animation, then a
+tileset and small level, then particles/shaders. Add optional providers only when they
 improve a measured weakness in quality or workflow.

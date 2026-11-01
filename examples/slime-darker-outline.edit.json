@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "operations": [
+    { "op": "recolor", "symbol": "o", "color": "#080f20" }
+  ]
+}

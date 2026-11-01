@@ -64,9 +64,11 @@ New `assets.json`:
 ```
 
 This reserves a place for provenance and approval records without inventing any.
-Only the version and list-of-objects container are validated today. Record-level
-schemas, asset generation, provenance tracking, and hash-bound approvals remain
-planned. An entry in this file is not permission to run a tool or proof of review.
+The initializer validates only the version and list-of-objects container. The
+[static sprite workflow](SPRITES.md) now writes its own versioned provenance and
+hash-bound approval records after validating a revision. Other asset types still
+have no record-level validator. An arbitrary entry in this file is not permission
+to run a tool or proof of human review.
 
 Both JSON files require integer `schema_version: 1`. Unknown fields are allowed
 and preserved; unsupported versions and malformed required fields fail rather
