@@ -17,9 +17,17 @@ def write_new(directory_fd, name, data):
         stream.write(data)
 
 
-def save_revision(output, files, apply=False):
-    if set(files) != {"source.json", "sprite.png", "preview.png", "manifest.json", ".gdignore"}:
-        raise ValueError("Revision output must contain only the five managed bundle files")
+def save_revision(output, files, apply=False, *, kind="sprite"):
+    if kind == "sprite":
+        expected = {"source.json", "sprite.png", "preview.png", "manifest.json", ".gdignore"}
+    elif kind == "sprite_animation":
+        from animation_core import artifact_names, validate_source
+        source = validate_source(json.loads(files["source.json"]))
+        expected = artifact_names(source) | {"manifest.json", ".gdignore"}
+    else:
+        raise ValueError("Unsupported revision bundle kind")
+    if set(files) != expected:
+        raise ValueError("Revision output must contain only the managed bundle files")
     output = Path(output).expanduser().absolute()
     if os.path.lexists(output):
         raise ValueError(f"Revision destination already exists; choose a new version: {output}")
@@ -37,19 +45,27 @@ def save_revision(output, files, apply=False):
             os.close(fd)
     return {"action": "created" if apply else "would_create", "directory": str(output),
             "files": list(files), "revision_hash": digest(files["manifest.json"]),
-            "preview": str(output / "preview.png")}
+            "preview": str(output / ("preview.html" if kind == "sprite_animation" else "preview.png"))}
 
 
-def approve_revision(bundle, revision_hash, reviewer, apply=False):
-    revision = load_revision(bundle)
+def approval_identity(revision):
+    if revision["manifest"].get("kind") == "sprite_animation":
+        return {"schema_version": 2, "kind": "sprite_animation", "revision_hash": revision["revision_hash"],
+                "files": revision["manifest"]["files"]}
+    if revision["manifest"].get("kind") != "sprite":
+        raise ValueError("Unsupported approval kind")
+    return {"schema_version": 1, "revision_hash": revision["revision_hash"],
+            "sprite_sha256": revision["manifest"]["files"]["sprite.png"],
+            "preview_sha256": revision["manifest"]["files"]["preview.png"]}
+
+
+def approve_revision(bundle, revision_hash, reviewer, apply=False, *, loader=load_revision):
+    revision = loader(bundle)
     if revision_hash != revision["revision_hash"]:
         raise ValueError("Approval hash does not match this exact revision and preview")
     if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 120 or any(ord(ch) < 32 for ch in reviewer):
         raise ValueError("Reviewer must be a nonempty label, at most 120 characters")
-    record = {"schema_version": 1, "revision_hash": revision_hash,
-              "sprite_sha256": revision["manifest"]["files"]["sprite.png"],
-              "preview_sha256": revision["manifest"]["files"]["preview.png"],
-              "reviewer": reviewer, "reviewed_at": datetime.now(timezone.utc).isoformat()}
+    record = {**approval_identity(revision), "reviewer": reviewer, "reviewed_at": datetime.now(timezone.utc).isoformat()}
     fd = os.open(revision["path"], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         try:
@@ -67,12 +83,10 @@ def approve_revision(bundle, revision_hash, reviewer, apply=False):
 
 
 def validate_approval(revision, approval):
-    if not isinstance(approval, dict) or type(approval.get("schema_version")) is not int or approval["schema_version"] != 1:
+    identity = approval_identity(revision)
+    if not isinstance(approval, dict) or type(approval.get("schema_version")) is not int or approval["schema_version"] != identity["schema_version"]:
         raise ValueError("Unsupported approval record")
-    if approval.get("revision_hash") != revision["revision_hash"] or any(
-        approval.get(field) != revision["manifest"]["files"][name]
-        for field, name in (("sprite_sha256", "sprite.png"), ("preview_sha256", "preview.png"))
-    ):
+    if any(approval.get(key) != value for key, value in identity.items()):
         raise ValueError("Approval is stale; preview and approve the new revision")
     if not isinstance(approval.get("reviewer"), str) or not approval["reviewer"].strip() or not isinstance(approval.get("reviewed_at"), str):
         raise ValueError("Approval must record a reviewer and review date")
@@ -109,8 +123,20 @@ def relative_directory(project, value):
     return value
 
 
-def import_revision(bundle, project, name=None, destination=None, apply=False):
-    revision = load_revision(bundle)
+def static_outputs(revision, asset_dir, source_dir, asset_name):
+    texture = asset_dir + "/" + asset_name + ".png"
+    scene = asset_dir + "/" + asset_name + ".tscn"
+    source = source_dir + "/" + asset_name + ".json"
+    scene_text = ('[gd_scene load_steps=2 format=3]\n\n'
+                  '[ext_resource type="Texture2D" path=' + json.dumps("res://" + texture, ensure_ascii=False) + ' id="1"]\n\n'
+                  '[node name=' + json.dumps(asset_name) + ' type="Sprite2D"]\n'
+                  'texture_filter = 1\ntexture = ExtResource("1")\n')
+    return ({texture: revision["files"]["sprite.png"], scene: scene_text.encode("utf-8"), source: revision["files"]["source.json"]},
+            {"texture": texture, "scene": scene, "source": source}, [texture + ".import", scene + ".uid"])
+
+
+def import_revision(bundle, project, name=None, destination=None, apply=False, *, loader=load_revision, output_builder=static_outputs):
+    revision = loader(bundle)
     fd = os.open(revision["path"], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         try:
@@ -142,17 +168,10 @@ def import_revision(bundle, project, name=None, destination=None, apply=False):
         config, index = json.loads(config_bytes), json.loads(index_bytes)
         asset_dir = relative_directory(project, destination if destination is not None else config["paths"]["assets"] + "/sprites")
         source_dir = relative_directory(project, config["paths"]["sources"] + "/sprites")
-        texture = asset_dir + "/" + asset_name + ".png"
-        scene = asset_dir + "/" + asset_name + ".tscn"
-        source = source_dir + "/" + asset_name + ".json"
-        scene_text = ('[gd_scene load_steps=2 format=3]\n\n'
-                      '[ext_resource type="Texture2D" path=' + json.dumps("res://" + texture, ensure_ascii=False) + ' id="1"]\n\n'
-                      '[node name=' + json.dumps(asset_name) + ' type="Sprite2D"]\n'
-                      'texture_filter = 1\ntexture = ExtResource("1")\n')
-        outputs = {texture: revision["files"]["sprite.png"], scene: scene_text.encode("utf-8"), source: revision["files"]["source.json"]}
-        if len(outputs) != 3:
+        outputs, paths, reserved = output_builder(revision, asset_dir, source_dir, asset_name)
+        if len(outputs) != len(paths):
             raise ValueError("Runtime and editable-source output paths overlap")
-        for relative in [*outputs, texture + ".import", scene + ".uid"]:
+        for relative in [*outputs, *reserved]:
             with parent_fd(root, relative) as (directory, leaf):
                 if directory is None:
                     continue
@@ -161,10 +180,10 @@ def import_revision(bundle, project, name=None, destination=None, apply=False):
                 except FileNotFoundError:
                     continue
                 raise ValueError(f"Refusing to replace existing asset: {relative}; use a new --name")
-        if any(record.get("name") == asset_name and record.get("kind") == "sprite" for record in index["assets"]):
+        if any(record.get("name") == asset_name and record.get("kind") in ("sprite", "sprite_animation") for record in index["assets"]):
             raise ValueError("Asset name already exists in the manifest; use a new --name")
-        record = {"schema_version": 1, "kind": "sprite", "name": asset_name,
-                  "revision_hash": revision["revision_hash"], "paths": {"texture": texture, "scene": scene, "source": source},
+        record = {"schema_version": 1, "kind": revision["manifest"]["kind"], "name": asset_name,
+                  "revision_hash": revision["revision_hash"], "paths": paths,
                   "sha256": {relative: digest(data) for relative, data in outputs.items()},
                   "provenance": revision["manifest"].get("provenance"), "approval": approval}
         index["assets"].append(record)

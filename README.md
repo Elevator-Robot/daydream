@@ -5,9 +5,9 @@
 Your AI coding and pixel-art companion for Godot. Open a project, describe what
 you want to change, and work with Daydream on scripts, scenes, sprites, and debugging.
 
-> **Early access:** Daydream supports coding and a first static pixel-art workflow.
-> General AI image generation, sprite animation, and automatic game assembly are
-> not available yet. You still need to review artwork and playtest in Godot.
+> **Early access:** Daydream supports coding, pixel-art sprites, and a first
+> frame-based animation workflow. General AI image generation and automatic game
+> assembly are not available yet. Review artwork and motion, then playtest in Godot.
 
 ## Before you start
 
@@ -102,6 +102,18 @@ Then open your game with `daydream` and try:
 Review the preview before approving it. Daydream can then add the approved sprite
 as a static Godot scene, without replacing existing assets. This first workflow
 uses explicit pixel designs, not a paid image-generation service.
+
+For animation, try:
+
+> Give the slime a four-frame idle animation. Keep its feet aligned and show me
+> a motion preview before importing it.
+
+Daydream can build ordered frames with timing and looping, then import an
+approved animation as a Godot scene. Watch the motion preview before approving;
+a still image alone cannot show whether it moves correctly.
+
+Follow the [sprite workflow](docs/SPRITE_WORKFLOW.md) from the first brief through
+revisions, approval, import, and testing in Godot.
 
 ## Useful options
 

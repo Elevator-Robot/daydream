@@ -35,6 +35,13 @@ class AgentTests(unittest.TestCase):
         self.assertIn("ask before installing dependencies", text)
         self.assertIn("A changed revision needs a new preview and approval", text)
 
+    def test_agent_requires_motion_review_for_animation_approval(self):
+        text = (ROOT / "agents" / "daydream.md").read_text()
+        self.assertIn("scripts/animations.py", text)
+        self.assertIn("Do not reuse static approval or self-approve animation", text)
+        self.assertIn("first frame", text)
+        self.assertIn("have not actually watched playback", text)
+
 
 if __name__ == "__main__":
     unittest.main()

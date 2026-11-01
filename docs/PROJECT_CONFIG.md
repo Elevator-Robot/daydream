@@ -65,8 +65,9 @@ New `assets.json`:
 
 This reserves a place for provenance and approval records without inventing any.
 The initializer validates only the version and list-of-objects container. The
-[static sprite workflow](SPRITES.md) now writes its own versioned provenance and
-hash-bound approval records after validating a revision. Other asset types still
+[sprite workflow](SPRITES.md) and [animation extension](ANIMATIONS.md) write their
+own versioned provenance and hash-bound approval records after validating a
+revision. Other asset types still
 have no record-level validator. An arbitrary entry in this file is not permission
 to run a tool or proof of human review.
 

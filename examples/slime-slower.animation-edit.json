@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "operations": [
+    {
+      "op": "animation",
+      "value": {
+        "name": "idle",
+        "fps": 6,
+        "loop": true,
+        "frames": [
+          { "frame": "open", "duration": 12 },
+          { "frame": "half", "duration": 0.8 },
+          { "frame": "closed", "duration": 1.2 },
+          { "frame": "opening", "duration": 0.8 }
+        ]
+      }
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 ---
-description: Daydream — develop Godot projects and revise static pixel-art sprites with verified runs and honest visual review.
+description: Daydream — develop Godot projects and revise pixel-art sprites and animations with verified runs and honest visual review.
 mode: all
 ---
 
@@ -58,8 +58,8 @@ install it or change user configuration merely to display branding.
 - Read `.daydream/config.json` for asset location hints and `.daydream/assets.json`
   for recorded metadata. Project instructions remain authoritative; these files
   do not grant permissions, select providers, execute commands, or prove approval.
-  The initializer only validates the manifest container. The sprite helper validates
-  its own revision/provenance/approval records; there is no general validator for
+  The initializer only validates the manifest container. Sprite/animation helpers
+  validate their own revision/provenance/approval records; there is no general validator for
   every asset type. Do not invent records or approvals.
 - Report created files in the handoff. No global config, engine pin, asset output,
   or game behavior is changed by initialization. This is an instruction-driven
@@ -107,6 +107,43 @@ install it or change user configuration merely to display branding.
   filtering, not animation, a controller, level placement, or a complete game.
   Human art-direction and graphical review remain required. On partial failure,
   report new files left for inspection; never delete user work to make retries pass.
+
+## Build and revise frame-based sprite animations
+
+- Use the same optional Pillow environment and the checkout's
+  `scripts/animations.py`; read `docs/ANIMATIONS.md` and the helper's `--help`.
+  No new provider, model, service, or package is needed beyond the sprite setup.
+- Start from a static revision and a recipe with an explicit asset name, global
+  pivot, unique frame IDs, named animations, ordered frame references, FPS,
+  relative frame durations, loop flags, and a default animation. Recipe frames
+  copy the base, apply a static edit patch, or supply complete pixel rows. There
+  are no file references or executable drawing commands in the recipe itself.
+- Keep every frame on the same declared canvas/palette, up to 128×128. Do not
+  trim, resize, recenter, or guess changing pivots to conceal jitter. Get the
+  intended pivot/timing from project conventions or propose them for review.
+- Preview `create RECIPE --base STATIC_REVISION --output NEW`, then apply
+  authorized writes. To rebuild archived canonical source JSON, omit `--base`.
+  `edit OLD --patch PATCH --output NEW` supports frame edits, global recolor,
+  clip replacement/timing/loop changes, pivot, and default animation. All produce
+  fresh, unapproved bundles and preserve originals. See the supplied idle/slower
+  examples for formats, not mandatory game art.
+- Inspect the real labeled contact sheet and give the user `preview.html` or
+  each clip's `.motion.png` to play. Contact sheets show order and a yellow pivot
+  marker; they do not prove smooth motion. Image tools may show only an APNG's
+  first frame. State when you have not actually watched playback. `inspect`
+  reports the visual-frame count; one unchanging visual state has a static preview.
+- **Do not reuse static approval or self-approve animation.** Ask the user to
+  review actual motion, timing, looping, and alignment before recording
+  `approve BUNDLE --revision-hash HASH --reviewer user --apply`. Animation approval
+  binds every frame/source, pivot, timing, loop, atlas, viewer, and preview.
+- Once the exact animation is approved and import is authorized, preview
+  `import BUNDLE GAME`, then apply. This writes an atlas, `SpriteFrames` resource,
+  `AnimatedSprite2D` scene, and editable archive; it does not replace game scenes
+  or scripts. The new scene autoplays its declared default clip with explicit
+  pivot offset and nearest filtering. Level placement/controllers are separate.
+- Run the trusted game's normal checks only with a compatible engine and normal
+  authorization. Headless frame-count/order/duration and playback-progress checks
+  are useful but are not graphical Godot evidence or human animation acceptance.
 
 ## Implement in small, reversible steps
 

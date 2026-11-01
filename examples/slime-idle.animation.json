@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "name": "slime_idle",
+  "pivot": [16, 30],
+  "frames": [
+    { "id": "open" },
+    {
+      "id": "half",
+      "patch": {
+        "schema_version": 1,
+        "operations": [
+          { "op": "rect", "box": [10, 16, 13, 17], "symbol": "g" },
+          { "op": "rect", "box": [18, 16, 21, 17], "symbol": "g" }
+        ]
+      }
+    },
+    {
+      "id": "closed",
+      "patch": {
+        "schema_version": 1,
+        "operations": [
+          { "op": "rect", "box": [10, 16, 13, 19], "symbol": "g" },
+          { "op": "rect", "box": [18, 16, 21, 19], "symbol": "g" },
+          { "op": "rect", "box": [10, 18, 13, 18], "symbol": "o" },
+          { "op": "rect", "box": [18, 18, 21, 18], "symbol": "o" }
+        ]
+      }
+    },
+    {
+      "id": "opening",
+      "patch": {
+        "schema_version": 1,
+        "operations": [
+          { "op": "rect", "box": [10, 16, 13, 17], "symbol": "g" },
+          { "op": "rect", "box": [18, 16, 21, 17], "symbol": "g" }
+        ]
+      }
+    }
+  ],
+  "animations": [
+    {
+      "name": "idle",
+      "fps": 8,
+      "loop": true,
+      "frames": [
+        { "frame": "open", "duration": 12 },
+        { "frame": "half", "duration": 0.8 },
+        { "frame": "closed", "duration": 1.2 },
+        { "frame": "opening", "duration": 0.8 }
+      ]
+    }
+  ],
+  "default_animation": "idle"
+}

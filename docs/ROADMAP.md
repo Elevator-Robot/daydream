@@ -72,6 +72,24 @@ or that the agent can complete a game change autonomously.
 the broader loop below. Animation, resize, provider generation, and full scene
 assembly remain out of scope for this slice.
 
+## 1b — Frame-based animation extension (implemented tools; motion acceptance pending)
+
+- Named, ordered clips built from static bases and pixel/patch-defined frames.
+  Fixed canvas/palette and one explicit pivot; no automatic trimming or resizing.
+- FPS, relative per-frame duration, looping, and a declared default animation.
+- Hashed atlas, local APNG motion previews, contact sheets with pivot markers,
+  and a local-only HTML viewer. One visual state uses a static PNG preview.
+- Non-destructive frame/timing/loop/pivot revisions and whole-animation approval;
+  a static sprite approval cannot approve an animation.
+- Preview-first import as `SpriteFrames` plus nearest-filtered `AnimatedSprite2D`
+  with explicit pivot and autoplay, without replacing game scenes or scripts.
+- Real Godot checks cover frame regions/order/durations, looping progress, and a
+  non-looping clip stopping on its last frame. Contact sheets have been read;
+  human motion review and graphical Godot acceptance are still pending.
+
+See [animation usage, limits, and evidence](ANIMATIONS.md). No new image provider,
+runtime service, package, interpolation system, or character controller is added.
+
 ## 2 — Prove the real game loop (next; not yet done)
 
 On an authorized development machine with a trusted Godot project:
@@ -79,8 +97,8 @@ On an authorized development machine with a trusted Godot project:
 1. Install or manually wire the agent; verify `opencode debug agents` discovers it.
 2. Capture a baseline: game commit/working changes, exact engine and OpenCode
    versions, test commands, and a reproducible scene/interaction.
-3. Choose one small observable code or approved-static-sprite change with
-   acceptance criteria. No redesign, engine migration, or animation pipeline.
+3. Choose one small observable code or approved-sprite/animation change with
+   acceptance criteria. No redesign, engine migration, or broader asset pipeline.
 4. Let the agent inspect, edit, and run appropriate checks; inspect the diff and
    distinguish pre-existing failures from regressions.
 5. Launch the actual game with its normal renderer. Capture and inspect a real
@@ -121,8 +139,8 @@ authorize paid calls, uploads, overwrites, or game launches.
 
 ## Later — Broader asset creation and scene assembly (not implemented)
 
-After the real-game loop is reliable, extend the static sprite slice into
-animation, effects, tilesets, optional generation providers, and broader Godot
+After the real-game loop is reliable, extend the sprite/animation slices into
+effects, tilesets, optional generation providers, and broader Godot
 scene assembly. Include licensing and provenance
 records, reproducible imports, collision/resource validation, and human
 art-direction review. Concrete providers, asset formats, and integrations need

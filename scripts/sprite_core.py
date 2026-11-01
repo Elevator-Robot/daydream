@@ -98,11 +98,13 @@ def open_image(data):
         raise ValueError("Image dimensions exceed safe sprite/preview limits") from exc
 
 
-def preview(image):
+def preview(image, scale=8):
+    if type(scale) is not int or not 1 <= scale <= 8:
+        raise ValueError("Pixel preview scale must be an integer from 1 to 8")
     Image, _ = pillow()
-    enlarged = image.resize((image.width * 8, image.height * 8), Image.Resampling.NEAREST)
+    enlarged = image.resize((image.width * scale, image.height * scale), Image.Resampling.NEAREST)
     background = Image.new("RGBA", enlarged.size)
-    background.putdata([(42, 47, 59, 255) if (x // 8 + y // 8) % 2 else (66, 73, 88, 255)
+    background.putdata([(42, 47, 59, 255) if (x // scale + y // scale) % 2 else (66, 73, 88, 255)
                         for y in range(enlarged.height) for x in range(enlarged.width)])
     return Image.alpha_composite(background, enlarged)
 

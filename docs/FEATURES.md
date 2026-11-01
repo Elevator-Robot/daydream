@@ -7,8 +7,9 @@ Internal feature planning. For installation and everyday use, see the
 
 This separates the creative feature plan from implemented slices. Daydream now
 provides agent instructions, safe installation/launching, bounded Godot checks,
-and a first [static sprite create/edit/approve/import workflow](SPRITES.md).
-General image generation, animation, editor control, and full scene/game assembly
+and [static sprite](SPRITES.md) and [frame-based animation](ANIMATIONS.md)
+create/edit/approve/import workflows. General image generation, editor control,
+and full scene/game assembly
 are **not implemented**. PNG preview inspection is not graphical Godot validation.
 OpenCode plugin hooks are also planned, not implemented.
 
@@ -45,7 +46,7 @@ describes target capabilities, not packages already installed or selected.
 | --- | --- | --- | --- |
 | Pixel-art creation — initial slice | “Make a 32×32 slime using this palette.” | Editable pixel-grid JSON, local PNG export, palette/alpha validation, enlarged nearest-neighbor preview | Dimensions/palette/transparency checked; human silhouette approval still required |
 | Sprite editing — initial slice | Recolor, mirror, paint pixels, or fill a rectangle; resize is still planned | Pillow, fresh revision bundles, protected source copies | Only requested pixels/properties change; originals and their approvals are preserved |
-| Sprite animation | Idle, walk, attack, and hit animations | Frame editing, sprite-sheet packing, timing/loop metadata, playback preview | Consistent canvas/pivot, correct order and timing, no frame jitter |
+| Sprite animation — initial slice | Named frame-based clips such as idle/blink, with explicit timing and looping | Fixed canvas/palette/pivot, frame edits, atlas export, APNG motion and contact previews, `SpriteFrames`/`AnimatedSprite2D` import | Timing/order/loop/pivot and actual headless playback checked; human motion/jitter review still required |
 | Tilesets and terrain | Ground, walls, corners, and transitions | Tile atlas builder, seam preview, Godot `TileSet` and terrain configuration | Tiles join without visible seams and terrain connections work in-engine |
 | Backgrounds and props | Layered scenery, decorations, and parallax | Image creation/editing, layer export, composition preview, Godot scene templates | Consistent style and scale; layers align and scroll correctly |
 | Visual effects | Sparks, smoke, explosions, magic, and trails | Flipbook tooling, Godot particle resources, shader templates, graphical preview | Effect looks right in motion, cleans up, and meets a project-defined performance budget |
@@ -74,7 +75,8 @@ describes target capabilities, not packages already installed or selected.
   frame edits. This should work without an image-generation API.
 - **Pillow** is now the optional static-sprite dependency, approved separately and
   tested in an isolated environment. The normal installer/core helpers remain
-  standard-library-only. Sprite-sheet assembly is not implemented yet.
+  standard-library-only. Bounded sprite-sheet packing is implemented by the
+  animation extension; general asset-pipeline support remains planned.
 - Candidate: **Aseprite** for editable pixel-art sources and batch exports, when
   the user already has an appropriately licensed copy. **LibreSprite** is another
   candidate to evaluate; do not assume identical automation support.
@@ -194,12 +196,14 @@ Deliverables:
 - [x] Unit tests, tamper/collision checks, and real-engine import/smoke checks.
 - [x] Recovery limits and manual, non-destructive undo guidance.
 - [ ] User art-direction approval and a graphical Godot review in a real game.
-- [ ] Animation frames, contact sheets, `SpriteFrames`, and `AnimatedSprite2D`.
+- [x] Initial animation frames, contact sheets, APNG previews, `SpriteFrames`, and
+  `AnimatedSprite2D` through the separately authorized animation extension.
+- [ ] Human motion review and in-game visual acceptance of animated assets.
 
 **Not needed for this slice:** a paid image API, a local diffusion service, an
 MCP server, an editor-control daemon, 3D generation, or a complete game generator.
 Automatic plugin hooks are not required either: prove the explicit tools first.
 
-After human/real-game acceptance of the static slice, add animation, then a
-tileset and small level, then particles/shaders. Add optional providers only when they
+Static and animation tool slices now exist; prioritize their human/real-game
+acceptance before a tileset/small level or particles/shaders. Add providers only when they
 improve a measured weakness in quality or workflow.

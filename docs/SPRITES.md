@@ -1,9 +1,15 @@
 # Sprite workflow — first vertical slice
 
+For the step-by-step user journey, see [the sprite workflow](SPRITE_WORKFLOW.md).
+This document covers the static tool's formats, safeguards, and validation.
+
 Scope: a single static, palette-limited sprite, non-destructive revisions, a real
 image preview, explicit hash-bound approval, and preview-first import as a Godot
 `Sprite2D` scene. No image API, model download, animation, tileset, daemon, editor
 control, gameplay behavior, or automatic project launch is part of this slice.
+
+The separate [animation extension](ANIMATIONS.md) now adds named clips, motion
+previews, and animated Godot resources while preserving these static commands.
 
 ## Design
 
