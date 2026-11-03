@@ -1,9 +1,40 @@
 # Working on Daydream
 
-Daydream aims to turn ideas into playable Godot games, including sprites,
-effects, asset creation, and scene assembly. Today this repository builds reusable
-Godot development instructions and small, local tools for OpenCode. It is not a
-game project; the broader creative workflow is not yet implemented.
+Daydream is being built as a **Summer Engine alternative for stock Godot and
+OpenCode**: an idea-to-playable product that creates/revises sprites, animations,
+effects and other assets, assembles them into games, and helps verify the result.
+It is not merely a prompt collection or a folder of shell helpers. This repository
+is the reusable product, not a game project. Current capabilities are a subset of
+that goal; do not imply complete Summer parity or implemented editor control.
+
+## Product and architecture direction
+
+- Keep the Summer Engine alternative goal central when prioritizing work. Measure
+  success by coherent user workflows and usable Godot results, not the number of
+  helper scripts or passing isolated tests.
+- Study Summer's public CLI/agent/tool source and documented behavior for proven
+  strategies. Pin research to source revisions, distinguish code evidence from
+  marketing claims, and record findings in `docs/research/`. Do not install or run
+  Summer, contact paid services, access closed editor code, or copy source/assets
+  without separate authorization and appropriate license review.
+- Prefer one reusable capability implementation with typed, discoverable operations,
+  shared input validation, structured results/errors, and CLI/native OpenCode tool
+  adapters. Do not make the model rediscover implementation files or reassemble
+  shell commands for every normal product action.
+- Expose common workflow actions as native tools; retain a discoverable operation
+  catalog and CLI for advanced/fallback use. Internal Python modules are libraries,
+  not independent model-facing tools. Avoid duplicated CLI/plugin business logic.
+- Prefer documented native OpenCode V2 integration for this product. Summer's use
+  of MCP does not itself justify adding an MCP server, daemon, remote endpoint,
+  account system, cloud dependency, telemetry, or permission auto-approval here.
+- Keep preview-before-apply, exact-revision approval, non-overwriting writes,
+  cancellation, and honest evidence in the shared implementation, not only prompts
+  or adapters. Tools must not auto-approve artwork or hide failed/partial outcomes.
+- Prefer extending shared sprite/animation capabilities over one-off per-game
+  generators when addressing a recurring product gap. Preserve existing game work;
+  do not rewrite another repository as an architectural cleanup.
+
+## Contributor boundaries
 
 - Read `README.md` and `docs/ROADMAP.md` before changing the scope.
 - `agents/daydream.md` is the installable agent. This file is only for contributors

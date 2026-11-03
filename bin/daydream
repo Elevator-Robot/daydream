@@ -9,4 +9,7 @@ from launch import main
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["ops"]:
+        from operations import main as operation_main
+        sys.exit(operation_main(sys.argv[2:]))
     sys.exit(main())

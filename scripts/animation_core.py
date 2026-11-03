@@ -226,19 +226,19 @@ def load_revision(path):
     path = Path(path).expanduser().absolute()
     fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        source_data = read_regular("source.json", 1024 * 1024, dir_fd=fd)
+        source_data = read_regular("source.json", 1024 * 1024, dir_fd=fd, base=path)
         source = validate_source(json.loads(source_data))
         names = artifact_names(source)
-        manifest_data = read_regular("manifest.json", 1024 * 1024, dir_fd=fd)
+        manifest_data = read_regular("manifest.json", 1024 * 1024, dir_fd=fd, base=path)
         manifest = json.loads(manifest_data)
         if not isinstance(manifest, dict) or type(manifest.get("schema_version")) is not int or manifest["schema_version"] != 1 or manifest.get("kind") != KIND or not isinstance(manifest.get("files"), dict) or set(manifest["files"]) != names:
             raise ValueError("Unsupported animation manifest")
         files, remaining = {}, 32 * 1024 * 1024
         for name in sorted(names):
-            data = read_regular(name, min(16 * 1024 * 1024, remaining), dir_fd=fd)
+            data = read_regular(name, min(16 * 1024 * 1024, remaining), dir_fd=fd, base=path)
             files[name] = data
             remaining -= len(data)
-        read_regular(".gdignore", 1024, dir_fd=fd)
+        read_regular(".gdignore", 1024, dir_fd=fd, base=path)
     finally:
         os.close(fd)
     if sum(map(len, files.values())) > 32 * 1024 * 1024 or any(digest(files[name]) != manifest["files"][name] for name in names):
@@ -246,7 +246,7 @@ def load_revision(path):
     if files["source.json"] != source_data or any(type(manifest.get(key)) is not int or manifest[key] != source[key] for key in ("width", "height")) or manifest.get("name") != source["name"]:
         raise ValueError("Animation manifest does not match source")
     provenance = manifest.get("provenance")
-    if not isinstance(manifest.get("generator"), dict) or manifest["generator"].get("tool") != "daydream-animations" or not isinstance(manifest["generator"].get("pillow"), str) or not isinstance(provenance, dict) or provenance.get("method") not in ("animation-recipe", "animation-edit", "animation-source") or not (provenance.get("license") is None or isinstance(provenance["license"], str)):
+    if not isinstance(manifest.get("generator"), dict) or manifest["generator"].get("tool") != "daydream-animations" or not isinstance(manifest["generator"].get("pillow"), str) or not isinstance(provenance, dict) or provenance.get("method") not in ("animation-recipe", "animation-edit", "animation-source", "animation-assemble") or not (provenance.get("license") is None or isinstance(provenance["license"], str)):
         raise ValueError("Invalid animation provenance/generator record")
     with open_image(files["spritesheet.png"]) as image:
         expected = sheet(source)

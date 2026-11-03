@@ -276,8 +276,8 @@ class SpriteWorkflowTests(unittest.TestCase):
         index_path = self.project / ".daydream/assets.json"
         real_write = store.write_new
         changed = b'{"schema_version": 1, "assets": [], "user_edit": true}\n'
-        def writing(directory, name, data):
-            real_write(directory, name, data)
+        def writing(directory, name, data, **kwargs):
+            real_write(directory, name, data, **kwargs)
             if name.startswith(".sprites-"): index_path.write_bytes(changed)
         with mock.patch.object(store, "write_new", side_effect=writing), self.assertRaisesRegex(ValueError, "concurrently"):
             store.import_revision(self.bundle, self.project, apply=True)

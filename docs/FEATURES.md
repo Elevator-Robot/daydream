@@ -13,6 +13,12 @@ and full scene/game assembly
 are **not implemented**. PNG preview inspection is not graphical Godot validation.
 OpenCode plugin hooks are also planned, not implemented.
 
+The [shared operation catalog and native tools adapter](OPERATIONS.md) now add
+CLI/native discovery and typed sprite/animation actions, including assembly of
+existing frame revisions. The plugin ships with the standard install. Live loading
+and describe execution are verified; live asset write/permission flows remain
+unverified. This is separate from planned workflow hooks.
+
 Project-local [configuration initialization](PROJECT_CONFIG.md) is implemented:
 the helper creates versioned location hints and an empty asset metadata container
 without overwrites. The sprite helper now validates its own pixel specifications,

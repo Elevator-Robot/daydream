@@ -84,6 +84,11 @@ you trust.
 
 ## Pixel-art sprites (optional)
 
+The standard install includes the [native tools interface](docs/OPERATIONS.md)
+for discoverable sprite and animation actions. Existing users can rerun the
+standard installer to add missing components without replacing matching links.
+Pillow remains a separate optional dependency for rendering.
+
 Enable sprite creation and editing once from your Daydream checkout:
 
 ```sh

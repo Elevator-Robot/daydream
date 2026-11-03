@@ -10,12 +10,46 @@ not provide editor control, screenshots, input automation, or an image-generatio
 service. The optional local sprite helper can render and revise explicit pixel
 specifications; do not present that as general prompt-to-image generation.
 
+## Product goal and operating strategy
+
+Daydream is a **Summer Engine alternative for stock Godot and OpenCode**, aiming
+for a coherent idea-to-playable workflow: create/revise assets, assemble scenes,
+implement behavior, and verify the actual game. It is not just a coding prompt
+or a collection of unrelated scripts. This is a product direction, not a claim
+that every Summer feature, editor action, or generation provider exists here.
+
+- Work on the user's game outcome, not Daydream's architecture, unless asked to
+  develop Daydream itself. The game's own instructions and user permissions win.
+- Prefer available, documented Daydream native tools and their discoverable
+  operation schemas for supported workflows. Do not invent tool names or assume
+  planned tools are installed. Use the documented CLI when native tools are not
+  available; never use shell fallbacks to bypass a denied tool permission.
+- Reuse shared sprite/animation operations rather than inventing one-off drawing,
+  packing, or approval scripts for each asset. If a real capability is missing,
+  report the specific gap and propose a shared improvement; do not silently
+  replace the workflow with an unvalidated custom pipeline.
+- Never install Summer, connect hosted generation, spend credits, copy proprietary
+  assets/code, or broaden permissions merely to imitate Summer. Public architecture
+  patterns can inform Daydream; implementation and capability claims stay our own.
+- Keep artwork/motion approval explicit and tied to the exact candidate. Tool
+  success is not visual correctness, human approval, or a working game.
+
 The optional Daydream TUI plugin owns the startup laser intro. Do not print a
 duplicate welcome banner, run a terminal animation through a tool, or wait for
 an intro to finish before helping. Without the plugin, proceed normally; do not
 install it or change user configuration merely to display branding.
 
 ## Establish the project contract
+
+When available, use `daydream_search` and `daydream_describe` to discover the
+canonical operation schemas, then the direct asset tools or `daydream_call`.
+Native writes default to previews; `apply:true` is a request for permissioned
+writes, not artwork approval. For existing static frame bundles, discover
+`animation.assemble` rather than inventing atlas/GIF packing scripts. Native
+tools cannot record approval; only explicit user-reviewed CLI approval of the
+exact hash may do that. The fallback is `daydream ops search/describe/call`;
+see the checkout's `docs/OPERATIONS.md`. Native tools ship with the standard
+install, but verify availability: older or agent-only installations may lack them.
 
 1. Read the project's `AGENTS.md`, relevant nested instructions, README, and
    existing test/run commands. Follow project conventions instead of imposing a

@@ -8,6 +8,9 @@ from pathlib import Path
 import re
 import stat
 
+from asset_errors import DependencyMissing
+import asset_access
+
 
 SYMBOLS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 NAME = re.compile(r"[a-z][a-z0-9_-]{0,47}\Z")
@@ -27,7 +30,7 @@ def pillow():
     try:
         from PIL import Image, __version__
     except ImportError as exc:
-        raise ValueError("Sprite tools need optional Pillow. See docs/SPRITES.md; nothing was installed automatically.") from exc
+        raise DependencyMissing("Sprite tools need optional Pillow. See docs/SPRITES.md; nothing was installed automatically.") from exc
     return Image, __version__
 
 
@@ -56,7 +59,9 @@ def validate_source(source):
     return source
 
 
-def read_regular(path, limit=8 * 1024 * 1024, *, dir_fd=None):
+def read_regular(path, limit=8 * 1024 * 1024, *, dir_fd=None, base=None):
+    if dir_fd is None: asset_access.read(path)
+    else: asset_access.anchored(path, base)
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dir_fd)
     try:
         info = os.fstat(fd)
@@ -185,7 +190,7 @@ def load_revision(path):
     path = Path(path).expanduser().absolute()
     fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        files = {name: read_regular(name, 8 * 1024 * 1024 if name == "preview.png" else 1024 * 1024, dir_fd=fd)
+        files = {name: read_regular(name, 8 * 1024 * 1024 if name == "preview.png" else 1024 * 1024, dir_fd=fd, base=path)
                  for name in (*FILES, "manifest.json", ".gdignore")}
     finally:
         os.close(fd)

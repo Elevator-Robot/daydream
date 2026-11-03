@@ -6,6 +6,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class AgentTests(unittest.TestCase):
+    def test_summer_alternative_goal_is_persisted_in_both_instruction_files(self):
+        for path in (ROOT / "AGENTS.md", ROOT / "agents/daydream.md"):
+            with self.subTest(path=path):
+                text = path.read_text()
+                self.assertIn("Summer Engine alternative", text)
+                self.assertIn("stock Godot", text)
+                self.assertIn("OpenCode", text)
+        text = (ROOT / "agents/daydream.md").read_text()
+        self.assertIn("never use shell fallbacks to bypass a denied tool permission", text)
+
     def test_agent_has_minimal_frontmatter_without_privilege_overrides(self):
         text = (ROOT / "agents" / "daydream.md").read_text()
         parts = text.split("---\n", 2)

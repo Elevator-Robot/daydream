@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preview or install Daydream's launcher, agent, and intro; never overwrite paths."""
+"""Preview or install Daydream's launcher, agent, native tools, and intro; never overwrite paths."""
 
 import argparse
 import os
@@ -10,6 +10,7 @@ import sys
 SOURCE = Path(__file__).resolve().parents[1] / "agents" / "daydream.md"
 INTRO_SOURCE = SOURCE.parents[1] / "plugins" / "daydream-intro"
 LAUNCHER_SOURCE = SOURCE.parents[1] / "bin" / "daydream"
+TOOLS_SOURCE = SOURCE.parents[1] / "plugins" / "daydream-tools"
 
 
 def main(argv=None):
@@ -20,8 +21,8 @@ def main(argv=None):
     )
     parser.add_argument("--apply", action="store_true", help="create the requested symlinks (otherwise preview only)")
     selection = parser.add_mutually_exclusive_group()
-    selection.add_argument("--agent-only", action="store_true", help="install only the OpenCode agent, without launcher or intro")
-    selection.add_argument("--with-intro", action="store_true", help="compatibility mode: agent and intro only, without launcher")
+    selection.add_argument("--agent-only", action="store_true", help="install only the OpenCode agent, without native tools, launcher, or intro")
+    selection.add_argument("--with-intro", action="store_true", help="install agent, native tools, and intro, without launcher")
     selection.add_argument("--with-launcher", action="store_true", help="install the full setup (the default; retained for compatibility)")
     parser.add_argument("--bin-dir", type=Path, default=Path.home() / ".local" / "bin", help="launcher directory (default: ~/.local/bin; unused in agent-only/intro-only modes)")
     args = parser.parse_args(argv)
@@ -32,6 +33,8 @@ def main(argv=None):
         links.append((INTRO_SOURCE, config / "plugins" / "daydream-intro"))
     if with_launcher:
         links.append((LAUNCHER_SOURCE, args.bin_dir.expanduser().absolute() / "daydream"))
+    if not args.agent_only:
+        links.append((TOOLS_SOURCE, config / "plugins" / "daydream-tools"))
 
     try:
         pending = []

@@ -1,0 +1,154 @@
+"""The one authored operation catalog: schemas, handlers, authority, discovery."""
+
+import copy
+from dataclasses import dataclass
+import math
+import re
+
+import operation_handlers as handlers
+
+
+def obj(properties, required):
+    return {"type": "object", "properties": properties, "required": required, "additionalProperties": False}
+
+
+PATH = {"type": "string", "minLength": 1, "maxLength": 4096, "description": "Project-relative path, or absolute inside the active project. No traversal or symlink components."}
+SLUG = {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,47}$", "maxLength": 48}
+SYMBOL = {"type": "string", "pattern": "^[A-Za-z0-9.]$", "minLength": 1, "maxLength": 1}
+COLOR = {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "minLength": 7, "maxLength": 7}
+VERSION = {"type": "integer", "enum": [1]}
+APPLY = {"type": "boolean", "default": False, "description": "False previews without writes. True requests the approved/authorized write; never implies artwork approval."}
+PIXELS = {"type": "array", "minItems": 1, "maxItems": 256, "items": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[A-Za-z0-9.]+$"}}
+SPRITE = obj({"schema_version": VERSION, "name": SLUG, "width": {"type": "integer", "minimum": 1, "maximum": 256},
+              "height": {"type": "integer", "minimum": 1, "maximum": 256},
+              "palette": {"type": "object", "minProperties": 1, "maxProperties": 32,
+                          "propertyNames": {"type": "string", "pattern": "^[A-Za-z0-9]$", "maxLength": 1}, "additionalProperties": COLOR},
+              "pixels": PIXELS}, ["schema_version", "name", "width", "height", "palette", "pixels"])
+PATCH_STEP = {"oneOf": [
+    obj({"op": {"enum": ["recolor"]}, "symbol": SYMBOL, "color": COLOR}, ["op", "symbol", "color"]),
+    obj({"op": {"enum": ["mirror"]}, "axis": {"enum": ["horizontal", "vertical"]}}, ["op", "axis"]),
+    obj({"op": {"enum": ["paint"]}, "x": {"type": "integer", "minimum": 0, "maximum": 255},
+         "y": {"type": "integer", "minimum": 0, "maximum": 255}, "symbol": SYMBOL}, ["op", "x", "y", "symbol"]),
+    obj({"op": {"enum": ["rect"]}, "box": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "integer", "minimum": 0, "maximum": 255}}, "symbol": SYMBOL}, ["op", "box", "symbol"]),
+]}
+PATCH = obj({"schema_version": VERSION, "operations": {"type": "array", "minItems": 1, "maxItems": 1024, "items": PATCH_STEP}}, ["schema_version", "operations"])
+PIVOT = {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0, "maximum": 128}}
+STEP = obj({"frame": SLUG, "duration": {"type": "number", "exclusiveMinimum": 0, "maximum": 150}}, ["frame", "duration"])
+CLIP = obj({"name": SLUG, "fps": {"type": "number", "minimum": 1, "maximum": 30}, "loop": {"type": "boolean"},
+            "frames": {"type": "array", "minItems": 1, "maxItems": 64, "items": STEP}}, ["name", "fps", "loop", "frames"])
+CLIPS = {"type": "array", "minItems": 1, "maxItems": 8, "items": CLIP}
+RECIPE_FRAME = {"oneOf": [obj({"id": SLUG}, ["id"]), obj({"id": SLUG, "patch": PATCH}, ["id", "patch"]), obj({"id": SLUG, "pixels": PIXELS}, ["id", "pixels"])]}
+RECIPE = obj({"schema_version": VERSION, "name": SLUG, "pivot": PIVOT,
+              "frames": {"type": "array", "minItems": 1, "maxItems": 32, "items": RECIPE_FRAME},
+              "animations": CLIPS, "default_animation": SLUG}, ["schema_version", "name", "pivot", "frames", "animations", "default_animation"])
+ANIMATION_PATCH = obj({"schema_version": VERSION, "operations": {"type": "array", "minItems": 1, "maxItems": 128, "items": {"oneOf": [
+    obj({"op": {"enum": ["frame"]}, "id": SLUG, "patch": PATCH}, ["op", "id", "patch"]),
+    PATCH_STEP["oneOf"][0],
+    obj({"op": {"enum": ["animation"]}, "value": CLIP}, ["op", "value"]),
+    obj({"op": {"enum": ["pivot"]}, "value": PIVOT}, ["op", "value"]),
+    obj({"op": {"enum": ["default"]}, "animation": SLUG}, ["op", "animation"]),
+]}}}, ["schema_version", "operations"])
+
+
+@dataclass(frozen=True)
+class Operation:
+    name: str
+    summary: str
+    schema: dict
+    handler: object
+    effect: str = "write"
+    native: bool = True
+    direct: bool = True
+    paths: tuple = ()  # (input field, file/static_bundle/animation_bundle/output)
+    project_reads: tuple = ()
+
+    def metadata(self):
+        return {"name": self.name, "summary": self.summary, "input": copy.deepcopy(self.schema), "effect": self.effect,
+                "native": self.native, "tool": "daydream_" + self.name.replace(".", "_") if self.native and self.direct else None,
+                "paths": [list(item) for item in self.paths], "project_reads": list(self.project_reads),
+                "preview_default": self.effect != "read"}
+
+
+IMPORT = obj({"bundle": PATH, "name": SLUG, "destination": PATH, "apply": APPLY}, ["bundle"])
+APPROVE = obj({"bundle": PATH, "revision_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$", "maxLength": 64},
+               "reviewer": {"type": "string", "minLength": 1, "maxLength": 120}, "apply": APPLY}, ["bundle", "revision_hash", "reviewer"])
+PROJECT_READS = ("project.godot", ".daydream/config.json", ".daydream/assets.json")
+OPERATIONS = (
+    Operation("project.init", "Preview or initialize non-overwriting Daydream project metadata", obj({"assets_dir": PATH, "sources_dir": PATH, "apply": APPLY}, []), handlers.project_init, direct=False, project_reads=PROJECT_READS + (".daydream/.gitignore", ".daydream/.gdignore")),
+    Operation("sprite.create", "Create a transparent static pixel-art sprite and nearest-neighbor preview", obj({"source": SPRITE, "output": PATH, "apply": APPLY}, ["source", "output"]), handlers.sprite_create, paths=(("output", "output"),)),
+    Operation("sprite.from_png", "Convert an existing bounded PNG into an editable sprite revision", obj({"image": PATH, "name": SLUG, "output": PATH, "apply": APPLY}, ["image", "name", "output"]), handlers.sprite_from_png, direct=False, paths=(("image", "file"), ("output", "output"))),
+    Operation("sprite.edit", "Recolor, mirror, paint or fill a rectangle in a fresh sprite revision", obj({"bundle": PATH, "patch": PATCH, "output": PATH, "apply": APPLY}, ["bundle", "patch", "output"]), handlers.sprite_edit, paths=(("bundle", "static_bundle"), ("output", "output"))),
+    Operation("sprite.inspect", "Validate a static sprite revision and return its exact hash and image preview", obj({"bundle": PATH}, ["bundle"]), handlers.sprite_inspect, effect="read", paths=(("bundle", "static_bundle"),)),
+    Operation("sprite.approve", "CLI-only record of explicit human review of one exact static sprite", APPROVE, handlers.sprite_approve, effect="approval", native=False, direct=False, paths=(("bundle", "static_bundle"),)),
+    Operation("sprite.import", "Preview or import an approved static sprite into Godot without overwrites", IMPORT, handlers.sprite_import, paths=(("bundle", "static_bundle"),), project_reads=PROJECT_READS),
+    Operation("animation.create", "Create named animation clips, atlas, motion previews and contact sheets from a static base", obj({"recipe": RECIPE, "base": PATH, "output": PATH, "apply": APPLY}, ["recipe", "base", "output"]), handlers.animation_create, paths=(("base", "static_bundle"), ("output", "output"))),
+    Operation("animation.assemble", "Assemble existing sprite frame revisions into named animations instead of custom GIF packing scripts", obj({"name": SLUG, "pivot": PIVOT, "frames": {"type": "array", "minItems": 1, "maxItems": 32, "items": obj({"id": SLUG, "bundle": PATH}, ["id", "bundle"])}, "animations": CLIPS, "default_animation": SLUG, "output": PATH, "apply": APPLY}, ["name", "pivot", "frames", "animations", "default_animation", "output"]), handlers.animation_assemble, paths=(("frames.*.bundle", "static_bundle"), ("output", "output"))),
+    Operation("animation.edit", "Revise frames, global palette, timing, loop or pivot without changing the original animation", obj({"bundle": PATH, "patch": ANIMATION_PATCH, "output": PATH, "apply": APPLY}, ["bundle", "patch", "output"]), handlers.animation_edit, paths=(("bundle", "animation_bundle"), ("output", "output"))),
+    Operation("animation.inspect", "Validate animation artifacts and return frame/timing data and motion/contact preview paths", obj({"bundle": PATH}, ["bundle"]), handlers.animation_inspect, effect="read", paths=(("bundle", "animation_bundle"),)),
+    Operation("animation.approve", "CLI-only record of explicit human review of an entire exact animation", APPROVE, handlers.animation_approve, effect="approval", native=False, direct=False, paths=(("bundle", "animation_bundle"),)),
+    Operation("animation.import", "Preview or import an approved atlas, SpriteFrames and AnimatedSprite2D scene", IMPORT, handlers.animation_import, paths=(("bundle", "animation_bundle"),), project_reads=PROJECT_READS),
+)
+
+
+def find(name):
+    return next((operation for operation in OPERATIONS if operation.name == name), None)
+
+
+def validate(schema, value, path="input", depth=0):
+    if depth > 64:
+        raise ValueError("Input nesting exceeds its limit")
+    if "oneOf" in schema:
+        matches = 0
+        for candidate in schema["oneOf"]:
+            try:
+                validate(candidate, value, path, depth + 1)
+                matches += 1
+            except ValueError:
+                pass
+        if matches != 1:
+            raise ValueError(f"{path} must match exactly one supported form")
+        return
+    kind = schema.get("type")
+    matches = {"object": isinstance(value, dict), "array": isinstance(value, list), "string": isinstance(value, str),
+               "boolean": type(value) is bool, "integer": type(value) is int,
+               "number": type(value) in (int, float) and (type(value) is int or math.isfinite(value))}
+    if kind is not None and not matches.get(kind, False):
+        raise ValueError(f"{path} must be {kind}")
+    if "enum" in schema and not any(type(value) is type(item) and value == item for item in schema["enum"]):
+        raise ValueError(f"{path} is not a supported value")
+    if kind in ("integer", "number"):
+        for key, invalid in (("minimum", value < schema.get("minimum", value)), ("maximum", value > schema.get("maximum", value)), ("exclusiveMinimum", value <= schema.get("exclusiveMinimum", value - 1))):
+            if key in schema and invalid: raise ValueError(f"{path} violates {key}")
+    if kind == "string":
+        if not schema.get("minLength", 0) <= len(value) <= schema.get("maxLength", len(value)) or ("pattern" in schema and re.search(schema["pattern"], value) is None):
+            raise ValueError(f"{path} has an invalid length or format")
+    if kind == "array":
+        if not schema.get("minItems", 0) <= len(value) <= schema.get("maxItems", len(value)):
+            raise ValueError(f"{path} has an invalid item count")
+        for index, item in enumerate(value): validate(schema.get("items", {}), item, f"{path}[{index}]", depth + 1)
+    if kind == "object":
+        if not schema.get("minProperties", 0) <= len(value) <= schema.get("maxProperties", len(value)):
+            raise ValueError(f"{path} has an invalid property count")
+        if any(key not in value for key in schema.get("required", [])):
+            raise ValueError(f"{path} is missing required fields: {', '.join(key for key in schema['required'] if key not in value)}")
+        properties, additional = schema.get("properties", {}), schema.get("additionalProperties", True)
+        for key, item in value.items():
+            if not isinstance(key, str): raise ValueError(f"{path} keys must be strings")
+            if "propertyNames" in schema: validate(schema["propertyNames"], key, path + ".key", depth + 1)
+            if key in properties: validate(properties[key], item, f"{path}.{key}", depth + 1)
+            elif additional is False: raise ValueError(f"{path} has an unknown field: {key}")
+            elif isinstance(additional, dict): validate(additional, item, f"{path}.{key}", depth + 1)
+
+
+def search(query="", limit=10):
+    terms = set(re.findall(r"[a-z0-9]+", query.lower()))
+    synonyms = {"sprites": "sprite", "frames": "animation", "animate": "animation", "walking": "animation", "png": "sprite"}
+    terms |= {synonyms[term] for term in terms if term in synonyms}
+    ranked = []
+    for operation in OPERATIONS:
+        words = set(re.findall(r"[a-z0-9]+", operation.summary.lower()))
+        score = sum(3 if term in operation.name else 1 if term in words else 0 for term in terms)
+        if not terms or score:
+            ranked.append((score + (100 if query.strip() == operation.name else 0), operation.name, operation))
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    return [operation.metadata() for _, _, operation in ranked[:limit]]

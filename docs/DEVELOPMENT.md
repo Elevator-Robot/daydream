@@ -96,6 +96,7 @@ play-feel review. Never infer appearance or usability from headless success.
 - [Project configuration](PROJECT_CONFIG.md): local initialization and recovery.
 - [Static sprites](SPRITES.md): create/edit/approve/import workflow and limits.
 - [Frame animation](ANIMATIONS.md): timing, motion previews, approval, and Godot resources.
+- [Operations](OPERATIONS.md): shared catalog, CLI, native adapter and validation boundaries.
 - [Feature plan](FEATURES.md): proposed creative tools and hook safeguards.
 - [Roadmap](ROADMAP.md): implemented capabilities and acceptance criteria.
 

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import stat
 import sys
+import asset_access
 
 
 SCHEMA_VERSION = 1
@@ -51,7 +52,8 @@ def validate_document(project, name, text):
         raise ValueError("assets.json: assets must be a list of objects")
 
 
-def read_existing(directory_fd, name):
+def read_existing(directory_fd, name, base=None):
+    asset_access.anchored(name, base)
     try:
         fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
     except FileNotFoundError:
@@ -92,11 +94,13 @@ def init_project(project, apply=False, assets_dir="assets", sources_dir="art"):
             pass
         plan = []
         for name, default in defaults.items():
-            existing = read_existing(directory_fd, name) if directory_fd is not None else None
+            existing = read_existing(directory_fd, name, project / ".daydream") if directory_fd is not None else None
             text = default if existing is None else existing
             validate_document(project, name, text)
             plan.append({"path": f".daydream/{name}", "action": "create" if existing is None else "keep", "content": text})
         if apply:
+            for entry in plan:
+                if entry["action"] == "create": asset_access.write(project / entry["path"])
             if directory_fd is None:
                 os.mkdir(".daydream", dir_fd=root_fd)
                 directory_fd = os.open(

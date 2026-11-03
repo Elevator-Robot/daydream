@@ -7,11 +7,16 @@ import os
 from pathlib import Path
 import uuid
 
+from asset_errors import ApprovalRequired, AssetConflict
+import asset_access
+
 from init_project import validate_document, validate_path
 from sprite_core import NAME, digest, encoded, load_revision, read_regular
 
 
-def write_new(directory_fd, name, data):
+def write_new(directory_fd, name, data, *, base=None, logical_path=None):
+    if logical_path is not None: asset_access.write(logical_path)
+    else: asset_access.anchored(name, base, writing=True)
     fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644, dir_fd=directory_fd)
     with os.fdopen(fd, "wb") as stream:
         stream.write(data)
@@ -30,17 +35,18 @@ def save_revision(output, files, apply=False, *, kind="sprite"):
         raise ValueError("Revision output must contain only the managed bundle files")
     output = Path(output).expanduser().absolute()
     if os.path.lexists(output):
-        raise ValueError(f"Revision destination already exists; choose a new version: {output}")
+        raise AssetConflict(f"Revision destination already exists; choose a new version: {output}")
     for parent in output.parents:
         if os.path.lexists(parent) and not parent.is_dir():
             raise ValueError(f"Revision parent is not a directory: {parent}")
     if apply:
+        for name in files: asset_access.write(output / name)
         output.parent.mkdir(parents=True, exist_ok=True)
         output.mkdir()  # Exclusive: never adopt an existing revision directory.
         fd = os.open(output, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         try:
             for name, data in files.items():
-                write_new(fd, name, data)
+                write_new(fd, name, data, base=output)
         finally:
             os.close(fd)
     return {"action": "created" if apply else "would_create", "directory": str(output),
@@ -69,14 +75,14 @@ def approve_revision(bundle, revision_hash, reviewer, apply=False, *, loader=loa
     fd = os.open(revision["path"], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         try:
-            existing = read_regular("approval.json", 65536, dir_fd=fd)
+            existing = read_regular("approval.json", 65536, dir_fd=fd, base=revision["path"])
         except FileNotFoundError:
             existing = None
         if existing is not None:
             validate_approval(revision, json.loads(existing))
             return {"action": "keep_approval", "revision_hash": revision_hash}
         if apply:
-            write_new(fd, "approval.json", encoded(record))
+            write_new(fd, "approval.json", encoded(record), base=revision["path"])
     finally:
         os.close(fd)
     return {"action": "approved" if apply else "would_approve", "revision_hash": revision_hash, "reviewer": reviewer}
@@ -87,7 +93,7 @@ def validate_approval(revision, approval):
     if not isinstance(approval, dict) or type(approval.get("schema_version")) is not int or approval["schema_version"] != identity["schema_version"]:
         raise ValueError("Unsupported approval record")
     if any(approval.get(key) != value for key, value in identity.items()):
-        raise ValueError("Approval is stale; preview and approve the new revision")
+        raise ApprovalRequired("Approval is stale; preview and approve the new revision")
     if not isinstance(approval.get("reviewer"), str) or not approval["reviewer"].strip() or not isinstance(approval.get("reviewed_at"), str):
         raise ValueError("Approval must record a reviewer and review date")
 
@@ -140,9 +146,9 @@ def import_revision(bundle, project, name=None, destination=None, apply=False, *
     fd = os.open(revision["path"], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         try:
-            approval = json.loads(read_regular("approval.json", 65536, dir_fd=fd))
+            approval = json.loads(read_regular("approval.json", 65536, dir_fd=fd, base=revision["path"]))
         except FileNotFoundError as exc:
-            raise ValueError("Import requires explicit approval of this revision and preview") from exc
+            raise ApprovalRequired("Import requires explicit approval of this revision and preview") from exc
     finally:
         os.close(fd)
     validate_approval(revision, approval)
@@ -161,8 +167,9 @@ def import_revision(bundle, project, name=None, destination=None, apply=False, *
             metadata = os.open(".daydream", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=root)
         except FileNotFoundError as exc:
             raise ValueError("Initialize this game's .daydream configuration before importing") from exc
-        config_bytes = read_regular("config.json", 1024 * 1024, dir_fd=metadata)
-        index_bytes = read_regular("assets.json", 1024 * 1024, dir_fd=metadata)
+        metadata_path = project / ".daydream"
+        config_bytes = read_regular("config.json", 1024 * 1024, dir_fd=metadata, base=metadata_path)
+        index_bytes = read_regular("assets.json", 1024 * 1024, dir_fd=metadata, base=metadata_path)
         validate_document(project, "config.json", config_bytes.decode("utf-8"))
         validate_document(project, "assets.json", index_bytes.decode("utf-8"))
         config, index = json.loads(config_bytes), json.loads(index_bytes)
@@ -179,9 +186,9 @@ def import_revision(bundle, project, name=None, destination=None, apply=False, *
                     os.stat(leaf, dir_fd=directory, follow_symlinks=False)
                 except FileNotFoundError:
                     continue
-                raise ValueError(f"Refusing to replace existing asset: {relative}; use a new --name")
+                raise AssetConflict(f"Refusing to replace existing asset: {relative}; use a new --name")
         if any(record.get("name") == asset_name and record.get("kind") in ("sprite", "sprite_animation") for record in index["assets"]):
-            raise ValueError("Asset name already exists in the manifest; use a new --name")
+            raise AssetConflict("Asset name already exists in the manifest; use a new --name")
         record = {"schema_version": 1, "kind": revision["manifest"]["kind"], "name": asset_name,
                   "revision_hash": revision["revision_hash"], "paths": paths,
                   "sha256": {relative: digest(data) for relative, data in outputs.items()},
@@ -194,20 +201,22 @@ def import_revision(bundle, project, name=None, destination=None, apply=False, *
                 "create": list(outputs), "update": ".daydream/assets.json", "revision_hash": revision["revision_hash"]}
         if not apply:
             return plan
+        for relative in [*outputs, ".daydream/assets.json"]: asset_access.write(project / relative)
         lock_fd = os.open(".sprites.lock", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=metadata)
         lock = os.fstat(lock_fd).st_ino
         with os.fdopen(lock_fd, "wb") as stream:
             stream.write(encoded({"tool": "daydream-sprites", "pid": os.getpid()}))
-        if read_regular("assets.json", 1024 * 1024, dir_fd=metadata) != index_bytes or read_regular("config.json", 1024 * 1024, dir_fd=metadata) != config_bytes:
+        if read_regular("assets.json", 1024 * 1024, dir_fd=metadata, base=metadata_path) != index_bytes or read_regular("config.json", 1024 * 1024, dir_fd=metadata, base=metadata_path) != config_bytes:
             raise ValueError("Project metadata changed during import planning; preview again")
         for relative, data in outputs.items():
             with parent_fd(root, relative, create=True) as (directory, leaf):
-                write_new(directory, leaf, data)
+                write_new(directory, leaf, data, base=project / Path(relative).parent)
         candidate = ".sprites-" + uuid.uuid4().hex + ".tmp"
-        write_new(metadata, candidate, updated)
+        write_new(metadata, candidate, updated, logical_path=metadata_path / "assets.json")
         temporary = candidate
-        if read_regular("assets.json", 1024 * 1024, dir_fd=metadata) != index_bytes or read_regular("config.json", 1024 * 1024, dir_fd=metadata) != config_bytes:
+        if read_regular("assets.json", 1024 * 1024, dir_fd=metadata, base=metadata_path) != index_bytes or read_regular("config.json", 1024 * 1024, dir_fd=metadata, base=metadata_path) != config_bytes:
             raise ValueError("Asset manifest changed concurrently; new files were left for inspection")
+        asset_access.write(metadata_path / "assets.json")
         os.replace(temporary, "assets.json", src_dir_fd=metadata, dst_dir_fd=metadata)
         temporary = None
         return plan

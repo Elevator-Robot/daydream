@@ -13,16 +13,17 @@ python3 scripts/install.py          # preview the default full setup; no writes
 python3 scripts/install.py --apply  # explicitly install
 ```
 
-This requests three non-overwriting symlinks:
+This requests four non-overwriting symlinks:
 
 | Destination | Source in the checkout |
 | --- | --- |
 | `~/.config/opencode/agents/daydream.md` | `agents/daydream.md` |
 | `~/.config/opencode/plugins/daydream-intro` | `plugins/daydream-intro/` |
+| `~/.config/opencode/plugins/daydream-tools` | `plugins/daydream-tools/` |
 | `~/.local/bin/daydream` | `bin/daydream` |
 
 The full setup is the default. `--agent-only` requests only the agent;
-`--with-intro` retains its previous agent-plus-intro behavior, without a launcher.
+`--with-intro` requests the agent, native tools, and intro without a launcher.
 `--with-launcher` remains a compatibility alias for the full default. These modes
 are mutually exclusive and never remove already-installed components.
 Animation's `ttfx` dependency remains optional and is never downloaded.

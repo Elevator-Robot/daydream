@@ -5,12 +5,34 @@ see the [user README](../README.md).
 
 ## Vision
 
+Daydream is a **Summer Engine alternative for stock Godot and OpenCode**, not just
+an instruction pack. Its product interface should expose typed, discoverable
+workflow operations over reusable implementations, with both CLI and native
+OpenCode tool access. Public Summer architecture is a reference to investigate,
+not a requirement to copy its editor, paid backend, MCP transport, or permissions.
+
 **Dream it. Make it playable.** Daydream aims to create sprites, effects, and
 assets, then assemble them into playable Godot scenes. This is the product
 direction, not a claim that generation or automated assembly works today.
 
 See [features and enabling tools](FEATURES.md) for the proposed creative feature
 set, candidate tools, and a first asset-creation milestone.
+
+## Discoverable operation interface (implemented; live asset-flow acceptance pending)
+
+- Pinned public-source [Summer architecture study](research/SUMMER_ARCHITECTURE.md),
+  distinguishing implemented code from design claims and closed-editor behavior.
+- Canonical typed catalog, structured results, CLI search/describe/call and an
+  native V2 adapter included in the standard install over shared asset implementations.
+  See [operations](OPERATIONS.md).
+- Frame-revision assembly replaces per-game manual atlas/GIF composition for
+  compatible inputs; existing game candidates are not migrated automatically.
+- Native read/edit checks, adapter-owned logical file grants, non-writing previews,
+  cancellation and bounded subprocess execution. No native artwork approval.
+- Live OpenCode loading/discovery and describe execution verified after resolving
+  the installed plugin symlink before locating the Python backend.
+- Remaining: live asset write/permission flows, human motion review and graphical
+  game acceptance. No claim of Summer parity or implemented editor control.
 
 ## Boundaries
 
@@ -28,7 +50,7 @@ and permissions. Future integrations need their own permission/trust review.
 
 - Installable Markdown agent with project discovery, scoped edits, validation,
   evidence boundaries, and human review in its workflow.
-- Preview-first, non-overwriting installation of launcher, agent, and intro by
+- Preview-first, non-overwriting installation of launcher, agent, native tools, and intro by
   default, with `--agent-only` for lightweight OpenCode integration.
 - Optional OpenCode V2 TUI intro, included in the full install, using the installed
   `ttfx laseretch` engine, with bounded playback, reduced motion, and session

@@ -31,7 +31,41 @@ class InstallTests(unittest.TestCase):
         self.assertIn("Preview only", result.stdout)
         self.assertFalse(self.config.exists())
         self.assertFalse((self.home / ".local").exists())
-        self.assertEqual(result.stdout.count("Would install:"), 3)
+        self.assertEqual(result.stdout.count("Would install:"), 4)
+
+    def test_native_tools_are_default_previewable_and_repeatable(self):
+        result = self.install()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.count("Would install:"), 4)
+        self.assertFalse(self.config.exists())
+        result = self.install("--apply")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        tools = self.config / "plugins" / "daydream-tools"
+        self.assertTrue(tools.is_symlink())
+        self.assertTrue((tools / "index.js").exists())
+        self.assertEqual(self.install("--apply").returncode, 0)
+
+    def test_tools_collision_blocks_all_links(self):
+        tools = self.config / "plugins" / "daydream-tools"
+        tools.mkdir(parents=True)
+        result = self.install("--apply")
+        self.assertEqual(result.returncode, 1)
+        self.assertFalse(self.destination.exists())
+
+    def test_standard_reinstall_adds_tools_to_existing_install(self):
+        self.assertEqual(self.install("--apply").returncode, 0)
+        tools = self.config / "plugins" / "daydream-tools"
+        tools.unlink()  # Simulate the previous three-link installation in this fixture.
+        preview = self.install()
+        self.assertEqual(preview.returncode, 0, preview.stderr)
+        self.assertEqual(preview.stdout.count("Would install:"), 1)
+        self.assertFalse(tools.exists())
+        self.assertEqual(self.install("--apply").returncode, 0)
+        self.assertEqual(tools.resolve(), ROOT / "plugins" / "daydream-tools")
+
+    def test_redundant_with_tools_flag_is_removed(self):
+        self.assertEqual(self.install("--with-tools").returncode, 2)
+        self.assertFalse(self.config.exists())
 
     def test_default_is_documented_global_directory(self):
         result = self.install(default=True)
@@ -112,11 +146,13 @@ class InstallTests(unittest.TestCase):
         self.assertFalse(self.destination.exists())
         self.assertEqual(plugin.read_text(), "user plugin")
 
-    def test_launcher_preview_includes_all_three_links_without_writes(self):
+    def test_launcher_preview_includes_all_four_links_without_writes(self):
         result = self.install("--with-launcher")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(str(self.home / ".local" / "bin" / "daydream"), result.stdout)
         self.assertIn(str(self.config / "plugins" / "daydream-intro"), result.stdout)
+        self.assertIn(str(self.config / "plugins" / "daydream-tools"), result.stdout)
+        self.assertEqual(result.stdout.count("Would install:"), 4)
         self.assertFalse(self.config.exists())
         self.assertFalse((self.home / ".local").exists())
 
@@ -134,6 +170,7 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(self.install("--apply").returncode, 0)
         self.assertEqual(self.install("--agent-only", "--apply").returncode, 0)
         self.assertTrue((self.config / "plugins" / "daydream-intro").is_symlink())
+        self.assertTrue((self.config / "plugins" / "daydream-tools").is_symlink())
         self.assertTrue((self.home / ".local" / "bin" / "daydream").is_symlink())
 
     def test_conflicting_install_modes_fail_without_writes(self):
