@@ -33,7 +33,7 @@ export function definitions(ctx, catalog, run) {
   }
   const tools = [
     {
-      name: "daydream_search", description: "Discover existing Daydream sprite/animation/project operations by goal. Returns exact schemas and native/CLI availability; does not search files or run Summer.",
+      name: "daydream_search", description: "Discover existing Daydream sprite/animation/tileset/project operations by goal. Returns exact schemas and native/CLI availability; does not search files or run Summer.",
       input: { type: "object", properties: { query: { type: "string", maxLength: 500 }, limit: { type: "integer", minimum: 1, maximum: 50 } }, additionalProperties: false },
       options: { codemode: true },
       execute: async (input, execution) => content(await run(await workspace(execution), { action: "search", query: input.query ?? "", limit: input.limit ?? 10 }, execution.signal)),

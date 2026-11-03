@@ -121,6 +121,19 @@ assembly remain out of scope for this slice.
 See [animation usage, limits, and evidence](ANIMATIONS.md). No new image provider,
 runtime service, package, interpolation system, or character controller is added.
 
+## 1c — Environment tilesets (implemented; real-game art acceptance pending)
+
+- Shared sprite-based tile creation/editing, 162-pattern two-terrain transitions
+  including empty-map boundaries, exact compatible-edge checks and layout previews.
+- Typed CLI/native operations and `/preview asset` integration, immutable revisions,
+  whole-bundle approval and collision/terrain metadata bound to the exact hash.
+- Non-overwriting Godot 4.3+ TileSet/corner-terrain/full-tile collision import;
+  a reusable layer populates an approved explicit layout at runtime, not editor time.
+- Real Godot terrain-painting, atlas, layer placement and physics ray-hit fixtures.
+- Remaining: human environment-art review and real-game integration/playtesting;
+  this is not universal asset generation, level design or general image generation.
+  See [environment art](TILESETS.md).
+
 ## 2 — Prove the real game loop (next; not yet done)
 
 On an authorized development machine with a trusted Godot project:
@@ -171,7 +184,7 @@ authorize paid calls, uploads, overwrites, or game launches.
 ## Later — Broader asset creation and scene assembly (not implemented)
 
 After the real-game loop is reliable, extend the sprite/animation slices into
-effects, tilesets, optional generation providers, and broader Godot
+effects, broader terrain features, optional generation providers, and broader Godot
 scene assembly. Include licensing and provenance
 records, reproducible imports, collision/resource validation, and human
 art-direction review. Concrete providers, asset formats, and integrations need

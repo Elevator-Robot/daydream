@@ -7,6 +7,8 @@ from animation_godot import outputs as animation_outputs
 from init_project import init_project
 import sprite_core as sprite
 import sprite_store as store
+import tileset_core as tileset
+from tileset_godot import outputs as tileset_outputs
 
 
 def project_init(context, data):
@@ -96,6 +98,64 @@ def animation_approve(context, data):
 
 def animation_import(context, data):
     return importing(context, data, animation.load_revision, animation_outputs)
+
+
+def tileset_create(context, data):
+    source = tileset.validate_source(data["source"])
+    return save(context, data, tileset.make_revision(source, {"method": "tileset-source", "input_sha256": sprite.digest(sprite.encoded(source)), "license": None}), tileset.KIND)
+
+
+def tileset_transitions(context, data):
+    background = sprite.load_revision(context.path(data["background"]))
+    foreground = sprite.load_revision(context.path(data["foreground"]))
+    source = tileset.transitions(background["source"], foreground["source"], data["name"], data["terrains"], data.get("solid_foreground", False))
+    provenance = {"method": "tileset-transitions", "parent_revision_hashes": [background["revision_hash"], foreground["revision_hash"]],
+                  "license": background["manifest"]["provenance"].get("license") if background["manifest"]["provenance"].get("license") == foreground["manifest"]["provenance"].get("license") else None}
+    return save(context, data, tileset.make_revision(source, provenance), tileset.KIND)
+
+
+def tileset_edit(context, data):
+    parent = tileset.load_revision(context.path(data["bundle"]))
+    source = copy.deepcopy(parent["source"])
+    by_id = {tile["id"]: tile for tile in source["tiles"]}
+    for change in data["tiles"]:
+        if change["id"] not in by_id:
+            raise ValueError("Cannot edit an unknown tile ID")
+        tile = by_id[change["id"]]
+        if "patch" in change: tile["source"] = sprite.edit_source(tile["source"], change["patch"])
+        for key in ("solid", "terrain", "corners"):
+            if key in change: tile[key] = change[key]
+    if "cells" in data: source["cells"] = data["cells"]
+    if "recolor" in data:
+        for tile in source["tiles"]:
+            tile["source"] = sprite.edit_source(tile["source"], {"schema_version": 1, "operations": [{"op": "recolor", **data["recolor"]}]})
+    for key in ("collision_layer", "collision_mask"):
+        if key in data: source[key] = data[key]
+    provenance = {"method": "tileset-edit", "parent_revision_hash": parent["revision_hash"],
+                  "patch_sha256": sprite.digest(sprite.encoded({key: value for key, value in data.items() if key not in {"apply", "output"}})),
+                  "license": parent["manifest"]["provenance"].get("license")}
+    return save(context, data, tileset.make_revision(source, provenance), tileset.KIND)
+
+
+def tileset_inspect(context, data):
+    revision = tileset.load_revision(context.path(data["bundle"]))
+    source = revision["source"]
+    return {"name": source["name"], "revision_hash": revision["revision_hash"], "artifact_kind": "tileset",
+            "terrains": source["terrains"], "tiles": [{key: value for key, value in tile.items() if key != "source"} for tile in source["tiles"]],
+            "seams": tileset.seams(source), "preview": str(revision["path"] / "preview.html"),
+            "tile_preview": str(revision["path"] / "preview.png"), "layout_preview": str(revision["path"] / "layout.png")}, []
+
+
+def tileset_approve(context, data):
+    return approve(context, data, tileset.load_revision)
+
+
+def tileset_import(context, data):
+    revision = tileset.load_revision(context.path(data["bundle"]))
+    report = tileset.seams(revision["source"])
+    if report["mismatch_count"] or report["layout_terrain_mismatches"]:
+        raise ValueError("Fix compatible-edge pixel mismatches and layout terrain mismatches before importing")
+    return importing(context, data, tileset.load_revision, tileset_outputs)
 
 
 def save(context, data, files, kind="sprite"):

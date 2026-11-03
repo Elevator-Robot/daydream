@@ -32,6 +32,8 @@ Use the optional sprite interpreter when the launcher's Python lacks Pillow:
 The catalog includes `project.init`, `sprite.create/from_png/edit/inspect/approve/import`
 and `animation.create/assemble/edit/inspect/approve/import` (each slash-separated
 action is its own `area.action` ID). Describe returns exact bounded input schemas.
+Environment art adds `tileset.create/transitions/edit/inspect/approve/import`;
+see [tilesets](TILESETS.md) for terrain, seams, collisions and approval boundaries.
 `animation.assemble` takes existing static revision bundles, ordered frame IDs,
 named clips, durations, loop flags and a shared pivot; it validates canvas and
 palette consistency and generates standard animation artifacts/provenance.

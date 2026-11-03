@@ -16,7 +16,7 @@ export function previewCommand(context, call, browser) {
         const remainder = text.slice(action.length).trim();
         if (!action) action = await context.ui.dialog.select({ title: 'Daydream preview', options: [
           { title: 'Game', description: 'Run the configured main scene in graphical Godot', value: 'game' },
-          { title: 'Asset', description: 'Review a sprite or animation in your browser', value: 'asset' },
+          { title: 'Asset', description: 'Review a sprite, animation or environment tileset in your browser', value: 'asset' },
           { title: 'Status', description: 'Inspect the tracked game process and launch diagnostics', value: 'status' },
           { title: 'Stop game', description: 'Stop only the game Daydream launched', value: 'stop' },
         ] });
@@ -49,7 +49,7 @@ export function previewCommand(context, call, browser) {
             if (bundle === '\0manual') bundle = await context.ui.dialog.prompt({ title: 'Revision bundle path', placeholder: 'art/sprites/slime-v1' });
           }
           if (!bundle) return;
-          if (!await context.ui.dialog.confirm({ title: 'Open asset preview?', message: 'Open a read-only sprite/animation viewer in your default browser. This does not approve or import the revision.', label: { confirm: 'Open preview', cancel: 'Cancel' } })) return;
+          if (!await context.ui.dialog.confirm({ title: 'Open asset preview?', message: 'Open a read-only sprite, animation or tileset viewer in your default browser. This does not approve or import the revision.', label: { confirm: 'Open preview', cancel: 'Cancel' } })) return;
           const result = await invoke({ action: 'asset', bundle });
           await browser.open(result.html);
           context.ui.toast.show({ title: 'Asset preview', message: 'Browser launch requested. Review the exact revision shown; nothing was approved.', variant: 'success' });

@@ -5,7 +5,7 @@ The standard Daydream plugin includes a native OpenCode TUI command:
 ```text
 /preview                         Choose Game, Asset, Status, or Stop
 /preview game                    Run the configured main scene in Godot
-/preview asset                   Browse sprite/animation revision bundles
+/preview asset                   Browse sprite/animation/tileset revision bundles
 /preview asset art/slime-v1       Open a specific revision (spaces are supported)
 /preview status                  Show tracked game state and recent diagnostics
 /preview stop                    Stop only the game Daydream launched
@@ -66,7 +66,9 @@ Status. A running process is not proof the game looks correct or has been tested
 
 ## Asset preview
 
-The picker scans the configured `.daydream/config.json` `paths.sources` directory
+The picker supports static sprites, animations and [environment tilesets](TILESETS.md).
+Tileset viewers include numbered tiles, collision outlines, seam counts and a
+placed layout. The picker scans the configured `.daydream/config.json` `paths.sources` directory
 (default `art`), bounded to 1,000 directories and 100 revision candidates. Choose
 **Enter revision path…** or pass a path for candidates elsewhere in the project.
 Candidates are not assumed valid merely because they appear in the list.

@@ -41,6 +41,16 @@ install it or change user configuration merely to display branding.
 
 ## Establish the project contract
 
+Use shared `tileset.*` operations for floors, walls and terrain rather than
+one-off environment generators. Draw/ingest matching static seed revisions,
+generate transitions, inspect exact-edge and corner-coverage evidence, and show
+the `/preview asset` layout and full-tile collision outlines. Art direction and
+perceptual seamlessness still need human review. Import requires whole-revision
+approval and Godot 4.3+; never migrate a game's engine to enable it. Generated
+TileSets are editor-paintable; their optional layer layout populates cells at
+runtime only. Do not claim existing maps were edited, collisions follow alpha
+contours, or all asset types are supported. See `docs/TILESETS.md` in the checkout.
+
 The standard plugin also provides `/preview` directly to the user: `game` runs
 the current project's main scene in graphical Godot, `asset` opens a validated
 browser viewer, `status` shows diagnostics, and `stop` stops only the owned game.

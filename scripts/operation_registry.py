@@ -48,6 +48,15 @@ ANIMATION_PATCH = obj({"schema_version": VERSION, "operations": {"type": "array"
     obj({"op": {"enum": ["pivot"]}, "value": PIVOT}, ["op", "value"]),
     obj({"op": {"enum": ["default"]}, "animation": SLUG}, ["op", "animation"]),
 ]}}}, ["schema_version", "operations"])
+TERRAIN_ID = {"type": "integer", "minimum": 0, "maximum": 7}
+CORNERS = {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "integer", "minimum": -1, "maximum": 7}, "description": "Terrain indices (-1 is empty): top-left, top-right, bottom-right, bottom-left; Godot match-corners mode."}
+CELLS = {"type": "array", "maxItems": 1024, "items": obj({"x": {"type": "integer", "minimum": 0, "maximum": 63}, "y": {"type": "integer", "minimum": 0, "maximum": 63}, "tile": SLUG}, ["x", "y", "tile"])}
+BITMASK = {"type": "integer", "minimum": 0, "maximum": 4294967295}
+TILESET_SOURCE = obj({"schema_version": VERSION, "name": SLUG,
+                      "terrains": {"type": "array", "minItems": 1, "maxItems": 8, "items": SLUG},
+                      "tiles": {"type": "array", "minItems": 1, "maxItems": 192, "items": obj({"id": SLUG, "source": SPRITE, "terrain": TERRAIN_ID, "corners": CORNERS, "solid": {"type": "boolean"}}, ["id", "source", "terrain", "corners", "solid"])},
+                      "cells": CELLS, "collision_layer": BITMASK, "collision_mask": BITMASK},
+                     ["schema_version", "name", "terrains", "tiles", "cells", "collision_layer", "collision_mask"])
 
 
 @dataclass(frozen=True)
@@ -87,6 +96,12 @@ OPERATIONS = (
     Operation("animation.inspect", "Validate animation artifacts and return frame/timing data and motion/contact preview paths", obj({"bundle": PATH}, ["bundle"]), handlers.animation_inspect, effect="read", paths=(("bundle", "animation_bundle"),)),
     Operation("animation.approve", "CLI-only record of explicit human review of an entire exact animation", APPROVE, handlers.animation_approve, effect="approval", native=False, direct=False, paths=(("bundle", "animation_bundle"),)),
     Operation("animation.import", "Preview or import an approved atlas, SpriteFrames and AnimatedSprite2D scene", IMPORT, handlers.animation_import, paths=(("bundle", "animation_bundle"),), project_reads=PROJECT_READS),
+    Operation("tileset.create", "Create editable walls, floors and environment tiles with terrain corners, collision metadata, atlas and seam/layout previews", obj({"source": TILESET_SOURCE, "output": PATH, "apply": APPLY}, ["source", "output"]), handlers.tileset_create, paths=(("output", "output"),)),
+    Operation("tileset.transitions", "Generate 162 matching center/corner terrain tiles from two seamless static sprite revisions, including floor/wall/empty boundaries and corners", obj({"background": PATH, "foreground": PATH, "name": SLUG, "terrains": {"type": "array", "minItems": 2, "maxItems": 2, "items": SLUG}, "solid_foreground": {"type": "boolean"}, "output": PATH, "apply": APPLY}, ["background", "foreground", "name", "terrains", "output"]), handlers.tileset_transitions, paths=(("background", "static_bundle"), ("foreground", "static_bundle"), ("output", "output"))),
+    Operation("tileset.edit", "Revise tile pixels, full-tile collisions, terrain corners, global colors and layout in a fresh unapproved revision", obj({"bundle": PATH, "tiles": {"type": "array", "maxItems": 64, "items": obj({"id": SLUG, "patch": PATCH, "solid": {"type": "boolean"}, "terrain": TERRAIN_ID, "corners": CORNERS}, ["id"])}, "cells": CELLS, "recolor": obj({"symbol": SYMBOL, "color": COLOR}, ["symbol", "color"]), "collision_layer": BITMASK, "collision_mask": BITMASK, "output": PATH, "apply": APPLY}, ["bundle", "tiles", "output"]), handlers.tileset_edit, paths=(("bundle", "tileset_bundle"), ("output", "output"))),
+    Operation("tileset.inspect", "Validate an environment tileset and report compatible pixel edges, terrain coverage, collision flags and review artifact paths", obj({"bundle": PATH}, ["bundle"]), handlers.tileset_inspect, effect="read", paths=(("bundle", "tileset_bundle"),)),
+    Operation("tileset.approve", "CLI-only explicit human review of the exact tileset pixels, transitions, layout and collision metadata", APPROVE, handlers.tileset_approve, effect="approval", native=False, direct=False, paths=(("bundle", "tileset_bundle"),)),
+    Operation("tileset.import", "Preview or import an approved seam-checked TileSet and TileMapLayer with full-tile collisions for Godot 4.3+", IMPORT, handlers.tileset_import, paths=(("bundle", "tileset_bundle"),), project_reads=PROJECT_READS),
 )
 
 
@@ -142,7 +157,7 @@ def validate(schema, value, path="input", depth=0):
 
 def search(query="", limit=10):
     terms = set(re.findall(r"[a-z0-9]+", query.lower()))
-    synonyms = {"sprites": "sprite", "frames": "animation", "animate": "animation", "walking": "animation", "png": "sprite"}
+    synonyms = {"sprites": "sprite", "frames": "animation", "animate": "animation", "walking": "animation", "png": "sprite", "walls": "tileset", "floors": "tileset", "tiles": "tileset", "terrain": "tileset", "tilesets": "tileset"}
     terms |= {synonyms[term] for term in terms if term in synonyms}
     ranked = []
     for operation in OPERATIONS:

@@ -141,7 +141,7 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
       if (entries.some(entry => entry.name === 'manifest.json' && entry.isFile())) {
         try {
           const manifest = JSON.parse((await read(await projectPath(root, path.join(directory, 'manifest.json')))).toString());
-          if (['sprite', 'sprite_animation'].includes(manifest.kind)) found.push({ bundle: path.relative(root, directory), kind: manifest.kind });
+          if (['sprite', 'sprite_animation', 'tileset'].includes(manifest.kind)) found.push({ bundle: path.relative(root, directory), kind: manifest.kind });
         } catch { /* Invalid candidates are not selectable; explicit paths report errors. */ }
       }
       for (const entry of entries.slice(0, 1000)) if (entry.isDirectory() && !entry.name.startsWith('.') && pending.length < 1000) pending.push(path.join(directory, entry.name));
@@ -151,7 +151,7 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
   async function document(root, bundle, signal) {
     const directory = await projectPath(root, bundle);
     const manifest = JSON.parse((await read(await projectPath(root, path.join(directory, 'manifest.json')))).toString());
-    const kind = manifest.kind === 'sprite' ? 'sprite' : manifest.kind === 'sprite_animation' ? 'animation' : fail('Not a Daydream sprite/animation revision');
+    const kind = manifest.kind === 'sprite' ? 'sprite' : manifest.kind === 'sprite_animation' ? 'animation' : manifest.kind === 'tileset' ? 'tileset' : fail('Not a Daydream sprite/animation/tileset revision');
     const input = { bundle }, op = `${kind}.inspect`;
     const prepared = await run(root, { action: 'prepare', op, input }, signal);
     if (!prepared.ok) fail(prepared.error.message);
@@ -170,6 +170,7 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
     };
     let body = '';
     if (kind === 'sprite') body = await image('preview.png');
+    else if (kind === 'tileset') body = `<p>Boundary mismatches: ${result.result.seams.mismatch_count}. Yellow outlines: full-tile collisions. Human visual review required.</p><h2>Tiles</h2>${await image('preview.png')}<h2>Layout</h2>${await image('layout.png')}`;
     else for (const clip of result.result.previews) {
       body += `<section><h2>${escape(clip.animation)}</h2>${await image(path.basename(clip.motion))}<h3>Contact sheet</h3>${await image(path.basename(clip.contact_sheet))}</section>`;
     }

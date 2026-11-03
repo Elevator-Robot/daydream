@@ -109,6 +109,7 @@ play-feel review. Never infer appearance or usability from headless success.
 - [Frame animation](ANIMATIONS.md): timing, motion previews, approval, and Godot resources.
 - [Operations](OPERATIONS.md): shared catalog, CLI, native adapter and validation boundaries.
 - [Preview](PREVIEW.md): user slash command, owned Godot runtime and browser asset viewer.
+- [Environment tiles](TILESETS.md): shared tile generation, seams, terrain, layout and collision checks.
 - [Feature plan](FEATURES.md): proposed creative tools and hook safeguards.
 - [Roadmap](ROADMAP.md): implemented capabilities and acceptance criteria.
 

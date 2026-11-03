@@ -83,10 +83,10 @@ test('immediate launch failures retain diagnostics and nonzero exit status', asy
 
 test('unload stops owned game; cancellation and concurrent starts do not duplicate', async t => {
   const f = await fixture(t);
-  const launching = f.call('game');
-  await new Promise(resolve => setImmediate(resolve));
-  await assert.rejects(f.call('game'), /in progress/);
-  await launching;
+  // Filesystem resolution is asynchronous: either request may acquire the lock.
+  const starts = await Promise.allSettled([f.call('game'), f.call('game')]);
+  assert.equal(starts.filter(result => result.status === 'fulfilled').length, 1);
+  assert.match(starts.find(result => result.status === 'rejected').reason.message, /in progress/);
   await f.service.dispose();
   assert.equal(f.spawned[1].child.killedWith, 'SIGTERM');
   const g = await fixture(t);
@@ -109,7 +109,7 @@ test('source discovery uses configured source root and ignores symlink candidate
 });
 
 const pillow = spawnSync(python, ['-c', 'import PIL']).status === 0;
-test('real sprite and animation viewers embed validated images and never approve', { skip: !pillow }, async t => {
+test('real sprite animation and tileset viewers embed validated images and never approve', { skip: !pillow }, async t => {
   const f = await fixture(t);
   const recipe = JSON.stringify({ schema_version: 1, name: 'dot', width: 2, height: 2, palette: { a: '#ffffff' }, pixels: ['a.', '.a'] });
   const generated = spawnSync(python, ['-c', `import sys,json;sys.path.insert(0,${JSON.stringify(path.join(checkout, 'scripts'))});from operations import execute
@@ -117,9 +117,15 @@ root=sys.argv[1]
 r=execute('sprite.create',{'source':json.loads(sys.argv[2]),'output':'art/dot','apply':True},root)
 assert r['ok'],r
 r=execute('animation.assemble',{'name':'walk','pivot':[1,2],'frames':[{'id':'a','bundle':'art/dot'}],'animations':[{'name':'idle','fps':4,'loop':True,'frames':[{'frame':'a','duration':1}]}],'default_animation':'idle','output':'art/walk','apply':True},root)
+assert r['ok'],r
+import tileset_core
+seed={'schema_version':1,'name':'floor','width':4,'height':4,'palette':{'a':'#ffffff','b':'#444444'},'pixels':['aaaa']*4}
+other={**seed,'name':'wall','pixels':['bbbb']*4}
+tiles=tileset_core.transitions(seed,other,'terrain',['floor','wall'])
+r=execute('tileset.create',{'source':tiles,'output':'art/terrain','apply':True},root)
 assert r['ok'],r`, f.root, recipe], { encoding: 'utf8' });
   assert.equal(generated.status, 0, generated.stderr);
-  for (const bundle of ['art/dot', 'art/walk']) {
+  for (const bundle of ['art/dot', 'art/walk', 'art/terrain']) {
     const viewer = await f.call('asset', { bundle });
     assert.match(viewer.html, /data:image\/png;base64,/);
     assert.match(viewer.html, /not approved or imported/);

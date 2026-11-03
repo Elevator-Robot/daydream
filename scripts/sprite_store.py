@@ -29,6 +29,10 @@ def save_revision(output, files, apply=False, *, kind="sprite"):
         from animation_core import artifact_names, validate_source
         source = validate_source(json.loads(files["source.json"]))
         expected = artifact_names(source) | {"manifest.json", ".gdignore"}
+    elif kind == "tileset":
+        from tileset_core import ARTIFACTS, validate_source
+        validate_source(json.loads(files["source.json"]))
+        expected = ARTIFACTS | {"manifest.json", ".gdignore"}
     else:
         raise ValueError("Unsupported revision bundle kind")
     if set(files) != expected:
@@ -51,12 +55,12 @@ def save_revision(output, files, apply=False, *, kind="sprite"):
             os.close(fd)
     return {"action": "created" if apply else "would_create", "directory": str(output),
             "files": list(files), "revision_hash": digest(files["manifest.json"]),
-            "preview": str(output / ("preview.html" if kind == "sprite_animation" else "preview.png"))}
+            "preview": str(output / ("preview.html" if kind in ("sprite_animation", "tileset") else "preview.png"))}
 
 
 def approval_identity(revision):
-    if revision["manifest"].get("kind") == "sprite_animation":
-        return {"schema_version": 2, "kind": "sprite_animation", "revision_hash": revision["revision_hash"],
+    if revision["manifest"].get("kind") in ("sprite_animation", "tileset"):
+        return {"schema_version": 2, "kind": revision["manifest"]["kind"], "revision_hash": revision["revision_hash"],
                 "files": revision["manifest"]["files"]}
     if revision["manifest"].get("kind") != "sprite":
         raise ValueError("Unsupported approval kind")
@@ -173,8 +177,9 @@ def import_revision(bundle, project, name=None, destination=None, apply=False, *
         validate_document(project, "config.json", config_bytes.decode("utf-8"))
         validate_document(project, "assets.json", index_bytes.decode("utf-8"))
         config, index = json.loads(config_bytes), json.loads(index_bytes)
-        asset_dir = relative_directory(project, destination if destination is not None else config["paths"]["assets"] + "/sprites")
-        source_dir = relative_directory(project, config["paths"]["sources"] + "/sprites")
+        category = "/tilesets" if revision["manifest"]["kind"] == "tileset" else "/sprites"
+        asset_dir = relative_directory(project, destination if destination is not None else config["paths"]["assets"] + category)
+        source_dir = relative_directory(project, config["paths"]["sources"] + category)
         outputs, paths, reserved = output_builder(revision, asset_dir, source_dir, asset_name)
         if len(outputs) != len(paths):
             raise ValueError("Runtime and editable-source output paths overlap")
@@ -187,7 +192,7 @@ def import_revision(bundle, project, name=None, destination=None, apply=False, *
                 except FileNotFoundError:
                     continue
                 raise AssetConflict(f"Refusing to replace existing asset: {relative}; use a new --name")
-        if any(record.get("name") == asset_name and record.get("kind") in ("sprite", "sprite_animation") for record in index["assets"]):
+        if any(record.get("name") == asset_name and record.get("kind") in ("sprite", "sprite_animation", "tileset") for record in index["assets"]):
             raise AssetConflict("Asset name already exists in the manifest; use a new --name")
         record = {"schema_version": 1, "kind": revision["manifest"]["kind"], "name": asset_name,
                   "revision_hash": revision["revision_hash"], "paths": paths,

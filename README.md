@@ -131,6 +131,10 @@ a still image alone cannot show whether it moves correctly.
 Follow the [sprite workflow](docs/SPRITE_WORKFLOW.md) from the first brief through
 revisions, approval, import, and testing in Godot.
 
+For walls and floors, Daydream can generate matching terrain transitions from
+your pixel-art seed tiles, check their seams, preview a layout, and import an
+approved Godot TileSet with collision flags. See the [environment-art workflow](docs/TILESETS.md).
+
 ## Useful options
 
 ```sh

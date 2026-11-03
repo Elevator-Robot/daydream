@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "name": "wall",
+  "width": 8,
+  "height": 8,
+  "palette": {"g": "#5b7955", "h": "#718f62", "b": "#6d5352", "m": "#b59b83"},
+  "pixels": ["mmmmmmmm", "mbbbmbbm", "mbbbmbbm", "mbbbmbbm", "mmmmmmmm", "mbmbbbbm", "mbmbbbbm", "mmmmmmmm"]
+}

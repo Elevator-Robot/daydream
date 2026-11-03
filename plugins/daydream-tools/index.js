@@ -40,7 +40,7 @@ export default Plugin.define({
     });
     tools.push({
       name: 'daydream_preview',
-      description: 'Launch, inspect, or stop the active project graphical Godot preview, or list sprite/animation revisions. Only stops the game this plugin launched. Launch runs project code and requires permissions. Users can also run /preview directly in the TUI without a model call. Preview never approves artwork.',
+      description: 'Launch, inspect, or stop the active project graphical Godot preview, or list sprite/animation/tileset revisions. Only stops the game this plugin launched. Launch runs project code and requires permissions. Users can also run /preview directly in the TUI without a model call. Preview never approves artwork.',
       input: { type: 'object', properties: { action: { ...previewInput.properties.action, enum: previewInput.properties.action.enum.filter(action => action !== 'asset') } }, required: ['action'], additionalProperties: false },
       options: { codemode: true },
       execute: async (input, context) => ({ content: JSON.stringify(await previews.call({ ...input, sessionID: context.sessionID }, {

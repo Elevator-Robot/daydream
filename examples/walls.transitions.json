@@ -1,0 +1,8 @@
+{
+  "background": "art/tiles/floor-v1",
+  "foreground": "art/tiles/wall-v1",
+  "name": "garden-walls",
+  "terrains": ["grass", "brick"],
+  "solid_foreground": true,
+  "output": "art/tiles/garden-walls-v1"
+}

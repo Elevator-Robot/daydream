@@ -67,6 +67,7 @@ def prepare(operation, data, context):
             if kind == "file": reads.add(str(path)); continue
             names = {"source.json", "manifest.json", ".gdignore", "approval.json"}
             if kind == "static_bundle": names |= {"sprite.png", "preview.png"}
+            elif kind == "tileset_bundle": names |= {"atlas.png", "preview.png", "layout.png", "seams.json", "preview.html"}
             elif kind == "animation_bundle":
                 names |= {"spritesheet.png", "preview.html"}
                 if path.is_dir():
