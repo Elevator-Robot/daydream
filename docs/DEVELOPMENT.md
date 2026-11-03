@@ -47,6 +47,17 @@ resource checks use temporary Godot fixtures, not another game repository.
 See [the sprite slice](SPRITES.md) for source/edit formats, approval boundaries,
 import recovery, and the remaining human/graphical acceptance criteria.
 
+The preview command's optional **graphical** process check runs only an isolated
+synthetic scene and stops its owned Godot child (a desktop/display is required):
+
+```sh
+DAYDREAM_GRAPHICAL_TEST=1 GODOT_BIN=/absolute/path/to/godot \
+  DAYDREAM_TEST_PYTHON=/path/to/sprite-venv/bin/python node --test tests/preview.test.mjs
+```
+
+This verifies process launch/stop, not that a human watched the game window or
+browser playback. No actual user project or configuration is used.
+
 ### Project import/smoke helper
 
 Inspect startup code, tool scripts, addons, native extensions, and external
@@ -97,6 +108,7 @@ play-feel review. Never infer appearance or usability from headless success.
 - [Static sprites](SPRITES.md): create/edit/approve/import workflow and limits.
 - [Frame animation](ANIMATIONS.md): timing, motion previews, approval, and Godot resources.
 - [Operations](OPERATIONS.md): shared catalog, CLI, native adapter and validation boundaries.
+- [Preview](PREVIEW.md): user slash command, owned Godot runtime and browser asset viewer.
 - [Feature plan](FEATURES.md): proposed creative tools and hook safeguards.
 - [Roadmap](ROADMAP.md): implemented capabilities and acceptance criteria.
 

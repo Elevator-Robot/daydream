@@ -82,6 +82,17 @@ Give Daydream the scene, behavior, and expected result when possible. Use versio
 control, review its changes, and playtest the result in Godot. Only open projects
 you trust.
 
+## Preview your game or artwork
+
+In an OpenCode session, run `/preview` to choose **Game** or **Asset**.
+Use `/preview game` to launch the whole project's main scene in graphical Godot,
+`/preview asset` to browse sprite/animation candidates, and `/preview stop` to
+stop the game Daydream launched. `/preview status` shows game diagnostics.
+
+Game preview executes project code and asks for authorization. The standard
+install includes the command; it does not need a model call. See
+[preview setup and engine pins](docs/PREVIEW.md).
+
 ## Pixel-art sprites (optional)
 
 The standard install includes the [native tools interface](docs/OPERATIONS.md)

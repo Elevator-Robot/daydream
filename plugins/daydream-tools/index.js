@@ -1,6 +1,9 @@
 import { Plugin } from "@opencode/plugin";
 import { createRunner, resolveCheckout } from "./runner.js";
 import { definitions } from "./adapter.js";
+import { createPreviewService, PreviewFailure } from "./preview.js";
+import { Preview } from "./rpc.js";
+import { previewInput } from "./preview-contract.js";
 
 export default Plugin.define({
   id: "daydream.tools",
@@ -22,10 +25,34 @@ export default Plugin.define({
     const catalog = await run(ctx.location.directory, { action: "catalog" });
     if (!catalog.ok) throw new Error(catalog.error.message);
     const tools = definitions(ctx, catalog, run);
+    const previews = createPreviewService(ctx, run);
+    const rpc = await ctx.rpc.register(Preview, {
+      call: async (input, context) => {
+        try { return await previews.call(input, { signal: context.signal }); }
+        catch (error) {
+          if (error instanceof PreviewFailure || error instanceof SyntaxError || ['ENOENT', 'EACCES', 'ELOOP'].includes(error.code)) {
+            return context.error('preview_failed', error.message, {});
+          }
+          // Let permission rejection/interruption retain OpenCode semantics.
+          throw error;
+        }
+      },
+    });
+    tools.push({
+      name: 'daydream_preview',
+      description: 'Launch, inspect, or stop the active project graphical Godot preview, or list sprite/animation revisions. Only stops the game this plugin launched. Launch runs project code and requires permissions. Users can also run /preview directly in the TUI without a model call. Preview never approves artwork.',
+      input: { type: 'object', properties: { action: { ...previewInput.properties.action, enum: previewInput.properties.action.enum.filter(action => action !== 'asset') } }, required: ['action'], additionalProperties: false },
+      options: { codemode: true },
+      execute: async (input, context) => ({ content: JSON.stringify(await previews.call({ ...input, sessionID: context.sessionID }, {
+        signal: context.signal, source: { type: 'tool', messageID: context.messageID, id: context.id },
+      })) }),
+    });
     const registration = await ctx.tool.transform((editor) => { for (const tool of tools) editor.add(tool); });
     return async () => {
       closed = true;
       for (const controller of active) controller.abort();
+      await previews.dispose();
+      await rpc.dispose();
       await registration.dispose();
     };
   },

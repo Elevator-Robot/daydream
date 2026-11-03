@@ -36,6 +36,15 @@ set, candidate tools, and a first asset-creation milestone.
 
 ## Boundaries
 
+### Interactive preview (implemented; end-to-end UI acceptance pending)
+
+- Native `/preview` picker with game, asset, status and owned-process stop actions.
+- Shared runtime service behind RPC and a native tool; no model round trip or daemon.
+- Godot 4 graphical launch with optional explicit engine pin, permission checks,
+  bounded diagnostics, duplicate refusal and process cleanup on plugin unload.
+- Hash-validated self-contained browser asset viewer with no approval/import effects.
+- See [preview](PREVIEW.md) for remote-server behavior, test evidence and limits.
+
 - **Daydream:** reusable instructions, narrow helpers, tests, installation docs.
 - **dotfiles:** optional global wiring only, added separately when authorized.
 - **each game:** engine pin, controls, architecture, design intent, assets, tests,

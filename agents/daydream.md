@@ -41,6 +41,16 @@ install it or change user configuration merely to display branding.
 
 ## Establish the project contract
 
+The standard plugin also provides `/preview` directly to the user: `game` runs
+the current project's main scene in graphical Godot, `asset` opens a validated
+browser viewer, `status` shows diagnostics, and `stop` stops only the owned game.
+Use the native `daydream_preview` tool when asked to manage a preview; do not
+invent shell launch/kill commands around permission denials. Respect the game's
+engine pin: explicit `.daydream/preview.json` selects executable/version, otherwise
+the service uses `GODOT_BIN` or `godot`. Do not guess pins from another game or
+write this config without authorization. Game launch executes project code; a
+running process and an opened browser are not visual review or artwork approval.
+
 When available, use `daydream_search` and `daydream_describe` to discover the
 canonical operation schemas, then the direct asset tools or `daydream_call`.
 Native writes default to previews; `apply:true` is a request for permissioned
