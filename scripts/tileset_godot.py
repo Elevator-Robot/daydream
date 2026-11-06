@@ -1,6 +1,7 @@
 """Godot 4.3+ TileSet atlas, corner terrains, collisions and reusable map layer."""
 
 import json
+from collision_core import effective_polygons
 
 
 def outputs(revision, asset_dir, source_dir, name):
@@ -22,9 +23,12 @@ def outputs(revision, asset_dir, source_dir, name):
         key = f"{index % columns}:{index // columns}/0"
         text += [f"{key} = 0\n", f"{key}/terrain_set = 0\n", f"{key}/terrain = {tile['terrain']}\n"]
         text += [f"{key}/terrains_peering_bit/{corner} = {terrain}\n" for corner, terrain in zip(corners, tile["corners"])]
-        if tile["solid"]:
-            points = [-w/2, -h/2, w/2, -h/2, w/2, h/2, -w/2, h/2]
-            text += [f"{key}/physics_layer_0/polygon_0/points = PackedVector2Array({', '.join(map(str, points))})\n"]
+        for polygon_index, polygon in enumerate(effective_polygons(tile)):
+            points = [coordinate for px, py in polygon["points"] for coordinate in (px-w/2, py-h/2)]
+            prefix = f"{key}/physics_layer_0/polygon_{polygon_index}"
+            text += [f"{prefix}/points = PackedVector2Array({', '.join(map(str, points))})\n"]
+            if "collisions" in tile:
+                text += [f"{prefix}/one_way = {str(polygon['one_way']).lower()}\n", f"{prefix}/one_way_margin = {polygon['one_way_margin']}\n"]
     text += [f'\n[resource]\ntile_size = Vector2i({w}, {h})\n',
              f"physics_layer_0/collision_layer = {source['collision_layer']}\nphysics_layer_0/collision_mask = {source['collision_mask']}\n",
              "terrain_set_0/mode = 1\n"]

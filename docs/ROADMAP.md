@@ -3,15 +3,16 @@
 Internal milestones and acceptance criteria. For installation and everyday use,
 see the [user README](../README.md).
 
-**Last updated: 2026-11-05. Feature baseline before integrated review: `fd8b5a4`.
-This update includes the implemented and validated integrated review UI.**
+**Last updated: 2026-11-05. Committed baseline: `ce9da22` (integrated review).
+This update includes richer tile collisions and the validation recorded below.**
 
-## START HERE NEXT — integrated review is delivered; choose the next increment
+## START HERE NEXT — review and richer collisions delivered; next increment unselected
 
 > **P0 and P1 are complete. The user confirmed both on 2026-11-04.
 > Do not send them back through initial acceptance or treat the real-game trial
 > as the next unstarted milestone. The selected P2 feature—integrated asset review,
-> approval and separate import—is now implemented and verified. Resume at P3 below.**
+> approval and separate import—is implemented and verified. The user then selected
+> richer collisions for P3. Do not confuse that selection with editor-visible layouts.**
 
 ### Completed acceptance
 
@@ -40,17 +41,35 @@ not a reason to reopen the completed phases or ask the user to repeat them.
 - [x] Python/Node regressions and actual isolated OpenCode TUI verification of
   approval, separate import, changes and cancellation. See the [dated evidence](validation/2026-11-05-asset-review.md).
 
-### P3 — select the next product increment (NEXT; not selected)
+### P3 — richer tile collisions (selected and implemented)
 
-**First action on resume:** collect feedback on the now-integrated workflow and
-agree on the next improvement with the user. Options include editor-visible
-layouts, richer collision shapes or another asset capability; no priority order
-or implementation scope has been authorized yet. Retain any additional P0/P1
-project/engine/change details when the user supplies them; do not invent them or
-reopen those completed phases merely because detailed trial notes are unavailable.
+- User explicitly chose richer collisions, not the separate editor-visible-layout
+  suggestion. Scope is reusable tileset collision authoring, review and Godot export.
+- Shared convex polygon validation, half-pixel coordinates, multi-piece shapes,
+  ramp presets and one-way platform/margin settings; no alpha-derived geometry.
+- Typed native/CLI inputs, collision-layout overlays and exact settings in the
+  review viewer; collision-only changes still need fresh revision approval.
+- Existing solid-rectangle tiles, artifact sets and approval identities are
+  preserved rather than automatically migrated. See [collisions](COLLISIONS.md).
+- Real Godot tests verify ramp hit positions/normals, gaps and an actual character
+  passing upward through a one-way platform then landing on it. Game-specific
+  controller/play-feel acceptance is not implied by those synthetic checks.
+- The actual graphical Godot collision render and coverage previews were inspected;
+  see [the dated evidence](validation/2026-11-05-tile-collisions.md). Native tool
+  discovery exposes the polygon and preset schemas. No existing game was modified.
+- **Next user action:** manual collision/play-feel testing planned for 2026-11-06;
+  not yet reported complete. Follow the [manual checklist](COLLISIONS.md#manual-test-checklist).
+  Keep this new-feature acceptance distinct from the already completed P0/P1 trials.
 
-**P3 exit criterion:** one next increment is explicitly selected and scoped,
-implemented in the shared capability layer and validated with retained evidence.
+### P4 — select the next product increment (NEXT; not selected)
+
+Collect feedback on the delivered workflow and choose the next improvement with
+the user. Editor-visible layouts remain a candidate, not an authorized task.
+Retain original P0/P1 trial details when supplied without inventing or reopening
+those completed trials. New-game controller testing needs explicit project scope.
+
+**P4 exit criterion:** a bounded increment is selected, implemented in the shared
+capability layer and validated with retained evidence.
 Completed testing is not blanket authorization to edit the tested game, install
 software, migrate an engine, connect a paid provider, or add an editor service.
 
@@ -66,16 +85,16 @@ not mean human acceptance or the full idea-to-playable product is complete.
 | Native tools | Typed sprite/animation/tileset actions, search/describe/call, structured results, shared Python backend and CLI, permission checks and cancellation | Actual loading/describe calls and isolated checks verified; P0/P1 complete per user confirmation |
 | Static sprites | Pixel specs, bounded PNG ingestion, immutable edits, transparent images/previews, exact approval and Godot import | Unit/resource checks and image inspection; user confirms the overall acceptance phases complete, without per-asset details |
 | Animation | Ordered clips, timing/loop/pivot, frame-revision assembly, atlas/APNG/contact/HTML previews, whole-animation approval and Godot resources | Real Godot ordering/timing/playback checks; P0/P1 user-confirmed, detailed motion feedback not yet recorded |
-| Environment tiles | Editable tiles, 162 two-terrain/empty corner patterns, seam/coverage checks, layout previews, full-tile collision flags, approved TileSet/TileMapLayer import | Terrain painting/layout/physics fixtures and synthetic render inspected; P0/P1 user-confirmed, trial details not yet recorded |
+| Environment tiles | Editable tiles, 162 terrain/empty corner patterns, seam/layout previews, rectangles/convex pieces/ramps/one-way geometry and approved TileSet/TileMapLayer import | Terrain/layout/physics fixtures; richer-collision movement checks; game-specific play feel still requires its actual controller |
 | User preview | Native `/preview` game/asset/status/stop UI, shared runtime service/RPC/tool, owned-process tracking, engine selection and browser viewer | Native/RPC status and graphical fixtures verified; user confirms live UI/real-game phases complete |
 | Review and approval | `/asset-review` across all asset kinds; explicit decisions, retained feedback and separately confirmed exact import plans; no model-facing approval tool | Actual standalone TUI approval/import/change/cancel flow verified with synthetic assets; see dated evidence |
 | Safety | Preview-before-apply, non-overwriting outputs/sidecars, project scope, exact-hash approval, no native auto-approval, no installs/permission widening | Tested in isolated fixtures; not an OS sandbox or authenticated proof of human review |
 
 ### Validation baseline
 
-- Latest feature validation: **138 Python-discovered tests passed** in the isolated
+- Latest feature validation: **145 Python-discovered tests passed** in the isolated
   Pillow environment with Godot/ttfx checks enabled. The dependency-free run passed
-  with **50 optional tests skipped**. Node adapter/viewer/review tests run through the suite.
+  with **54 optional tests skipped**. Node adapter/viewer/review tests run through the suite.
 - Separate graphical preview checks launched/stopped only an isolated synthetic
   Godot project. A synthetic tileset scene was also rendered; its actual viewport
   capture and numbered tile preview were inspected. These are not user-approved
@@ -92,7 +111,7 @@ not mean human acceptance or the full idea-to-playable product is complete.
 
 - General prompt-to-image generation, hosted providers, automatic game/level design,
   Godot editor control, and broader effects/audio/3D asset creation.
-- Animated tiles, hex/isometric terrain, arbitrary/slope collision polygons,
+- Animated tiles, hex/isometric terrain, automatic concave decomposition/alpha tracing,
   navigation, and layouts baked into editor cell data. The generated TileSet is
   editor-paintable; its companion example layout populates **at runtime**.
 - Authenticated human identity, an OS sandbox, and review support for asset kinds
@@ -100,7 +119,7 @@ not mean human acceptance or the full idea-to-playable product is complete.
   CLI approval remains a fallback and there is no model-facing approval tool.
 - Portable screenshot/input automation and a fully autonomous verified game loop.
   No new provider/service/editor bridge is authorized merely because P0/P1 are done;
-  select the next capability from user feedback in P3.
+  select the next capability from user feedback in P4.
 
 ## Vision
 
@@ -132,7 +151,7 @@ set, candidate tools, and a first asset-creation milestone.
 - Live OpenCode loading/discovery and describe execution verified after resolving
   the installed plugin symlink before locating the Python backend.
 - User confirms live acceptance and real-game phases complete; detailed trial
-  feedback/evidence can be retained in the P3 handoff. No claim of Summer parity or editor control.
+  feedback/evidence can be retained in the P4 handoff. No claim of Summer parity or editor control.
 
 ## Interactive preview (implemented; P0/P1 user-confirmed complete)
 
@@ -188,7 +207,7 @@ need their own permission/trust review.
 Installed agent/launcher entry and native plugin discovery have since been
 verified separately. This milestone does **not** prove the agent can complete a
 game change autonomously. The user confirms P0/P1 completion; the next handoff is
-feedback and increment selection in P3, not a claim of full autonomous game creation.
+feedback and increment selection in P4, not a claim of full autonomous game creation.
 
 ## 1 — Static sprite workflow (implemented; P0/P1 user-confirmed complete)
 
@@ -237,14 +256,14 @@ runtime service, package, interpolation system, or character controller is added
   a reusable layer populates an approved explicit layout at runtime, not editor time.
 - Real Godot terrain-painting, atlas, layer placement and physics ray-hit fixtures.
 - User confirms the overall live/real-game acceptance phases are complete; record
-  the trial details when provided in P3. This is not universal asset generation or level design.
+  the trial details when provided in P4. This is not universal asset generation or level design.
   See [environment art](TILESETS.md).
 
 ## 2 — Prove the real game loop (complete per user confirmation, 2026-11-04)
 
 P1 is complete according to the user. The following is the retained acceptance
 procedure, not an instruction to repeat the trial. Project-specific evidence and
-feedback should be captured in P3 when supplied.
+feedback should be captured in P4 when supplied.
 
 On an authorized development machine with a trusted Godot project:
 

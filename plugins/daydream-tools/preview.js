@@ -170,7 +170,13 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
     };
     let body = '';
     if (kind === 'sprite') body = await image('preview.png');
-    else if (kind === 'tileset') body = `<p>Boundary mismatches: ${result.result.seams.mismatch_count}. Yellow outlines: full-tile collisions. Human visual review required.</p><h2>Tiles</h2>${await image('preview.png')}<h2>Layout</h2>${await image('layout.png')}`;
+    else if (kind === 'tileset') {
+      body = `<p>Boundary mismatches: ${result.result.seams.mismatch_count}. Yellow: solid geometry; cyan: one-way geometry. Human collision/play-feel review required.</p><h2>Tiles</h2>${await image('preview.png')}<h2>Layout</h2>${await image('layout.png')}`;
+      if (result.result.collision_preview) {
+        const geometry = result.result.tiles.map(tile => ({ id: tile.id, solid: tile.solid, polygons: tile.collisions ?? null }));
+        body += `<h2>Collision coverage (not artwork)</h2>${await image('collisions.png')}<p>Raster overlays are approximate; exact coordinates use top-left tile pixels on a half-pixel grid. One-way polygons block from local above; omitted one_way is false and omitted margin is 1. A legacy solid:true with polygons:null is the unchanged full-tile rectangle; solid:false with polygons:null has no collisions. No shapes are inferred from alpha.</p><details><summary>Exact collision geometry</summary><pre>${escape(JSON.stringify(geometry, null, 2))}</pre></details>`;
+      }
+    }
     else for (const clip of result.result.previews) {
       body += `<section><h2>${escape(clip.animation)}</h2>${await image(path.basename(clip.motion))}<h3>Contact sheet</h3>${await image(path.basename(clip.contact_sheet))}</section>`;
     }

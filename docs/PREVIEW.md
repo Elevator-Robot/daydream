@@ -89,6 +89,10 @@ After confirmation, the TUI opens that document with the system default browser
 (`xdg-open` on Linux, `open` on macOS), using an argument list, not a shell. The
 server never opens a browser. For remote connections the authorized viewer data
 is transferred to the client, rather than treating server paths as local files.
+
+Explicit [collision geometry](COLLISIONS.md) also shows placed-layout coverage,
+yellow solid/cyan one-way outlines and exact polygon/settings listings. Raster
+overlays approximate half-pixel coordinates; they are not a physics test or alpha tracing.
 No local web server, port, account, or remote image URL is used. The document has
 a restrictive content-security policy and no scripts. Revision paths cannot
 traverse outside the active project or pass through symlinks.

@@ -16,8 +16,9 @@ Nothing in an existing game is regenerated automatically.
    all floor/wall/empty corner assignments. This includes empty-map boundaries.
 3. `tileset.inspect` validates artwork, exact boundary pixels, layout corners,
    terrain coverage, and artifacts. Review the layout with `/preview asset`.
-4. `tileset.edit` revises pixels, global colors, terrain assignments, full-tile
-   collision flags, bitmasks and explicit cell placement in a fresh revision.
+4. `tileset.edit` revises pixels, global colors, terrain assignments, collision
+   polygons/slopes/one-way settings, legacy solid flags, bitmasks and cell placement
+   in a fresh revision. See [richer collisions](COLLISIONS.md).
 5. Use `/asset-review` to explicitly approve the exact candidate or request changes,
    then review and confirm import separately. Authorized CLI `tileset.approve`
    remains a fallback. Model-facing tools cannot write approval decisions.
@@ -66,6 +67,8 @@ Canonical version-1 source contains exactly:
 - `schema_version`, lowercase `name`, and 1–8 distinct `terrains` name slugs.
 - `tiles`: 1–192 entries with `id`, standard sprite `source`, center `terrain`,
   four `corners` and Boolean `solid`. IDs are unique; canvas/palette mappings match.
+  Optional `collisions` adds up to eight convex polygons with `solid:false`;
+  presets are available in tile edits. Legacy solid flags retain their old behavior.
 - Corner order: **top-left, top-right, bottom-right, bottom-left**. Values index
   `terrains`; `-1` means empty. Center terrain must be nonempty.
 - `cells`: up to 1,024 `{x, y, tile}` placements in a 64×64 grid, with no overlaps.
@@ -87,7 +90,9 @@ the previous approval. Parents and their approvals are preserved.
 
 Bundles contain editable `source.json`, `atlas.png`, numbered `preview.png`,
 `layout.png`, `seams.json`, local `preview.html`, a hash manifest and `.gdignore`.
-Yellow outlines mark **full-tile collision rectangles**, not alpha contours.
+Yellow outlines mark **solid collision geometry** (full rectangles for legacy
+solid tiles); cyan marks one-way polygons. Explicit geometry adds `collisions.png`
+layout coverage and exact point/settings listings. Geometry is not alpha tracing.
 The entire bundle and collision/layout metadata are bound to the approval hash.
 
 Inspection compares exact RGBA boundaries of terrain-compatible pairs and checks
@@ -114,9 +119,10 @@ The TileSet is paintable in the editor. The example layout is populated **at
 runtime** via documented `set_cell()` calls, not baked into editor cell data.
 The companion is not `@tool`; it runs no editor-time code. This avoids undocumented
 binary serialization. Instance the layer deliberately; existing maps stay untouched.
-Full-tile collisions require human judgment, especially on partly transparent
-transition tiles. This slice does not provide polygons/slopes, animated tiles,
-hex/isometric terrain, navigation, automatic level design or image providers.
+All collisions require human judgment, especially on partly transparent transition
+tiles. [Convex polygons, slopes and one-way platforms](COLLISIONS.md) are supported;
+animated tiles, hex/isometric terrain, navigation, automatic level design and image
+providers remain outside this slice.
 
 Tests cover bounds, coverage, seams, permission grants, preview/apply, CLI discovery,
 immutable edits, exact approval, tampering and safe import. Real Godot checks load

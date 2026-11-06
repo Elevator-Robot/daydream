@@ -30,9 +30,9 @@ def save_revision(output, files, apply=False, *, kind="sprite"):
         source = validate_source(json.loads(files["source.json"]))
         expected = artifact_names(source) | {"manifest.json", ".gdignore"}
     elif kind == "tileset":
-        from tileset_core import ARTIFACTS, validate_source
-        validate_source(json.loads(files["source.json"]))
-        expected = ARTIFACTS | {"manifest.json", ".gdignore"}
+        from tileset_core import artifact_names, validate_source
+        source = validate_source(json.loads(files["source.json"]))
+        expected = artifact_names(source) | {"manifest.json", ".gdignore"}
     else:
         raise ValueError("Unsupported revision bundle kind")
     if set(files) != expected:

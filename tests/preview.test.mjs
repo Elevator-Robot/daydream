@@ -123,14 +123,21 @@ seed={'schema_version':1,'name':'floor','width':4,'height':4,'palette':{'a':'#ff
 other={**seed,'name':'wall','pixels':['bbbb']*4}
 tiles=tileset_core.transitions(seed,other,'terrain',['floor','wall'])
 r=execute('tileset.create',{'source':tiles,'output':'art/terrain','apply':True},root)
+assert r['ok'],r
+r=execute('tileset.edit',{'bundle':'art/terrain','tiles':[{'id':'tile-1-15','collision_preset':{'preset':'platform','one_way_margin':0.5}}],'output':'art/terrain-shapes','apply':True},root)
 assert r['ok'],r`, f.root, recipe], { encoding: 'utf8' });
   assert.equal(generated.status, 0, generated.stderr);
-  for (const bundle of ['art/dot', 'art/walk', 'art/terrain']) {
+  for (const bundle of ['art/dot', 'art/walk', 'art/terrain', 'art/terrain-shapes']) {
     const viewer = await f.call('asset', { bundle });
     assert.match(viewer.html, /data:image\/png;base64,/);
     assert.match(viewer.html, /does not approve or import/);
     assert.match(viewer.html, /Content-Security-Policy/);
     assert.equal(viewer.revision_hash.length, 64);
+    if (bundle === 'art/terrain-shapes') {
+      assert.match(viewer.html, /Collision coverage/);
+      assert.match(viewer.html, /Exact collision geometry/);
+      assert.match(viewer.html, /one_way_margin/);
+    }
     await assert.rejects(readFile(path.join(f.root, bundle, 'approval.json')), { code: 'ENOENT' });
   }
   await writeFile(path.join(f.root, 'art/dot/preview.png'), 'tampered');

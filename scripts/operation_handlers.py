@@ -9,6 +9,7 @@ import sprite_core as sprite
 import sprite_store as store
 import tileset_core as tileset
 from tileset_godot import outputs as tileset_outputs
+import collision_core as collision
 
 
 def project_init(context, data):
@@ -123,7 +124,8 @@ def tileset_edit(context, data):
             raise ValueError("Cannot edit an unknown tile ID")
         tile = by_id[change["id"]]
         if "patch" in change: tile["source"] = sprite.edit_source(tile["source"], change["patch"])
-        for key in ("solid", "terrain", "corners"):
+        collision.edit_collision(tile, change)
+        for key in ("terrain", "corners"):
             if key in change: tile[key] = change[key]
     if "cells" in data: source["cells"] = data["cells"]
     if "recolor" in data:
@@ -140,10 +142,13 @@ def tileset_edit(context, data):
 def tileset_inspect(context, data):
     revision = tileset.load_revision(context.path(data["bundle"]))
     source = revision["source"]
-    return {"name": source["name"], "revision_hash": revision["revision_hash"], "artifact_kind": "tileset",
+    result = {"name": source["name"], "revision_hash": revision["revision_hash"], "artifact_kind": "tileset",
             "terrains": source["terrains"], "tiles": [{key: value for key, value in tile.items() if key != "source"} for tile in source["tiles"]],
             "seams": tileset.seams(source), "preview": str(revision["path"] / "preview.html"),
-            "tile_preview": str(revision["path"] / "preview.png"), "layout_preview": str(revision["path"] / "layout.png")}, []
+            "tile_preview": str(revision["path"] / "preview.png"), "layout_preview": str(revision["path"] / "layout.png"), "collisions": collision.summary(source)}
+    if "collisions.png" in revision["files"]:
+        result["collision_preview"] = str(revision["path"] / "collisions.png")
+    return result, []
 
 
 def tileset_approve(context, data):

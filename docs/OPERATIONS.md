@@ -34,6 +34,9 @@ and `animation.create/assemble/edit/inspect/approve/import` (each slash-separate
 action is its own `area.action` ID). Describe returns exact bounded input schemas.
 Environment art adds `tileset.create/transitions/edit/inspect/approve/import`;
 see [tilesets](TILESETS.md) for terrain, seams, collisions and approval boundaries.
+`tileset.create/edit` now accept bounded convex collision pieces; edits also offer
+slope/platform presets. Inspect returns coverage/one-way counts and an optional
+collision overlay. Schema validation is shared with the CLI; see [collisions](COLLISIONS.md).
 `animation.assemble` takes existing static revision bundles, ordered frame IDs,
 named clips, durations, loop flags and a shared pivot; it validates canvas and
 palette consistency and generates standard animation artifacts/provenance.

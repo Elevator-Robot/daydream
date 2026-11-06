@@ -140,6 +140,9 @@ For walls and floors, Daydream can generate matching terrain transitions from
 your pixel-art seed tiles, check their seams, preview a layout, and import an
 approved Godot TileSet with collision flags. See the [environment-art workflow](docs/TILESETS.md).
 
+Tiles can also use custom convex pieces, ramp presets and one-way platforms,
+with reviewable geometry overlays. See [tile collisions](docs/COLLISIONS.md).
+
 ## Useful options
 
 ```sh

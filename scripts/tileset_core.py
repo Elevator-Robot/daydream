@@ -8,6 +8,7 @@ import itertools
 from pathlib import Path
 
 import sprite_core as sprite
+import collision_core as collision
 
 KIND = "tileset"
 ARTIFACTS = {"source.json", "atlas.png", "preview.png", "layout.png", "seams.json", "preview.html"}
@@ -26,8 +27,8 @@ def validate_source(source):
         raise ValueError("Use 1–192 environment tiles")
     ids, canvas, palette = set(), None, None
     for tile in tiles:
-        if not isinstance(tile, dict) or set(tile) != {"id", "source", "terrain", "corners", "solid"}:
-            raise ValueError("Each tile needs id, source, terrain, corners and solid")
+        if not isinstance(tile, dict) or not {"id", "source", "terrain", "corners", "solid"}.issubset(tile) or set(tile) - {"id", "source", "terrain", "corners", "solid", "collisions"}:
+            raise ValueError("Each tile needs id, source, terrain, corners, solid and optional collisions")
         name = tile["id"]
         if not isinstance(name, str) or not sprite.NAME.fullmatch(name) or name in ids:
             raise ValueError("Tile IDs must be distinct lowercase slugs")
@@ -41,6 +42,10 @@ def validate_source(source):
         canvas, palette = size, value["palette"]
         if type(tile["terrain"]) is not int or not 0 <= tile["terrain"] < len(terrains) or type(tile["solid"]) is not bool:
             raise ValueError("Invalid tile center terrain or solid flag")
+        if "collisions" in tile:
+            if tile["solid"]:
+                raise ValueError("Explicit collision polygons require solid:false; do not combine legacy full-tile and custom shapes")
+            collision.validate_polygons(tile["collisions"], *size)
         if not isinstance(tile["corners"], list) or len(tile["corners"]) != 4 or any(type(bit) is not int or not -1 <= bit < len(terrains) for bit in tile["corners"]):
             raise ValueError("Corners must be terrain indices ordered top-left, top-right, bottom-right, bottom-left")
     for key in ("collision_layer", "collision_mask"):
@@ -155,6 +160,10 @@ def transitions(background, foreground, name, terrains, solid_foreground=False):
                             "cells": cells, "collision_layer": 1, "collision_mask": 1})
 
 
+def artifact_names(source):
+    return ARTIFACTS | ({"collisions.png"} if any("collisions" in tile for tile in source["tiles"]) else set())
+
+
 def images(source):
     Image, _ = sprite.pillow()
     from PIL import ImageDraw
@@ -165,6 +174,8 @@ def images(source):
     atlas = Image.new("RGBA", (columns*w, ((len(source["tiles"])+columns-1)//columns)*h))
     preview = Image.new("RGBA", (columns*cell_width, ((len(source["tiles"])+columns-1)//columns)*(h+12)), "#252934")
     rendered = {}
+    overlays = {}
+    has_geometry = "collisions.png" in artifact_names(source)
     for index, tile in enumerate(source["tiles"]):
         image = Image.new("RGBA", (w, h))
         image.putdata([pixel for row in rgba_rows(tile["source"]) for pixel in row])
@@ -176,23 +187,48 @@ def images(source):
         draw.text((x, y+h), str(index), fill="white")
         if tile["solid"]:
             draw.rectangle((x, y, x+w-1, y+h-1), outline="#ffcc00")
+        if "collisions" in tile:
+            for polygon in collision.effective_polygons(tile):
+                points = [(x + min(w-1, px), y + min(h-1, py)) for px, py in polygon["points"]]
+                draw.line(points + points[:1], fill="#00e5ff" if polygon["one_way"] else "#ffcc00", width=1)
+        if has_geometry:
+            overlay = Image.new("RGBA", (w, h))
+            geometry = ImageDraw.Draw(overlay)
+            for polygon in collision.effective_polygons(tile):
+                points = [(min(w-1, px), min(h-1, py)) for px, py in polygon["points"]]
+                geometry.polygon(points, fill=(0, 229, 255, 80) if polygon["one_way"] else (255, 204, 0, 80))
+                geometry.line(points + points[:1], fill="#00e5ff" if polygon["one_way"] else "#ffcc00", width=1)
+            overlays[tile["id"]] = Image.alpha_composite(image, overlay)
     max_x = max((cell["x"] for cell in source["cells"]), default=0) + 1
     max_y = max((cell["y"] for cell in source["cells"]), default=0) + 1
     layout = Image.new("RGBA", (max_x*w, max_y*h))
+    collision_layout = Image.new("RGBA", layout.size) if overlays else None
     for cell in source["cells"]:
         layout.paste(rendered[cell["tile"]], (cell["x"]*w, cell["y"]*h))
+        if collision_layout is not None:
+            collision_layout.paste(overlays[cell["tile"]], (cell["x"]*w, cell["y"]*h))
     # Enlarge only within 1024 pixels; never shrink away native tile pixels.
     scale = max(1, min(4, 1024 // max(preview.size)))
     preview = preview.resize((preview.width*scale, preview.height*scale), Image.Resampling.NEAREST)
-    return {"atlas.png": atlas, "preview.png": preview, "layout.png": layout}
+    result = {"atlas.png": atlas, "preview.png": preview, "layout.png": layout}
+    if collision_layout is not None:
+        result["collisions.png"] = collision_layout
+    return result
 
 
 def viewer(source, report):
-    return ('<!doctype html><meta charset="utf-8"><title>Daydream tileset</title>'
+    legacy = ('<!doctype html><meta charset="utf-8"><title>Daydream tileset</title>'
             '<style>body{background:#20232b;color:white;font:16px system-ui}img{image-rendering:pixelated;max-width:100%}</style>'
             '<h1>' + html.escape(source["name"]) + '</h1><p>Yellow outlines indicate full-tile collisions. '
             f'Boundary mismatches: {report["mismatch_count"]}. Human art review is still required.</p>'
             '<h2>Tiles (indices match source order)</h2><img src="preview.png"><h2>Example layout</h2><img src="layout.png">').encode()
+    if "collisions.png" not in artifact_names(source):
+        return legacy  # Keep already-approved legacy viewer bytes unchanged.
+    details = [{"id": tile["id"], "polygons": collision.effective_polygons(tile)} for tile in source["tiles"]]
+    return (legacy.replace(b'Yellow outlines indicate full-tile collisions.',
+                           b'Yellow outlines indicate solid geometry; cyan indicates one-way geometry (local upward blocking).')
+            + b'<h2>Collision coverage (not artwork)</h2><img src="collisions.png"><p>Raster overlays are approximate at tile-pixel resolution. Exact half-pixel coordinates and margins are listed below; shapes are not inferred from artwork alpha.</p><details><summary>Exact collision geometry</summary><pre>'
+            + html.escape(json.dumps(details, indent=2)).encode() + b'</pre></details>')
 
 
 def make_revision(source, provenance):
@@ -214,19 +250,23 @@ def load_revision(path):
     path = Path(path).expanduser().absolute()
     fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        files = {name: sprite.read_regular(name, 8 * 1024 * 1024, dir_fd=fd, base=path) for name in sorted(ARTIFACTS | {"manifest.json", ".gdignore"})}
+        source_data = sprite.read_regular("source.json", 1024 * 1024, dir_fd=fd, base=path)
+        source = validate_source(json.loads(source_data))
+        names = artifact_names(source)
+        files = {name: sprite.read_regular(name, 8 * 1024 * 1024, dir_fd=fd, base=path) for name in sorted(names | {"manifest.json", ".gdignore"})}
     finally:
         os.close(fd)
     if sum(map(len, files.values())) > 24 * 1024 * 1024:
         raise ValueError("Tileset revision exceeds 24 MiB")
-    source = validate_source(json.loads(files["source.json"]))
+    if files["source.json"] != source_data:
+        raise ValueError("Tileset source changed while reading the revision")
     manifest = json.loads(files["manifest.json"])
-    if not isinstance(manifest, dict) or type(manifest.get("schema_version")) is not int or manifest["schema_version"] != 1 or manifest.get("kind") != KIND or manifest.get("name") != source["name"] or not isinstance(manifest.get("files"), dict) or set(manifest["files"]) != ARTIFACTS:
+    if not isinstance(manifest, dict) or type(manifest.get("schema_version")) is not int or manifest["schema_version"] != 1 or manifest.get("kind") != KIND or manifest.get("name") != source["name"] or not isinstance(manifest.get("files"), dict) or set(manifest["files"]) != names:
         raise ValueError("Invalid tileset manifest")
     provenance, generator = manifest.get("provenance"), manifest.get("generator")
     if not isinstance(provenance, dict) or provenance.get("method") not in {"tileset-source", "tileset-transitions", "tileset-edit"} or not (provenance.get("license") is None or isinstance(provenance["license"], str)) or not isinstance(generator, dict) or generator.get("tool") != "daydream-tilesets" or not isinstance(generator.get("pillow"), str):
         raise ValueError("Invalid tileset provenance")
-    if any(sprite.digest(files[name]) != manifest["files"][name] for name in ARTIFACTS):
+    if any(sprite.digest(files[name]) != manifest["files"][name] for name in names):
         raise ValueError("Tileset artifact hash mismatch")
     report = seams(source)
     if files["seams.json"] != sprite.encoded(report) or files["preview.html"] != viewer(source, report):

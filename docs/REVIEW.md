@@ -22,7 +22,7 @@ There is no new install flag, model-facing approval tool, service or browser ser
    shows the candidate name, review state and hash prefix; the full hash appears
    in the browser and final confirmation.
 2. Inspect the actual sprite, watch animation motion, or check tile layout and
-   full-tile collision outlines. Viewer startup alone does not establish review.
+   collision outlines and exact geometry/settings. Viewer startup alone does not establish review.
 3. Choose **Approve exact revision**, **Request changes**, or **Cancel**. Cancel
    is the default selection. Reopening the same preview is also available.
 4. Approval requires a reviewer label and an explicit confirmation of the full

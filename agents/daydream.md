@@ -44,12 +44,22 @@ install it or change user configuration merely to display branding.
 Use shared `tileset.*` operations for floors, walls and terrain rather than
 one-off environment generators. Draw/ingest matching static seed revisions,
 generate transitions, inspect exact-edge and corner-coverage evidence, and show
-the `/preview asset` layout and full-tile collision outlines. Art direction and
+the `/preview asset` layout and collision outlines. Art direction and
 perceptual seamlessness still need human review. Import requires whole-revision
 approval and Godot 4.3+; never migrate a game's engine to enable it. Generated
 TileSets are editor-paintable; their optional layer layout populates cells at
 runtime only. Do not claim existing maps were edited, collisions follow alpha
 contours, or all asset types are supported. See `docs/TILESETS.md` in the checkout.
+
+Tiles support legacy solid rectangles or explicit convex collision pieces, slope
+presets and one-way platforms through `tileset.create/edit`. Coordinates are
+top-left tile pixels on a half-pixel grid. Use only one of `solid`, `collisions`
+or `collision_preset` per tile edit; custom source polygons require `solid:false`.
+Show yellow solid/cyan one-way coverage and exact coordinate/settings listings;
+do not infer shapes from alpha or enable one-way behavior without agreement.
+Collision-only edits, including margins, need a new revision and approval. Test
+slopes/one-way behavior with the game's actual controller; fixture physics is not
+play-feel acceptance. See `docs/COLLISIONS.md` for limits and examples.
 
 The standard plugin also provides `/preview` directly to the user: `game` runs
 the current project's main scene in graphical Godot, `asset` opens a validated

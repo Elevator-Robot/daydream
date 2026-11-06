@@ -1,0 +1,9 @@
+{
+  "bundle": "art/tiles/garden-walls-v1",
+  "tiles": [
+    {"id": "tile-1-15", "collision_preset": {"preset": "slope_up_right"}},
+    {"id": "tile-1-12", "collision_preset": {"preset": "slope_up_left"}},
+    {"id": "tile-1-03", "collision_preset": {"preset": "platform", "thickness": 2, "one_way_margin": 1}}
+  ],
+  "output": "art/tiles/garden-walls-collisions-v2"
+}
