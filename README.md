@@ -93,6 +93,11 @@ Game preview executes project code and asks for authorization. The standard
 install includes the command; it does not need a model call. See
 [preview setup and engine pins](docs/PREVIEW.md).
 
+Run `/asset-review` (or `/preview review`) to review sprites, animations and
+tilesets, **approve an exact revision** or **request changes**, and then review
+and apply an import plan separately. No terminal approval command is needed.
+See [review and approval](docs/REVIEW.md). OpenCode's `/review` still means code review.
+
 ## Pixel-art sprites (optional)
 
 The standard install includes the [native tools interface](docs/OPERATIONS.md)

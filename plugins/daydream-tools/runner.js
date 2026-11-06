@@ -16,7 +16,7 @@ export function errorResult(code, message, partial = false) {
     next: "Inspect dependencies and any partial new output before retrying; do not bypass a permission denial." } };
 }
 
-export function createRunner(checkout, options = {}, spawnProcess = spawn) {
+export function createRunner(checkout, options = {}, spawnProcess = spawn, surface = "native") {
   return async function run(project, request, signal) {
     if (signal?.aborted) return errorResult("cancelled", "Operation cancelled before execution");
     let input;
@@ -48,7 +48,7 @@ export function createRunner(checkout, options = {}, spawnProcess = spawn) {
       };
       const aborted = () => finish(errorResult("cancelled", "Operation cancelled; new output may be partial", partial), true);
       try {
-        child = spawnProcess(python, [script, "--project", project, "rpc", "--native"],
+        child = spawnProcess(python, [script, "--project", project, "rpc", surface === "review_ui" ? "--review-ui" : "--native"],
           { cwd: project, stdio: ["pipe", "pipe", "pipe"], shell: false });
       } catch (error) { finish(errorResult("dependency_missing", `Cannot start Python backend: ${error.message}`)); return; }
       timeout = setTimeout(() => finish(errorResult("timeout", "Python operation exceeded 120 seconds", partial), true), 120000);

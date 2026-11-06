@@ -3,6 +3,105 @@
 Internal milestones and acceptance criteria. For installation and everyday use,
 see the [user README](../README.md).
 
+**Last updated: 2026-11-05. Feature baseline before integrated review: `fd8b5a4`.
+This update includes the implemented and validated integrated review UI.**
+
+## START HERE NEXT — integrated review is delivered; choose the next increment
+
+> **P0 and P1 are complete. The user confirmed both on 2026-11-04.
+> Do not send them back through initial acceptance or treat the real-game trial
+> as the next unstarted milestone. The selected P2 feature—integrated asset review,
+> approval and separate import—is now implemented and verified. Resume at P3 below.**
+
+### Completed acceptance
+
+- [x] **P0 — live OpenCode/TUI workflow:** user reports completion of the native
+  tool, asset-preview, revision/approval/import and game-preview acceptance phase.
+- [x] **P1 — authorized real-game integration:** user reports completion of the
+  real-game trial described in milestone 2.
+
+**Evidence attribution:** these completion states come from the user's explicit
+confirmation, separately from the automated/graphical fixtures recorded below.
+The game, engine versions, specific change, captures, commit and detailed feedback
+were not supplied in that confirmation. Do not invent them or claim an independent
+assistant review of the user's trial. Capturing those details is a handoff task,
+not a reason to reopen the completed phases or ask the user to repeat them.
+
+### P2 — integrated review and approval (IMPLEMENTED AND VERIFIED)
+
+- [x] User selected the integrated review/approval experience for sprites,
+  animations and tilesets, replacing the mandatory CLI approval step.
+- [x] `/asset-review` and `/preview review`: exact-revision browser review, explicit
+  approval, retained change requests or cancellation. Built-in `/review` is preserved.
+- [x] Shared-core hash-bound status/feedback, immutable records and fresh approval
+  after revisions. Requested changes block further approval/import of that candidate.
+- [x] Separately displayed/confirmed import plan, bound to revision, paths, generated
+  content and resulting index. Permission denial, cancellation and stale plans fail safely.
+- [x] Python/Node regressions and actual isolated OpenCode TUI verification of
+  approval, separate import, changes and cancellation. See the [dated evidence](validation/2026-11-05-asset-review.md).
+
+### P3 — select the next product increment (NEXT; not selected)
+
+**First action on resume:** collect feedback on the now-integrated workflow and
+agree on the next improvement with the user. Options include editor-visible
+layouts, richer collision shapes or another asset capability; no priority order
+or implementation scope has been authorized yet. Retain any additional P0/P1
+project/engine/change details when the user supplies them; do not invent them or
+reopen those completed phases merely because detailed trial notes are unavailable.
+
+**P3 exit criterion:** one next increment is explicitly selected and scoped,
+implemented in the shared capability layer and validated with retained evidence.
+Completed testing is not blanket authorization to edit the tested game, install
+software, migrate an engine, connect a paid provider, or add an editor service.
+
+## Progress snapshot — what is actually done
+
+“Implemented” below means reusable code and documented interfaces exist; it does
+not mean human acceptance or the full idea-to-playable product is complete.
+
+| Area | Implemented now | Evidence / remaining boundary |
+| --- | --- | --- |
+| Product direction | Summer alternative for stock Godot/OpenCode, persisted in contributor and installable agent instructions; pinned public-source research | No Summer installation, closed-editor access, full parity claim, or copied implementation |
+| Installation/startup | Preview-first non-overwriting launcher, agent, intro and native tools by default; explicit `--agent-only` exception | Installed launcher/session entry verified previously; no `--with-tools` flag is needed |
+| Native tools | Typed sprite/animation/tileset actions, search/describe/call, structured results, shared Python backend and CLI, permission checks and cancellation | Actual loading/describe calls and isolated checks verified; P0/P1 complete per user confirmation |
+| Static sprites | Pixel specs, bounded PNG ingestion, immutable edits, transparent images/previews, exact approval and Godot import | Unit/resource checks and image inspection; user confirms the overall acceptance phases complete, without per-asset details |
+| Animation | Ordered clips, timing/loop/pivot, frame-revision assembly, atlas/APNG/contact/HTML previews, whole-animation approval and Godot resources | Real Godot ordering/timing/playback checks; P0/P1 user-confirmed, detailed motion feedback not yet recorded |
+| Environment tiles | Editable tiles, 162 two-terrain/empty corner patterns, seam/coverage checks, layout previews, full-tile collision flags, approved TileSet/TileMapLayer import | Terrain painting/layout/physics fixtures and synthetic render inspected; P0/P1 user-confirmed, trial details not yet recorded |
+| User preview | Native `/preview` game/asset/status/stop UI, shared runtime service/RPC/tool, owned-process tracking, engine selection and browser viewer | Native/RPC status and graphical fixtures verified; user confirms live UI/real-game phases complete |
+| Review and approval | `/asset-review` across all asset kinds; explicit decisions, retained feedback and separately confirmed exact import plans; no model-facing approval tool | Actual standalone TUI approval/import/change/cancel flow verified with synthetic assets; see dated evidence |
+| Safety | Preview-before-apply, non-overwriting outputs/sidecars, project scope, exact-hash approval, no native auto-approval, no installs/permission widening | Tested in isolated fixtures; not an OS sandbox or authenticated proof of human review |
+
+### Validation baseline
+
+- Latest feature validation: **138 Python-discovered tests passed** in the isolated
+  Pillow environment with Godot/ttfx checks enabled. The dependency-free run passed
+  with **50 optional tests skipped**. Node adapter/viewer/review tests run through the suite.
+- Separate graphical preview checks launched/stopped only an isolated synthetic
+  Godot project. A synthetic tileset scene was also rendered; its actual viewport
+  capture and numbered tile preview were inspected. These are not user-approved
+  artwork or an existing-game playtest.
+- Commands and fixture boundaries: [development](DEVELOPMENT.md). Prior temporary
+  images/logs may disappear; do not treat their paths as durable acceptance reports
+  or infer user acceptance from unit-test counts. P0/P1 completion is attributed
+  to the user's confirmation, not those fixture results.
+- Shipped feature commits: `7d3225d` native asset operations, `9d6e651` game/asset
+  preview, and `fd8b5a4` environment tiles. This roadmap update does not itself
+  authorize a new commit, push, installation or game-project change.
+
+### Explicitly not finished / not part of the current bounded slice
+
+- General prompt-to-image generation, hosted providers, automatic game/level design,
+  Godot editor control, and broader effects/audio/3D asset creation.
+- Animated tiles, hex/isometric terrain, arbitrary/slope collision polygons,
+  navigation, and layouts baked into editor cell data. The generated TileSet is
+  editor-paintable; its companion example layout populates **at runtime**.
+- Authenticated human identity, an OS sandbox, and review support for asset kinds
+  not yet implemented. The integrated UI covers sprites, animations and tilesets;
+  CLI approval remains a fallback and there is no model-facing approval tool.
+- Portable screenshot/input automation and a fully autonomous verified game loop.
+  No new provider/service/editor bridge is authorized merely because P0/P1 are done;
+  select the next capability from user feedback in P3.
+
 ## Vision
 
 Daydream is a **Summer Engine alternative for stock Godot and OpenCode**, not just
@@ -18,25 +117,24 @@ direction, not a claim that generation or automated assembly works today.
 See [features and enabling tools](FEATURES.md) for the proposed creative feature
 set, candidate tools, and a first asset-creation milestone.
 
-## Discoverable operation interface (implemented; live asset-flow acceptance pending)
+## Discoverable operation interface (implemented; P0/P1 user-confirmed complete)
 
 - Pinned public-source [Summer architecture study](research/SUMMER_ARCHITECTURE.md),
   distinguishing implemented code from design claims and closed-editor behavior.
-- Canonical typed catalog, structured results, CLI search/describe/call and an
+- Canonical typed catalog, structured results, CLI search/describe/call and a
   native V2 adapter included in the standard install over shared asset implementations.
   See [operations](OPERATIONS.md).
 - Frame-revision assembly replaces per-game manual atlas/GIF composition for
   compatible inputs; existing game candidates are not migrated automatically.
 - Native read/edit checks, adapter-owned logical file grants, non-writing previews,
-  cancellation and bounded subprocess execution. No native artwork approval.
+  cancellation and bounded subprocess execution. No model-facing approval decisions;
+  the user review UI uses the same shared backend with its own permission checks.
 - Live OpenCode loading/discovery and describe execution verified after resolving
   the installed plugin symlink before locating the Python backend.
-- Remaining: live asset write/permission flows, human motion review and graphical
-  game acceptance. No claim of Summer parity or implemented editor control.
+- User confirms live acceptance and real-game phases complete; detailed trial
+  feedback/evidence can be retained in the P3 handoff. No claim of Summer parity or editor control.
 
-## Boundaries
-
-### Interactive preview (implemented; end-to-end UI acceptance pending)
+## Interactive preview (implemented; P0/P1 user-confirmed complete)
 
 - Native `/preview` picker with game, asset, status and owned-process stop actions.
 - Shared runtime service behind RPC and a native tool; no model round trip or daemon.
@@ -45,15 +143,20 @@ set, candidate tools, and a first asset-creation milestone.
 - Hash-validated self-contained browser asset viewer with no approval/import effects.
 - See [preview](PREVIEW.md) for remote-server behavior, test evidence and limits.
 
-- **Daydream:** reusable instructions, narrow helpers, tests, installation docs.
+## Boundaries
+
+- **Daydream:** reusable capability implementations, native tools/commands, CLI,
+  agent instructions, tests and product documentation—not a game repository.
 - **dotfiles:** optional global wiring only, added separately when authorized.
 - **each game:** engine pin, controls, architecture, design intent, assets, tests,
   and its own `AGENTS.md`. A test game is not a global dependency.
 
-The initial implementation is intentionally filesystem/CLI-based. No background
-service, Godot addon, MCP endpoint, screenshot mechanism, or remote-control port
-is installed. Existing OpenCode configuration remains the authority for tools
-and permissions. Future integrations need their own permission/trust review.
+Asset operations share a local Python implementation behind CLI and native
+OpenCode V2 adapters; the existing plugin also owns the stateful preview service
+and TUI command. No separate daemon, Godot addon, MCP endpoint, persistent
+screenshot mechanism, or remote-control port is installed. Existing OpenCode
+configuration remains the authority for tools and permissions. Future integrations
+need their own permission/trust review.
 
 ## 0 — Starter (implemented)
 
@@ -82,10 +185,12 @@ and permissions. Future integrations need their own permission/trust review.
 - Dependency-free unit tests, opt-in real-engine tests in temporary fixture
   copies, and a read-only-permissions CI workflow for the unit suite.
 
-This milestone does **not** prove OpenCode loads the agent on the user's machine
-or that the agent can complete a game change autonomously.
+Installed agent/launcher entry and native plugin discovery have since been
+verified separately. This milestone does **not** prove the agent can complete a
+game change autonomously. The user confirms P0/P1 completion; the next handoff is
+feedback and increment selection in P3, not a claim of full autonomous game creation.
 
-## 1 — Static sprite workflow (implemented tools; human/real-game acceptance pending)
+## 1 — Static sprite workflow (implemented; P0/P1 user-confirmed complete)
 
 - Optional Pillow-backed pixel-grid rendering, transparent PNG output, and
   enlarged checkerboard previews. No image-generation API or automatic install.
@@ -99,11 +204,12 @@ or that the agent can complete a game change autonomously.
 - Isolated unit tests, actual PNG preview inspection, and a real Godot resource
   import/startup check. See [scope, commands, and remaining review](SPRITES.md).
 
-**Still pending:** user art approval, graphical verification in a real game, and
-the broader loop below. Animation, resize, provider generation, and full scene
-assembly remain out of scope for this slice.
+The user confirms the overall acceptance phases are complete; the specific
+artwork/change and feedback have not yet been documented here. Each future asset
+still requires its own approval. Animation is covered in 1b; resize, provider
+generation and full scene assembly remain outside this static slice.
 
-## 1b — Frame-based animation extension (implemented tools; motion acceptance pending)
+## 1b — Frame-based animation extension (implemented; P0/P1 user-confirmed complete)
 
 - Named, ordered clips built from static bases and pixel/patch-defined frames.
   Fixed canvas/palette and one explicit pivot; no automatic trimming or resizing.
@@ -116,12 +222,12 @@ assembly remain out of scope for this slice.
   with explicit pivot and autoplay, without replacing game scenes or scripts.
 - Real Godot checks cover frame regions/order/durations, looping progress, and a
   non-looping clip stopping on its last frame. Contact sheets have been read;
-  human motion review and graphical Godot acceptance are still pending.
+  the user confirms P0/P1 completion, with detailed motion feedback still to record.
 
 See [animation usage, limits, and evidence](ANIMATIONS.md). No new image provider,
 runtime service, package, interpolation system, or character controller is added.
 
-## 1c — Environment tilesets (implemented; real-game art acceptance pending)
+## 1c — Environment tilesets (implemented; P0/P1 user-confirmed complete)
 
 - Shared sprite-based tile creation/editing, 162-pattern two-terrain transitions
   including empty-map boundaries, exact compatible-edge checks and layout previews.
@@ -130,18 +236,22 @@ runtime service, package, interpolation system, or character controller is added
 - Non-overwriting Godot 4.3+ TileSet/corner-terrain/full-tile collision import;
   a reusable layer populates an approved explicit layout at runtime, not editor time.
 - Real Godot terrain-painting, atlas, layer placement and physics ray-hit fixtures.
-- Remaining: human environment-art review and real-game integration/playtesting;
-  this is not universal asset generation, level design or general image generation.
+- User confirms the overall live/real-game acceptance phases are complete; record
+  the trial details when provided in P3. This is not universal asset generation or level design.
   See [environment art](TILESETS.md).
 
-## 2 — Prove the real game loop (next; not yet done)
+## 2 — Prove the real game loop (complete per user confirmation, 2026-11-04)
+
+P1 is complete according to the user. The following is the retained acceptance
+procedure, not an instruction to repeat the trial. Project-specific evidence and
+feedback should be captured in P3 when supplied.
 
 On an authorized development machine with a trusted Godot project:
 
 1. Install or manually wire the agent; verify `opencode debug agents` discovers it.
 2. Capture a baseline: game commit/working changes, exact engine and OpenCode
    versions, test commands, and a reproducible scene/interaction.
-3. Choose one small observable code or approved-sprite/animation change with
+3. Choose one small observable code or approved-sprite/animation/tileset change with
    acceptance criteria. No redesign, engine migration, or broader asset pipeline.
 4. Let the agent inspect, edit, and run appropriate checks; inspect the diff and
    distinguish pre-existing failures from regressions.
@@ -191,13 +301,16 @@ art-direction review. Concrete providers, asset formats, and integrations need
 separate design and approval. Do not make any provider or paid API a prerequisite
 for the core agent.
 
-## References checked during initialization (2026-10-25)
+## Reference starting points
 
-- [OpenCode agents](https://opencode.ai/docs/agents/)
-- [OpenCode config directories](https://opencode.ai/docs/config/)
-- [OpenCode permissions](https://opencode.ai/docs/permissions/)
-- [OpenCode CLI](https://opencode.ai/docs/cli/)
+- [OpenCode V2](https://opencode.ai/v2/docs/)
+- [OpenCode V2 CLI](https://opencode.ai/v2/docs/cli)
+- [Native plugin architecture](https://opencode.ai/v2/docs/build/plugins)
+- [Server tools and permissions](https://opencode.ai/v2/docs/build/plugins/server)
+- [TUI commands/dialogs](https://opencode.ai/v2/docs/build/plugins/cli)
+- [Typed plugin RPC](https://opencode.ai/v2/docs/build/plugins/rpc)
 - [Godot CLI, stable](https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html)
-- [Godot CLI, 4.4](https://docs.godotengine.org/en/4.4/tutorials/editor/command_line_tutorial.html)
+- [Godot TileSet](https://docs.godotengine.org/en/stable/classes/class_tileset.html)
+- [Godot TileMapLayer](https://docs.godotengine.org/en/stable/classes/class_tilemaplayer.html)
 
 Recheck documentation for the actual installed versions before changing setup.

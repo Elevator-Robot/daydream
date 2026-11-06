@@ -9,12 +9,18 @@ The standard Daydream plugin includes a native OpenCode TUI command:
 /preview asset art/slime-v1       Open a specific revision (spaces are supported)
 /preview status                  Show tracked game state and recent diagnostics
 /preview stop                    Stop only the game Daydream launched
+/preview review                  Review/approve an exact asset revision
 ```
 
 No model request is needed. The command also appears as **Preview game or asset**
 in the command palette, while a session is open. Restart OpenCode if the new TUI
 part has not been discovered; no extra install flag is needed. Agent-only
 installations do not include it.
+
+The picker also offers **Review / approve asset**. `/asset-review [bundle]` opens
+the same review flow directly, with explicit approval/change requests and a
+separate import plan/apply step. `/preview asset` remains read-only. OpenCode's
+built-in `/review` code-review command is not replaced. See [review](REVIEW.md).
 
 ## Game preview
 

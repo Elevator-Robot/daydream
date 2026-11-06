@@ -171,5 +171,20 @@ def approve(context, data, loader):
 
 
 def importing(context, data, loader, output_builder):
-    result = store.import_revision(context.path(data["bundle"]), context.root, data.get("name"), data.get("destination"), data.get("apply", False), loader=loader, output_builder=output_builder)
+    result = store.import_revision(context.path(data["bundle"]), context.root, data.get("name"), data.get("destination"), data.get("apply", False), loader=loader, output_builder=output_builder, revision_hash=data.get("revision_hash"), plan_hash=data.get("plan_hash"))
     return result, [context.path(path) for path in [*result["create"], result["update"]]]
+
+
+def review_loader(kind):
+    return {"sprite": sprite.load_revision, "animation": animation.load_revision, "tileset": tileset.load_revision}[kind]
+
+
+def review_inspect(context, data):
+    from review_core import status
+    return status(review_loader(data["kind"])(context.path(data["bundle"]))), []
+
+
+def review_feedback(context, data):
+    from review_core import request_changes, FEEDBACK_FILE
+    result = request_changes(context.path(data["bundle"]), data["revision_hash"], data["reviewer"], data["feedback"], data.get("apply", False), loader=review_loader(data["kind"]))
+    return result, [] if result["action"] == "keep_feedback" else [context.path(data["bundle"]) / FEEDBACK_FILE]

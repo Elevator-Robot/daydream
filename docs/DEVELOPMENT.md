@@ -25,6 +25,12 @@ suite; when present it runs the intro's dependency-free JavaScript tests and
 syntax check. Without Node, those checks are skipped. CI runs the ordinary unit
 suite and does not download Godot or exercise an OpenCode UI.
 
+The suite also runs the native adapter, preview and user-review Node tests. With
+Pillow enabled, review tests use the real Python backend in disposable projects
+for all asset kinds. See [review validation](validation/2026-11-05-asset-review.md)
+for the separate actual OpenCode TUI test; unit tests alone do not establish UI
+interaction or human artwork approval.
+
 The real-engine tests import and briefly run an isolated synthetic fixture and
 verify a broken-script case. The fixture is not a sample game. Initial cloud
 validation used Godot 4.6.3; subsequent local checks used 4.7.2. Neither is a
@@ -110,6 +116,7 @@ play-feel review. Never infer appearance or usability from headless success.
 - [Operations](OPERATIONS.md): shared catalog, CLI, native adapter and validation boundaries.
 - [Preview](PREVIEW.md): user slash command, owned Godot runtime and browser asset viewer.
 - [Environment tiles](TILESETS.md): shared tile generation, seams, terrain, layout and collision checks.
+- [Review and approval](REVIEW.md): user-only decisions, retained feedback and exact-plan import.
 - [Feature plan](FEATURES.md): proposed creative tools and hook safeguards.
 - [Roadmap](ROADMAP.md): implemented capabilities and acceptance criteria.
 

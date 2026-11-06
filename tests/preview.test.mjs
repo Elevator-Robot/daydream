@@ -128,7 +128,7 @@ assert r['ok'],r`, f.root, recipe], { encoding: 'utf8' });
   for (const bundle of ['art/dot', 'art/walk', 'art/terrain']) {
     const viewer = await f.call('asset', { bundle });
     assert.match(viewer.html, /data:image\/png;base64,/);
-    assert.match(viewer.html, /not approved or imported/);
+    assert.match(viewer.html, /does not approve or import/);
     assert.match(viewer.html, /Content-Security-Policy/);
     assert.equal(viewer.revision_hash.length, 64);
     await assert.rejects(readFile(path.join(f.root, bundle, 'approval.json')), { code: 'ENOENT' });
@@ -152,6 +152,20 @@ test('browser opens local self-contained file with argv and cleans only its own 
   await browser.dispose();
   await assert.rejects(readFile(file), { code: 'ENOENT' });
   assert.match(await readFile(path.join(f.root, 'project.godot'), 'utf8'), /main_scene/);
+});
+
+test('long-lived desktop opener is accepted without killing the viewer', async t => {
+  const f = await fixture(t);
+  let detached = false;
+  const browser = createBrowser(() => {
+    const child = new EventEmitter();
+    child.unref = () => { detached = true; };
+    child.kill = () => { throw new Error('Must not kill the user browser'); };
+    return child;
+  }, f.root);
+  await browser.open('<!doctype html><h1>fixture</h1>');
+  assert.equal(detached, true);
+  await browser.dispose();
 });
 
 function commandFixture({ confirm = true, selection = 'game' } = {}) {

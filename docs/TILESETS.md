@@ -18,8 +18,9 @@ Nothing in an existing game is regenerated automatically.
    terrain coverage, and artifacts. Review the layout with `/preview asset`.
 4. `tileset.edit` revises pixels, global colors, terrain assignments, full-tile
    collision flags, bitmasks and explicit cell placement in a fresh revision.
-5. After explicit human review, use CLI `tileset.approve` with the exact hash,
-   then preview/apply `tileset.import`. Native tools cannot write approvals.
+5. Use `/asset-review` to explicitly approve the exact candidate or request changes,
+   then review and confirm import separately. Authorized CLI `tileset.approve`
+   remains a fallback. Model-facing tools cannot write approval decisions.
 6. Deliberately instance the new layer or use its TileSet in an existing layer,
    then run `/preview game` and playtest. Import does not edit existing scenes.
 

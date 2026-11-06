@@ -18,7 +18,7 @@ export function definitions(ctx, catalog, run) {
   }
   async function call(name, input, execution) {
     const operation = byName.get(name);
-    if (!operation?.native) return content(errorResult("unsupported", "Operation is not exposed as a native tool; approvals require explicit human-reviewed CLI workflow"));
+    if (!operation?.native) return content(errorResult("unsupported", "Operation is not exposed as a model-facing tool; use the user /asset-review UI or an explicitly authorized CLI review workflow"));
     const project = await workspace(execution);
     const prepared = await run(project, { action: "prepare", op: name, input }, execution.signal);
     if (!prepared.ok) return content(prepared);

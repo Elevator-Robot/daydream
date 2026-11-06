@@ -21,9 +21,17 @@ export function createBrowser(spawnProcess = spawn, temporaryRoot = os.tmpdir())
       await writeFile(file, html, { mode: 0o600, flag: 'wx' });
       await new Promise((resolve, reject) => {
         const child = spawnProcess(process.platform === 'darwin' ? 'open' : 'xdg-open', [pathToFileURL(file).href], { stdio: 'ignore', shell: false });
-        const timer = setTimeout(() => { child.kill('SIGTERM'); reject(new Error('Browser opener timed out')); }, 5000);
-        child.once('error', () => { clearTimeout(timer); reject(new Error('Cannot open browser; check the system default browser')); });
-        child.once('close', code => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error('Browser opener failed')); });
+        let settled = false;
+        const finish = error => {
+          if (settled) return;
+          settled = true; clearTimeout(timer);
+          error ? reject(error) : resolve();
+        };
+        // Some desktop openers remain alive for the browser's entire lifetime.
+        // Detect immediate failures, but do not wait for or kill the user's viewer.
+        const timer = setTimeout(() => { child.unref?.(); finish(); }, 500);
+        child.once('error', () => finish(new Error('Cannot open browser; check the system default browser')));
+        child.once('close', code => finish(code === 0 ? undefined : new Error('Browser opener failed')));
       });
       return file;
     },

@@ -69,8 +69,39 @@ def approval_identity(revision):
             "preview_sha256": revision["manifest"]["files"]["preview.png"]}
 
 
+@contextmanager
+def review_lock(bundle, apply):
+    """Serialize managed approval, feedback and import writes for one bundle."""
+    if not apply or asset_access.WRITES.get() == set():
+        yield
+        return
+    fd = os.open(bundle, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    inode = None
+    try:
+        lock = os.open(".review.lock", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=fd)
+        inode = os.fstat(lock).st_ino
+        with os.fdopen(lock, "wb") as stream:
+            stream.write(encoded({"pid": os.getpid(), "tool": "daydream-review"}))
+        yield
+    finally:
+        if inode is not None:
+            try:
+                if os.stat(".review.lock", dir_fd=fd, follow_symlinks=False).st_ino == inode:
+                    os.unlink(".review.lock", dir_fd=fd)
+            except FileNotFoundError:
+                pass
+        os.close(fd)
+
+
 def approve_revision(bundle, revision_hash, reviewer, apply=False, *, loader=load_revision):
+    with review_lock(bundle, apply):
+        return _approve_revision(bundle, revision_hash, reviewer, apply, loader=loader)
+
+
+def _approve_revision(bundle, revision_hash, reviewer, apply=False, *, loader=load_revision):
     revision = loader(bundle)
+    from review_core import ensure_no_changes
+    ensure_no_changes(revision)
     if revision_hash != revision["revision_hash"]:
         raise ValueError("Approval hash does not match this exact revision and preview")
     if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 120 or any(ord(ch) < 32 for ch in reviewer):
@@ -145,8 +176,17 @@ def static_outputs(revision, asset_dir, source_dir, asset_name):
             {"texture": texture, "scene": scene, "source": source}, [texture + ".import", scene + ".uid"])
 
 
-def import_revision(bundle, project, name=None, destination=None, apply=False, *, loader=load_revision, output_builder=static_outputs):
+def import_revision(bundle, project, name=None, destination=None, apply=False, *, loader=load_revision, output_builder=static_outputs, revision_hash=None, plan_hash=None):
+    with review_lock(bundle, apply):
+        return _import_revision(bundle, project, name, destination, apply, loader=loader, output_builder=output_builder, revision_hash=revision_hash, plan_hash=plan_hash)
+
+
+def _import_revision(bundle, project, name=None, destination=None, apply=False, *, loader=load_revision, output_builder=static_outputs, revision_hash=None, plan_hash=None):
     revision = loader(bundle)
+    from review_core import ensure_no_changes
+    ensure_no_changes(revision)
+    if revision_hash is not None and revision_hash != revision["revision_hash"]:
+        raise ValueError("Import revision changed since review; inspect the new candidate before applying")
     fd = os.open(revision["path"], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         try:
@@ -204,6 +244,9 @@ def import_revision(bundle, project, name=None, destination=None, apply=False, *
             raise ValueError("Updated asset manifest would exceed its size limit")
         plan = {"action": "imported" if apply else "would_import", "project": str(project),
                 "create": list(outputs), "update": ".daydream/assets.json", "revision_hash": revision["revision_hash"]}
+        plan["plan_hash"] = digest(encoded({"revision_hash": revision["revision_hash"], "outputs": {path: digest(data) for path, data in outputs.items()}, "metadata": digest(updated)}))
+        if plan_hash is not None and plan_hash != plan["plan_hash"]:
+            raise ValueError("Import plan changed; review the new destinations/content before applying")
         if not apply:
             return plan
         for relative in [*outputs, ".daydream/assets.json"]: asset_access.write(project / relative)

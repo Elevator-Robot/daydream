@@ -35,6 +35,11 @@ preview. You can also start from an existing palette-limited PNG.
 
 ## 3. Review the preview
 
+Use `/asset-review` or `/preview review` for the integrated user review flow:
+open an exact revision, approve it or request changes, then review/apply import
+separately. It works for static sprites, animations and tilesets. See
+[review and approval](REVIEW.md); CLI approval remains available as a fallback.
+
 Open the actual preview and check:
 
 - Silhouette and readability at the intended size.

@@ -1,4 +1,4 @@
-export function previewCommand(context, call, browser) {
+export function previewCommand(context, call, browser, review) {
   let busy = false;
   return {
     id: 'daydream.preview', title: 'Preview game or asset', group: 'Daydream', palette: true,
@@ -17,11 +17,13 @@ export function previewCommand(context, call, browser) {
         if (!action) action = await context.ui.dialog.select({ title: 'Daydream preview', options: [
           { title: 'Game', description: 'Run the configured main scene in graphical Godot', value: 'game' },
           { title: 'Asset', description: 'Review a sprite, animation or environment tileset in your browser', value: 'asset' },
+          ...(review ? [{ title: 'Review / approve asset', description: 'Exact-revision approval, changes and separate import plan', value: 'review' }] : []),
           { title: 'Status', description: 'Inspect the tracked game process and launch diagnostics', value: 'status' },
           { title: 'Stop game', description: 'Stop only the game Daydream launched', value: 'stop' },
         ] });
         if (!action) return;
-        if (!['game', 'asset', 'status', 'stop'].includes(action) || (action !== 'asset' && remainder)) throw new Error('Use /preview game, asset [revision path], status, or stop');
+        if (action === 'review' && review) { await review.run(remainder); return; }
+        if (!['game', 'asset', 'status', 'stop'].includes(action) || (action !== 'asset' && remainder)) throw new Error('Use /preview game, asset [revision path], review [revision path], status, or stop');
         const invoke = async (request) => {
           const result = await call({ sessionID, ...request });
           if (!result?.ok) throw new Error(result?.error?.message ?? 'Preview failed; use /preview status for game diagnostics');

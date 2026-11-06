@@ -174,8 +174,8 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
     else for (const clip of result.result.previews) {
       body += `<section><h2>${escape(clip.animation)}</h2>${await image(path.basename(clip.motion))}<h3>Contact sheet</h3>${await image(path.basename(clip.contact_sheet))}</section>`;
     }
-    const html = `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>Daydream preview</title><style>body{font:16px system-ui;background:#20232b;color:#eee;margin:2rem}img{image-rendering:pixelated;max-width:100%;background:repeating-conic-gradient(#bbb 0% 25%,#ddd 0% 50%) 0/16px 16px}code{overflow-wrap:anywhere}</style><h1>${escape(result.result.name)}</h1><p>Revision: <code>${escape(result.result.revision_hash)}</code></p><p>Preview only — not approved or imported.</p>${body}`;
-    return { ok: true, html, revision_hash: result.result.revision_hash };
+    const html = `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>Daydream preview</title><style>body{font:16px system-ui;background:#20232b;color:#eee;margin:2rem}img{image-rendering:pixelated;max-width:100%;background:repeating-conic-gradient(#bbb 0% 25%,#ddd 0% 50%) 0/16px 16px}code{overflow-wrap:anywhere}</style><h1>${escape(result.result.name)}</h1><p>Revision: <code>${escape(result.result.revision_hash)}</code></p><p>Preview only — opening this viewer does not approve or import.</p>${body}`;
+    return { ok: true, html, revision_hash: result.result.revision_hash, kind, name: result.result.name };
   }
   return {
     async call(input, { signal, source } = {}) {

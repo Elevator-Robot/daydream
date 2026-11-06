@@ -65,9 +65,15 @@ When available, use `daydream_search` and `daydream_describe` to discover the
 canonical operation schemas, then the direct asset tools or `daydream_call`.
 Native writes default to previews; `apply:true` is a request for permissioned
 writes, not artwork approval. For existing static frame bundles, discover
-`animation.assemble` rather than inventing atlas/GIF packing scripts. Native
-tools cannot record approval; only explicit user-reviewed CLI approval of the
-exact hash may do that. The fallback is `daydream ops search/describe/call`;
+`animation.assemble` rather than inventing atlas/GIF packing scripts. Model-facing
+tools cannot record approval. Direct the user to `/asset-review` or `/preview review`
+for explicit exact-revision approval, change requests, and separately confirmed
+import. Never invoke the decision RPC, reply to a user permission prompt, or use
+the CLI to imitate the user's review clicks. Explicitly human-authorized CLI
+approval remains a fallback, not a way around a denied/cancelled UI decision.
+Use `review.inspect` to read retained feedback/state and create a fresh revision
+when changes are requested. Feedback does not authorize automatic generation or
+undo assets already imported. The CLI fallback is `daydream ops search/describe/call`;
 see the checkout's `docs/OPERATIONS.md`. Native tools ship with the standard
 install, but verify availability: older or agent-only installations may lack them.
 

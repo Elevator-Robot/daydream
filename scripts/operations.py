@@ -65,7 +65,9 @@ def prepare(operation, data, context):
             path = context.path(value)
             if kind == "output": continue
             if kind == "file": reads.add(str(path)); continue
-            names = {"source.json", "manifest.json", ".gdignore", "approval.json"}
+            names = {"source.json", "manifest.json", ".gdignore", "approval.json", "changes-requested.json"}
+            if kind == "review_bundle":
+                kind = {"sprite": "static_bundle", "animation": "animation_bundle", "tileset": "tileset_bundle"}[data["kind"]]
             if kind == "static_bundle": names |= {"sprite.png", "preview.png"}
             elif kind == "tileset_bundle": names |= {"atlas.png", "preview.png", "layout.png", "seams.json", "preview.html"}
             elif kind == "animation_bundle":
@@ -104,14 +106,14 @@ def execute(name, data, project, *, surface="cli", prepare_only=False, authorize
     writing = isinstance(data, dict) and data.get("apply") is True and operation.effect != "read"
     try:
         if surface == "native" and not operation.native:
-            return failure(name, "unsupported", "Approval records are not written by native tools", "Have the user review the exact candidate and explicitly authorize documented CLI approval; do not self-approve.")
+            return failure(name, "unsupported", "Approval/feedback decisions are not written by model-facing tools", "Use the user /asset-review UI or explicitly authorized CLI review; do not self-approve.")
         context = Context(project)
         access = prepare(operation, data, context)
         if prepare_only:
             return {"ok": True, "status": "prepared", "operation": name, "access": access, "effect": operation.effect}
         reads = set(access["reads"])
         write_grants = None
-        if surface == "native":
+        if surface in {"native", "review_ui"}:
             authorized = authorized or {"reads": [], "writes": []}
             if not isinstance(authorized, dict) or set(authorized) != {"reads", "writes"}:
                 raise ValueError("Invalid adapter authorization envelope")
@@ -180,13 +182,15 @@ def main(argv=None):
     inputs.add_argument("--input-file", type=Path)
     calling.add_argument("--apply", action="store_true", help="explicitly request writes; JSON alone cannot enable CLI writes")
     rpc = commands.add_parser("rpc", help=argparse.SUPPRESS)
-    rpc.add_argument("--native", action="store_true")
+    surface = rpc.add_mutually_exclusive_group()
+    surface.add_argument("--native", action="store_true")
+    surface.add_argument("--review-ui", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     try:
         if args.command == "rpc":
             raw = sys.stdin.buffer.read(1024 * 1024 + 1)
             if len(raw) > 1024 * 1024: raise ValueError("Operation request exceeds 1 MiB")
-            answer = protocol(json.loads(raw), args.project, "native" if args.native else "cli")
+            answer = protocol(json.loads(raw), args.project, "review_ui" if args.review_ui else "native" if args.native else "cli")
         elif args.command == "search": answer = protocol({"action": "search", "query": " ".join(args.query), "limit": args.limit}, args.project)
         elif args.command == "describe": answer = protocol({"action": "describe", "op": args.op}, args.project)
         else:

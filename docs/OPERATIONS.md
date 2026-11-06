@@ -79,10 +79,17 @@ missing dependencies, conflicts, invalid input, scope violations and cancellatio
 Artifacts returned by a preview are planned paths, not written images.
 
 Neither successful tool execution nor inspecting a contact sheet establishes
-motion quality or graphical Godot correctness. Native tools **cannot write
-approval records**. Only after explicit human review and authorization, use
-the documented CLI approval with the exact revision hash and reviewer label.
-This is a workflow boundary, not authenticated proof of human identity.
+motion quality or graphical Godot correctness. Model-facing tools **cannot write
+approval decisions**. The user can now use `/asset-review` for exact-revision
+approval or change requests, with a separately confirmed import plan; the CLI
+approval remains an explicitly authorized fallback. See [review](REVIEW.md).
+Reviewer labels are not authenticated proof of human identity.
+
+`review.inspect` is a read-only catalog operation for approval/feedback state.
+`review.feedback` is user-UI/authorized-CLI only. A changes-requested record blocks
+further approval and import of its exact revision until a fresh revision is made.
+Imports optionally accept `revision_hash` and `plan_hash` to refuse a changed
+candidate, destinations, generated content or asset index before writing.
 
 Cancellation/unload terminates backend work; the runner imposes a 120-second
 limit and 1 MiB request/result limits. Cancellation or failure during writes can
