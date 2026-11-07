@@ -35,10 +35,20 @@ There is no new install flag, model-facing approval tool, service or browser ser
    name/destination overrides. Read the complete create/update path list and plan
    hash, then separately confirm **Apply import**, or leave the asset staged.
 
+Tilesets now offer a layout-mode choice: script-free **Editor-visible cells** or
+the legacy runtime companion. Editor mode detects the project engine and checks
+compatibility without asking for executable paths/version strings. Separate
+isolated-serialization permission is still required before planning executes Godot.
+It does not run the target game or overwrite an existing scene. See
+[editor-visible layouts](EDITOR_LAYOUTS.md).
+
 If permissions deny a read, decision or write, that denial propagates; there is
 no CLI fallback, auto-reply or permission widening. Cancel or Escape writes no
 new decision/import. An approval already explicitly confirmed stays recorded if
 the user later cancels import. Browser launch failure does not offer approval.
+Errors/refusals now remain in an **Asset review stopped — details** dialog until
+dismissed, rather than only appearing in a disappearing toast. Read/copy the exact
+reason before retrying; no failed decision or import is automatically replayed.
 Some system browser openers stay alive for the viewer's lifetime; Daydream checks
 immediate errors but does not wait for browser exit or kill the viewer.
 

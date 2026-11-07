@@ -73,6 +73,14 @@ Directory creation, exclusive locks and temporary manifest replacement are
 implementation details of the authorized logical output, not separate assets.
 These checks are not an OS sandbox or protection against malicious local code.
 
+**Editor serialization exception:** `tileset.editor_import` declares
+`engine_serialization:true`. Preparation declares project/config read resources;
+after read permission, read-only `resolve` discovery returns the executable resource.
+Even preview runs detected/compatibility-checked Godot in an isolated generated
+project, not the game. Native/UI adapters assert `daydream.engine.serialize` and
+pass exact execution grants before calling it. Target-project writes still require apply/edit grants;
+preview may create only owned temporary serialization files. See [editor layouts](EDITOR_LAYOUTS.md).
+
 ## Outcomes and review
 
 Results contain `ok`, `status`, operation ID, structured results/artifact paths,

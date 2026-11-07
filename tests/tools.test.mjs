@@ -76,3 +76,19 @@ test('already cancelled runner does not launch backend', async () => {
   const result = await run(checkout, { action: 'catalog' }, controller.signal);
   assert.equal(result.error.code, 'cancelled');
 });
+
+test('editor serialization requires separate execution permission before preview', async () => {
+  const calls = [], permissions = [];
+  const ctx = { session: { get: async () => ({ location: { directory: '/active/project' } }) },
+    permission: { assert: async request => { permissions.push(request.action); if (request.action === 'daydream.engine.serialize') throw new Error('engine denied'); } } };
+  const backend = async (_, request) => {
+    calls.push(request.action);
+    return request.action === 'prepare'
+      ? { ok: true, access: { reads: ['source'], writes: [], engine_resolution: true } }
+      : { ok: true, access: { reads: ['source'], writes: [], executables: ['/trusted/godot'] } };
+  };
+  const tool = definitions(ctx, catalog, backend).find(tool => tool.name === 'daydream_tileset_editor_import');
+  await assert.rejects(tool.execute({ bundle: 'art/tiles', godot: '/trusted/godot', godot_version: '4.7.2' }, { sessionID: 'test' }), /engine denied/);
+  assert.deepEqual(calls, ['prepare', 'resolve']);
+  assert.deepEqual(permissions, ['read', 'daydream.engine.serialize']);
+});

@@ -163,6 +163,21 @@ def tileset_import(context, data):
     return importing(context, data, tileset.load_revision, tileset_outputs)
 
 
+def tileset_editor_import(context, data):
+    from editor_layout import outputs
+    revision = tileset.load_revision(context.path(data["bundle"]))
+    report = tileset.seams(revision["source"])
+    if report["mismatch_count"] or report["layout_terrain_mismatches"]:
+        raise ValueError("Fix tile seam/layout mismatches before editor import")
+    info = {}
+    def build(revision, asset_dir, source_dir, name):
+        return outputs(revision, asset_dir, source_dir, name, godot=context.engine, godot_version=context.engine_version, timeout=data.get("engine_timeout", 20), engine_info=info)
+    result, writes = importing(context, data, tileset.load_revision, build)
+    result["serialization"] = info
+    result['serialization'].update({key: context.engine_selection[key] for key in ('selection', 'expected_version', 'project_target')})
+    return result, writes
+
+
 def save(context, data, files, kind="sprite"):
     output = context.path(data["output"])
     result = store.save_revision(output, files, data.get("apply", False), kind=kind)

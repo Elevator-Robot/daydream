@@ -143,6 +143,13 @@ approved Godot TileSet with collision flags. See the [environment-art workflow](
 Tiles can also use custom convex pieces, ramp presets and one-way platforms,
 with reviewable geometry overlays. See [tile collisions](docs/COLLISIONS.md).
 
+To paint a generated layout directly in Godot before playing, choose
+**Editor-visible cells** during the tileset's `/asset-review` import plan.
+This mode automatically detects Godot and checks the project's engine target;
+you approve preparation and the import plan, not executable paths or version
+questions. Serialization stays in a disposable fixture with permission checks.
+See [editor-visible layouts](docs/EDITOR_LAYOUTS.md).
+
 ## Useful options
 
 ```sh

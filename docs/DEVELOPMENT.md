@@ -118,6 +118,7 @@ play-feel review. Never infer appearance or usability from headless success.
 - [Environment tiles](TILESETS.md): shared tile generation, seams, terrain, layout and collision checks.
 - [Review and approval](REVIEW.md): user-only decisions, retained feedback and exact-plan import.
 - [Tile collisions](COLLISIONS.md): convex geometry, presets, overlay review, compatibility and physics fixtures.
+- [Editor-visible layouts](EDITOR_LAYOUTS.md): isolated engine serialization, execution grants and manual-edit preservation.
 - [Feature plan](FEATURES.md): proposed creative tools and hook safeguards.
 - [Roadmap](ROADMAP.md): implemented capabilities and acceptance criteria.
 

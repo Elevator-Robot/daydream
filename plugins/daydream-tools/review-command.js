@@ -64,8 +64,20 @@ export function reviewCommand(context, call, listAssets, browser) {
               if (!destination?.trim()) continue;
               options.destination = destination.trim();
             }
+            if (opened.kind === 'tileset') {
+              const layout = await context.ui.dialog.select({ title: 'Tile layout import mode', current: 'editor', options: [
+                { title: 'Editor-visible cells (script-free scene)', value: 'editor', description: 'Automatically uses this project’s Godot; prepares the scene in an isolated fixture' },
+                { title: 'Runtime layout companion (legacy)', value: 'runtime', description: 'No Godot serialization; cells populate only when the scene runs' },
+                { title: 'Cancel', value: 'cancel' },
+              ] });
+              if (!layout || layout === 'cancel') continue;
+              options.layout = layout;
+              if (layout === 'editor') {
+                if (!await context.ui.dialog.confirm({ title: 'Prepare editor-visible layout?', message: 'Daydream will detect this project’s Godot and check its version. It prepares the scene in a disposable project without running your game code. Nothing is imported until you review and apply the plan.', label: { confirm: 'Prepare layout', cancel: 'Cancel' } })) continue;
+              }
+            }
             const result = await invoke({ action: 'plan', ticket, ...options });
-            await context.ui.dialog.alert({ title: 'Review exact import plan', message: `Revision: ${opened.revision_hash}\nPlan: ${result.plan.plan_hash}\n\nCreate:\n${result.plan.create.join('\n')}\n\nUpdate: ${result.plan.update}\n\nExisting assets and scenes will not be replaced. Approval is separate from import.` });
+            await context.ui.dialog.alert({ title: 'Review exact import plan', message: `Revision: ${opened.revision_hash}\nPlan: ${result.plan.plan_hash}\n\nCreate:\n${result.plan.create.join('\n')}\n\nUpdate: ${result.plan.update}${result.plan.serialization ? '\n\nEditor-visible cells; no layout script. Serializer: ' + result.plan.serialization.version : ''}\n\nExisting assets and scenes will not be replaced. Approval is separate from import.` });
             if (!await context.ui.dialog.confirm({ title: 'Apply this reviewed import?', message: 'Write only the displayed outputs and update the asset index? A changed revision, plan or configuration requires a new review.', label: { confirm: 'Apply import', cancel: 'Keep staged' } })) continue;
             await invoke({ action: 'import', ticket });
             ticket = undefined;
@@ -89,7 +101,9 @@ export function reviewCommand(context, call, listAssets, browser) {
           if (decision === 'changes') return;
         }
       } catch (error) {
-        context.ui.toast.show({ title: 'Daydream review', message: String(error.message ?? error), variant: 'error', duration: 10000 });
+        const message = String(error.message ?? error);
+        context.ui.toast.show({ title: 'Daydream review', message, variant: 'error', duration: 10000 });
+        await context.ui.dialog.alert({ title: 'Asset review stopped — details', message: message + '\n\nNo decision or import was automatically retried. If approval was already confirmed, it remains recorded. For an import path/name conflict, choose a new import name; do not overwrite or delete user assets to bypass it.' });
       } finally {
         if (ticket) { try { await invoke({ action: 'cancel', ticket }); } catch { /* Expired/unloaded ticket: no decision is retried. */ } }
         busy = false;

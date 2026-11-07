@@ -115,10 +115,14 @@ destinations are the configured roots plus `/tilesets`. Provenance and approval
 are retained in `.daydream/assets.json`. Existing files, sidecars, symlinks and
 metadata conflicts are refused; interrupted partial output is never overwritten.
 
-The TileSet is paintable in the editor. The example layout is populated **at
-runtime** via documented `set_cell()` calls, not baked into editor cell data.
-The companion is not `@tool`; it runs no editor-time code. This avoids undocumented
-binary serialization. Instance the layer deliberately; existing maps stay untouched.
+The TileSet is paintable in the editor. Ordinary `tileset.import` keeps its runtime
+layout companion behavior. For cells visible/editable **before running**, choose
+the [editor-visible import mode](EDITOR_LAYOUTS.md) in `/asset-review`, or use
+`tileset.editor_import`, which automatically detects Godot and checks project
+engine settings (manual overrides are advanced-only). It runs Godot only
+in a generated scratch project, including during planning, and saves a script-free
+scene through the engine's own serializer. No private tile-map bytes are authored.
+Instance the layer deliberately; existing maps stay untouched in either mode.
 All collisions require human judgment, especially on partly transparent transition
 tiles. [Convex polygons, slopes and one-way platforms](COLLISIONS.md) are supported;
 animated tiles, hex/isometric terrain, navigation, automatic level design and image

@@ -25,6 +25,11 @@ export function createReviewService(ctx, run, previews, now = Date.now) {
     const prepared = check(await run(root, { action: 'prepare', op, input }, signal));
     if (prepared.access.reads.length) await ctx.permission.assert({ sessionID, action: 'read', resources: prepared.access.reads, save: prepared.access.reads });
     const authorized = { reads: prepared.access.reads, writes: [] };
+    if (prepared.access.engine_resolution) {
+      const resolved = check(await run(root, { action: 'resolve', op, input, authorized }, signal));
+      await ctx.permission.assert({ sessionID, action: 'daydream.engine.serialize', resources: [root, ...resolved.access.executables], save: [] });
+      authorized.executables = resolved.access.executables;
+    }
     const isRead = prepared.effect === 'read';
     const preview = check(await run(root, { action: 'call', op, input: isRead ? input : { ...input, apply: false }, authorized }, signal));
     if (!apply || isRead) return preview;
@@ -80,13 +85,20 @@ export function createReviewService(ctx, run, previews, now = Date.now) {
           const data = { bundle: ticket.bundle, revision_hash: ticket.hash };
           if (input.name) data.name = input.name;
           if (input.destination) data.destination = input.destination;
-          const result = await operation(root, input.sessionID, ticket.kind + '.import', data, signal);
-          ticket.plan = { input: data, hash: result.result.plan_hash };
+          let op = ticket.kind + '.import';
+          if (input.layout === 'editor') {
+            if (ticket.kind !== 'tileset') fail('Editor cell serialization applies only to tilesets');
+            op = 'tileset.editor_import';
+            if (input.godot) data.godot = input.godot;
+            if (input.godot_version) data.godot_version = input.godot_version;
+          }
+          const result = await operation(root, input.sessionID, op, data, signal);
+          ticket.plan = { operation: op, input: data, hash: result.result.plan_hash };
           return { ok: true, plan: result.result };
         }
         if (input.action === 'import') {
           if (status.state !== 'approved' || !ticket.plan) fail('Approve the exact revision and review an import plan first');
-          const result = await operation(root, input.sessionID, ticket.kind + '.import', { ...ticket.plan.input, plan_hash: ticket.plan.hash }, signal, true);
+          const result = await operation(root, input.sessionID, ticket.plan.operation, { ...ticket.plan.input, plan_hash: ticket.plan.hash }, signal, true);
           tickets.delete(input.ticket); // A successful import is never automatically retried.
           return { ok: true, state: 'imported', result: result.result };
         }

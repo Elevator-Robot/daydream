@@ -48,7 +48,17 @@ the `/preview asset` layout and collision outlines. Art direction and
 perceptual seamlessness still need human review. Import requires whole-revision
 approval and Godot 4.3+; never migrate a game's engine to enable it. Generated
 TileSets are editor-paintable; their optional layer layout populates cells at
-runtime only. Do not claim existing maps were edited, collisions follow alpha
+runtime in legacy import mode. `tileset.editor_import` instead saves script-free,
+editor-visible cells via auto-detected Godot checked against project settings/features.
+Do not make users type executable paths/version strings in the normal review flow;
+manual overrides are advanced setup only. Honor configured pins and never migrate
+the game silently. Even preview
+runs that engine in a generated scratch project and requires separate execution
+permission; it never opens the target game's code. Use `/asset-review` for the mode
+choice, preserve manual Godot edits by never overwriting/reimporting their files,
+and use a new name for a fresh generated scene. Manual editor edits do not sync
+back to staged source JSON or inherit new approval. See `docs/EDITOR_LAYOUTS.md`.
+Do not claim existing maps were edited, collisions follow alpha
 contours, or all asset types are supported. See `docs/TILESETS.md` in the checkout.
 
 Tiles support legacy solid rectangles or explicit convex collision pieces, slope

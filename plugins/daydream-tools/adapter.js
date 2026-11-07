@@ -26,10 +26,20 @@ export function definitions(ctx, catalog, run) {
     await assert(execution, "read", prepared.access.reads);
     const previewInput = operation.effect === "read" ? input : { ...input, apply: false };
     const authorized = { reads: prepared.access.reads, writes: [] };
+    if (prepared.access.engine_resolution) {
+      const resolved = await run(project, { action: 'resolve', op: name, input, authorized }, execution.signal);
+      if (!resolved.ok) return content(resolved);
+      await assert(execution, 'daydream.engine.serialize', [project, ...resolved.access.executables]);
+      authorized.executables = resolved.access.executables;
+    } else if (prepared.access.executables?.length) {
+      await assert(execution, 'daydream.engine.serialize', [project, ...prepared.access.executables]);
+      authorized.executables = prepared.access.executables;
+    }
     const preview = await run(project, { action: "call", op: name, input: previewInput, authorized }, execution.signal);
     if (!preview.ok || operation.effect === "read" || input.apply !== true) return content(preview);
     await assert(execution, "edit", preview.access.writes);
-    return content(await run(project, { action: "call", op: name, input, authorized: { ...authorized, writes: preview.access.writes } }, execution.signal));
+    const applied = prepared.access.engine_resolution && preview.result?.plan_hash ? { ...input, plan_hash: preview.result.plan_hash } : input;
+    return content(await run(project, { action: "call", op: name, input: applied, authorized: { ...authorized, writes: preview.access.writes } }, execution.signal));
   }
   const tools = [
     {
@@ -45,7 +55,7 @@ export function definitions(ctx, catalog, run) {
       execute: async (input, execution) => content(await run(await workspace(execution), { action: "describe", op: input.op }, execution.signal)),
     },
     {
-      name: "daydream_call", description: "Run a discovered Daydream operation against the active session's project. Writes preview by default; apply:true requests permissioned writes, never artwork approval. No arbitrary scripts, shell flags, installs, engine launch, or cloud providers.",
+      name: "daydream_call", description: "Run a discovered Daydream operation against the active session's project. Writes preview by default; apply:true requests permissioned writes, never artwork approval. No arbitrary scripts, shell flags, installs, game launch or cloud providers. Editor serialization separately requires explicit engine execution permission.",
       input: { type: "object", properties: { op: { type: "string", enum: operations.filter((operation) => operation.native).map((operation) => operation.name) }, input: { type: "object" } }, required: ["op", "input"], additionalProperties: false },
       options: { codemode: true }, execute: (input, execution) => call(input.op, input.input, execution),
     },

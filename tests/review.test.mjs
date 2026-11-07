@@ -110,7 +110,7 @@ for name,data in files.items():(bundle/name).write_bytes(data)
   await assert.rejects(readFile(path.join(f.root, 'art/dot/approval.json')), { code: 'ENOENT' });
 });
 
-function ui({ decisions = ['approve', 'cancel'], confirm = true, browserFails = false } = {}) {
+function ui({ decisions = ['approve', 'cancel'], confirm = true, browserFails = false, kind } = {}) {
   const calls = [], toasts = [], prompts = ['test reviewer', '', ''];
   const status = { state: 'unreviewed' };
   const context = { ui: { router: { current: () => ({ type: 'session', sessionID: 'test' }) }, toast: { show: value => toasts.push(value) }, dialog: {
@@ -118,7 +118,7 @@ function ui({ decisions = ['approve', 'cancel'], confirm = true, browserFails = 
   } } };
   const call = async input => {
     calls.push(input);
-    if (input.action === 'open') return { ok: true, ticket: 'ticket', name: 'dot', html: '<h1>fixture</h1>', revision_hash: 'a'.repeat(64), status: { ...status } };
+    if (input.action === 'open') return { ok: true, ticket: 'ticket', name: 'dot', kind, html: '<h1>fixture</h1>', revision_hash: 'a'.repeat(64), status: { ...status } };
     if (input.action === 'approve') { status.state = 'approved'; return { ok: true, status: { ...status } }; }
     if (input.action === 'changes') { status.state = 'changes_requested'; return { ok: true, status: { ...status } }; }
     if (input.action === 'plan') return { ok: true, plan: { create: ['assets/dot.png'], update: '.daydream/assets.json', plan_hash: 'b'.repeat(64) } };
@@ -155,4 +155,55 @@ test('request changes records feedback without starting generation', async () =>
   await f.command.run('art/dot');
   assert.deepEqual(f.calls.map(call => call.action), ['open', 'changes', 'cancel']);
   assert.equal(f.calls[1].feedback, 'Shorten the nose');
+});
+
+test('refusal details remain in a dialog until dismissed and never retry import', async () => {
+  const calls = [], alerts = [], decisions = ['plan', 'defaults'];
+  let dismiss;
+  const context = { ui: { router: { current: () => ({ type: 'session', sessionID: 'test' }) },
+    toast: { show: () => {} }, dialog: {
+      confirm: async () => true,
+      select: async () => decisions.shift(),
+      alert: async value => { alerts.push(value); await new Promise(resolve => { dismiss = resolve; }); },
+    } } };
+  const command = reviewCommand(context, async input => {
+    calls.push(input.action);
+    if (input.action === 'open') return { ok: true, ticket: 'test-ticket', name: 'floor', revision_hash: 'a'.repeat(64), status: { state: 'approved' }, html: '<h1>fixture</h1>' };
+    if (input.action === 'plan') return { ok: false, error: { message: 'Refusing to replace existing asset: art/tilesets/floor.json; use a new --name' } };
+    return { ok: true };
+  }, async () => ({ assets: [] }), { open: async () => {} });
+  const running = command.run('art/floor');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(alerts.length, 1);
+  assert.match(alerts[0].message, /Refusing to replace existing asset/);
+  assert.deepEqual(calls, ['open', 'plan']);
+  dismiss();
+  await running;
+  assert.deepEqual(calls, ['open', 'plan', 'cancel']);
+});
+
+test('tileset editor mode auto-detects Godot without path or version questions', async () => {
+  const f = ui({ decisions: ['approve', 'plan', 'defaults', 'editor'], kind: 'tileset' });
+  f.prompts.splice(0, f.prompts.length, 'test reviewer');
+  await f.command.run('art/floor');
+  const plan = f.calls.find(call => call.action === 'plan');
+  assert.equal(plan.layout, 'editor');
+  assert.equal(plan.godot, undefined);
+  assert.equal(plan.godot_version, undefined);
+  assert.deepEqual(f.prompts, []);
+});
+
+test('user review service plans and applies script-free editor mode with engine permission', { skip: !pillow || !process.env.GODOT_BIN }, async t => {
+  const f = await fixture(t);
+  const opened = await f.call({ action: 'open', bundle: 'art/floor' });
+  await f.call({ action: 'approve', ticket: opened.ticket, reviewer: 'synthetic engine fixture' });
+  const binary = process.env.GODOT_BIN;
+  const version = spawnSync(binary, ['--version'], { encoding: 'utf8' }).stdout.trim().match(/^4\.\d+\.\d+/)[0];
+  const plan = await f.call({ action: 'plan', ticket: opened.ticket, layout: 'editor', godot: binary, godot_version: version });
+  assert.equal(plan.plan.serialization.script_attached, false);
+  assert.ok(f.permissions.some(request => request.action === 'daydream.engine.serialize'));
+  await f.call({ action: 'import', ticket: opened.ticket });
+  const scene = await readFile(path.join(f.root, 'assets/tilesets/floor.tscn'), 'utf8');
+  assert.match(scene, /tile_map_data/);
+  assert.doesNotMatch(scene, /script =/);
 });
