@@ -1,5 +1,8 @@
 # Daydream intro — Omarchy's actual laser effect
 
+Contributor reference. Users can start without the intro using `daydream --no-intro`;
+see [getting started](../README.md).
+
 The optional OpenCode V2 TUI plugin runs **`ttfx laseretch`**, the same terminal
 effects engine Omarchy's screensaver uses. This is not a JavaScript approximation
 of the laser. The earlier custom sweep has been removed.

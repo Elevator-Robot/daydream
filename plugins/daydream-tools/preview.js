@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
-import { lstat, open, readdir, realpath } from "node:fs/promises";
+import { lstat, open, realpath } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { assetViewer, feedbackHTML, olderVersions, VIEWER_BODY_LIMIT } from './asset-viewer.js';
 
 const escape = (value) => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 export class PreviewFailure extends Error {}
@@ -81,15 +82,21 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
       if (signal?.aborted) abort();
     });
   }
-  async function launch(root, sessionID, signal, source) {
+  async function launch(root, sessionID, signal, source, scene) {
     if (busy.has(root)) fail('A preview action is already in progress for this project');
     busy.add(root);
     try {
       const previous = games.get(root);
-      if (previous?.state === 'running') return { ok: true, ...snapshot(previous), already_running: true };
-      await permission(sessionID, 'read', [path.join(root, 'project.godot'), path.join(root, '.daydream/preview.json')], source);
+      if (previous?.state === 'running') {
+        if (previous.scene !== scene) fail('Another preview is running. Stop it with /preview stop before running this scene');
+        return { ok: true, ...snapshot(previous), already_running: true };
+      }
+      const scenePath = scene ? await projectPath(root, scene) : undefined;
+      if (scenePath && path.extname(scenePath) !== '.tscn') fail('Choose a project .tscn scene to preview');
+      await permission(sessionID, 'read', [path.join(root, 'project.godot'), path.join(root, '.daydream/preview.json'), ...(scenePath ? [scenePath] : [])], source);
       const project = (await read(await projectPath(root, 'project.godot'))).toString();
-      if (!/^\s*run\/main_scene\s*=\s*"[^"\n]+"/m.test(project)) fail('No configured main scene in project.godot; choose one in Godot first');
+      if (!scenePath && !/^\s*run\/main_scene\s*=\s*"[^"\n]+"/m.test(project)) fail('No configured main scene in project.godot; choose one in Godot first');
+      if (scenePath) await read(scenePath, 4 * 1024 * 1024);
       let settings = {};
       try { settings = JSON.parse((await read(await projectPath(root, '.daydream/preview.json'), 16384)).toString()); }
       catch (error) { if (error.code !== 'ENOENT') throw error; }
@@ -99,15 +106,15 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
       if (binary.includes('/') && !path.isAbsolute(binary)) binary = path.resolve(root, binary);
       if (settings.version !== undefined && (typeof settings.version !== 'string' || !/^4\.\d+\.\d+(?:\.[A-Za-z0-9_.-]+)?$/.test(settings.version))) fail('version must be an explicit Godot 4 version, such as 4.7.2');
       // Includes --version: even a project-configured executable can execute code.
-      await permission(sessionID, 'daydream.preview.game', [root, binary], source);
+      await permission(sessionID, 'daydream.preview.game', [root, binary, ...(scenePath ? [scenePath] : [])], source);
       await permission(sessionID, 'edit', [path.join(root, '**')], source);
       if (signal?.aborted || disposed) fail('Preview launch cancelled');
       const version = await versionOf(binary, root, signal);
       if (!/^4\.\d+\.\d+(?:\.|$)/.test(version)) fail('Expected Godot 4; configure the engine used by this project');
       if (settings.version && version !== settings.version && !version.startsWith(settings.version + '.')) fail(`Godot version mismatch: expected ${settings.version}, found ${version}`);
       if (signal?.aborted || disposed) fail('Preview launch cancelled');
-      const entry = { state: 'starting', diagnostics: '', version };
-      const child = spawnProcess(binary, ['--path', root], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], shell: false });
+      const entry = { state: 'starting', diagnostics: '', version, scene };
+      const child = spawnProcess(binary, ['--path', root, ...(scenePath ? ['res://' + path.relative(root, scenePath)] : [])], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], shell: false });
       entry.child = child;
       entry.closed = new Promise(resolve => child.once('close', (code, exitSignal) => {
         entry.state = code === 0 || exitSignal ? 'exited' : 'failed'; entry.code = code; entry.signal = exitSignal; resolve();
@@ -125,28 +132,18 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
       return { ok: entry.state !== 'failed', ...snapshot(entry) };
     } finally { busy.delete(root); }
   }
-  async function assets(root) {
-    let source = 'art';
-    try {
-      const config = JSON.parse((await read(await projectPath(root, '.daydream/config.json'))).toString());
-      source = config.paths?.sources ?? source;
-    } catch (error) { if (error.code !== 'ENOENT') throw error; }
-    const start = await projectPath(root, source), found = [], pending = [start];
-    let count = 0;
-    while (pending.length && count < 1000 && found.length < 100) {
-      const directory = pending.shift(); count++;
-      let entries;
-      try { entries = await readdir(directory, { withFileTypes: true }); }
-      catch (error) { if (error.code === 'ENOENT') continue; throw error; }
-      if (entries.some(entry => entry.name === 'manifest.json' && entry.isFile())) {
-        try {
-          const manifest = JSON.parse((await read(await projectPath(root, path.join(directory, 'manifest.json')))).toString());
-          if (['sprite', 'sprite_animation', 'tileset'].includes(manifest.kind)) found.push({ bundle: path.relative(root, directory), kind: manifest.kind });
-        } catch { /* Invalid candidates are not selectable; explicit paths report errors. */ }
-      }
-      for (const entry of entries.slice(0, 1000)) if (entry.isDirectory() && !entry.name.startsWith('.') && pending.length < 1000) pending.push(path.join(directory, entry.name));
-    }
-    return { ok: true, assets: found, truncated: pending.length > 0, sources_dir: source };
+  async function assets(root, input, signal, source) {
+    const request = { op: 'assets.list', input: { history: input.history ?? false } };
+    const check = value => { if (!value.ok) fail(value.error.message); return value; };
+    const prepared = check(await run(root, { action: 'prepare', ...request }, signal));
+    await permission(input.sessionID, 'read', prepared.access.reads, source);
+    let authorized = { reads: prepared.access.reads, writes: [] };
+    const resolved = check(await run(root, { action: 'resolve', ...request, authorized }, signal));
+    const extra = resolved.access.reads.filter(file => !authorized.reads.includes(file));
+    if (extra.length) await permission(input.sessionID, 'read', extra, source);
+    authorized = { reads: resolved.access.reads, writes: [] };
+    const result = check(await run(root, { action: 'call', ...request, authorized }, signal));
+    return { ok: true, ...result.result };
   }
   async function document(root, bundle, signal) {
     const directory = await projectPath(root, bundle);
@@ -160,37 +157,72 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
     // Bind the document to the exact revision that was validated, even if files change.
     const manifestHash = createHash('sha256').update(await read(path.join(directory, 'manifest.json'))).digest('hex');
     if (manifestHash !== result.result.revision_hash) fail('Revision changed during preview; try again');
+    const review = await run(root, { action: 'call', op: 'review.inspect', input: { bundle, kind }, authorized: { reads: prepared.access.reads, writes: [] } }, signal);
+    if (!review.ok) fail(review.error.message);
+    if (review.result.revision_hash !== result.result.revision_hash) fail('Revision changed during preview; try again');
     let total = 0;
-    const image = async (name) => {
+    const image = async (name, scale = 1, motion = false) => {
       const data = await read(await projectPath(root, path.join(directory, name)), 8 * 1024 * 1024);
       total += data.length;
       if (total > 10 * 1024 * 1024) fail('Preview images exceed the 10 MiB viewer limit');
       if (createHash('sha256').update(data).digest('hex') !== manifest.files[name]) fail('Preview image changed during review');
-      return `<img alt="${escape(name)}" src="data:image/png;base64,${data.toString('base64')}">`;
+      const width = data.readUInt32BE(16);
+      return scale ? `<div class="viewport"><img class="art"${motion ? ' data-motion' : ''} style="--pixel-width:${width / scale}px" alt="${escape(name)}" src="data:image/png;base64,${data.toString('base64')}"></div>`
+        : `<img class="reference" alt="${escape(name)}" src="data:image/png;base64,${data.toString('base64')}">`;
     };
     let body = '';
-    if (kind === 'sprite') body = await image('preview.png');
+    if (kind === 'sprite') body = `<h3>Artwork · ${result.result.width} × ${result.result.height} pixels</h3>${await image('sprite.png')}`;
     else if (kind === 'tileset') {
-      body = `<p>Boundary mismatches: ${result.result.seams.mismatch_count}. Yellow: solid geometry; cyan: one-way geometry. Human collision/play-feel review required.</p><h2>Tiles</h2>${await image('preview.png')}<h2>Layout</h2>${await image('layout.png')}`;
+      body = `<h3>Layout</h3>${await image('layout.png')}<h3>Tiles</h3>${await image('atlas.png')}<details><summary>Numbered tiles and seam checks</summary><p>Boundary mismatches: ${result.result.seams.mismatch_count}. Yellow: solid geometry; cyan: one-way geometry.</p>${await image('preview.png', 0)}</details>`;
       if (result.result.collision_preview) {
         const geometry = result.result.tiles.map(tile => ({ id: tile.id, solid: tile.solid, polygons: tile.collisions ?? null }));
-        body += `<h2>Collision coverage (not artwork)</h2>${await image('collisions.png')}<p>Raster overlays are approximate; exact coordinates use top-left tile pixels on a half-pixel grid. One-way polygons block from local above; omitted one_way is false and omitted margin is 1. A legacy solid:true with polygons:null is the unchanged full-tile rectangle; solid:false with polygons:null has no collisions. No shapes are inferred from alpha.</p><details><summary>Exact collision geometry</summary><pre>${escape(JSON.stringify(geometry, null, 2))}</pre></details>`;
+        body += `<h3>Collision coverage (not artwork)</h3>${await image('collisions.png')}<p>Raster overlays are approximate; exact coordinates use top-left tile pixels on a half-pixel grid. One-way polygons block from local above; omitted one_way is false and omitted margin is 1. A legacy solid:true with polygons:null is the unchanged full-tile rectangle; solid:false with polygons:null has no collisions. No shapes are inferred from alpha.</p><details><summary>Exact collision geometry</summary><pre>${escape(JSON.stringify(geometry, null, 2))}</pre></details>`;
       }
     }
     else for (const clip of result.result.previews) {
-      body += `<section><h2>${escape(clip.animation)}</h2>${await image(path.basename(clip.motion))}<h3>Contact sheet</h3>${await image(path.basename(clip.contact_sheet))}</section>`;
+      body += `<section><h3>${escape(clip.animation)}</h3>${await image(path.basename(clip.motion), 4, true)}<details><summary>Contact sheet (reference layout)</summary>${await image(path.basename(clip.contact_sheet), 0)}</details></section>`;
     }
-    const html = `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>Daydream preview</title><style>body{font:16px system-ui;background:#20232b;color:#eee;margin:2rem}img{image-rendering:pixelated;max-width:100%;background:repeating-conic-gradient(#bbb 0% 25%,#ddd 0% 50%) 0/16px 16px}code{overflow-wrap:anywhere}</style><h1>${escape(result.result.name)}</h1><p>Revision: <code>${escape(result.result.revision_hash)}</code></p><p>Preview only — opening this viewer does not approve or import.</p>${body}`;
-    return { ok: true, html, revision_hash: result.result.revision_hash, kind, name: result.result.name };
+    return { body, revision_hash: result.result.revision_hash, kind, manifest_kind: manifest.kind, id: result.result.name, bundle,
+      parent_revision_hash: manifest.provenance?.parent_revision_hash, state: review.result.state,
+      notes: review.result.feedback?.notes ?? [], name: manifest.provenance?.display_name ?? result.result.name };
+  }
+  async function assetDocument(root, input, signal, source) {
+    const current = await document(root, input.bundle, signal);
+    const history = [];
+    let notice = '', isLatest = true;
+    try {
+      const catalog = await assets(root, { ...input, history: true }, signal, source);
+      const selected = olderVersions(current, catalog);
+      isLatest = selected.isLatest;
+      if (selected.limited) notice = 'Comparison shows up to eight earlier versions within the preview size limit. Use Show older revisions in /assets for more history.';
+      let bytes = Buffer.byteLength(current.body + feedbackHTML(current.notes));
+      for (const item of selected.previous) {
+        if (signal?.aborted || disposed) fail('Comparison cancelled');
+        let viewed = item;
+        if (!item.error) {
+          try {
+            viewed = { ...item, ...await document(root, item.bundle, signal) };
+            if (viewed.revision_hash !== item.revision_hash) fail('Earlier version changed while opening comparison; reopen the preview');
+            const size = Buffer.byteLength(viewed.body + feedbackHTML(viewed.notes));
+            if (bytes + size > VIEWER_BODY_LIMIT) fail('This earlier version exceeds the comparison size limit. Open it separately with Show older revisions in /assets.');
+            bytes += size;
+          } catch (error) { viewed = { ...item, error: `Cannot preview this earlier version: ${error.message}` }; }
+        }
+        history.push(viewed);
+      }
+    } catch (error) { notice = `Version comparison unavailable: ${error.message}`; }
+    if (signal?.aborted || disposed) fail('Comparison cancelled');
+    return { ok: true, html: assetViewer(current, history, { notice, isLatest }), revision_hash: current.revision_hash,
+      kind: current.kind, name: current.name };
   }
   return {
     async call(input, { signal, source } = {}) {
       if (disposed) fail('Preview service is closed');
-      if (!input || typeof input.sessionID !== 'string' || !['game', 'status', 'stop', 'assets', 'asset'].includes(input.action)) fail('Invalid preview request');
+      if (!input || typeof input.sessionID !== 'string' || !['game', 'status', 'stop', 'assets', 'asset', 'gallery'].includes(input.action)) fail('Invalid preview request');
       const session = await ctx.session.get({ sessionID: input.sessionID });
       const root = await realpath(session.location.directory);
       if (ctx.location && root !== await realpath(ctx.location.directory)) fail('Preview session belongs to a different plugin location');
-      if (input.action === 'game') return await launch(root, input.sessionID, signal, source);
+      if (input.action === 'game') return await launch(root, input.sessionID, signal, source, input.scene);
       if (input.action === 'status') {
         if (games.has(root)) await permission(input.sessionID, 'daydream.preview.status', [root], source);
         return { ok: true, ...(games.has(root) ? snapshot(games.get(root)) : { state: 'not_running' }) };
@@ -202,9 +234,25 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
         try { await stop(games.get(root)); return { ok: true, state: 'stopped' }; }
         finally { busy.delete(root); }
       }
-      // Listing and inspection never run project code or open browsers on the server.
+      if (input.action === 'assets') return await assets(root, input, signal, source);
+      // Inspection never runs project code or opens browsers on the server.
       await permission(input.sessionID, 'read', [path.join(root, '**')], source);
-      return input.action === 'assets' ? await assets(root) : await document(root, input.bundle, signal);
+      if (input.action === 'gallery') {
+        const catalog = await assets(root, input, signal, source);
+        let cards = '', bytes = 0;
+        for (const item of catalog.assets.slice(0, 12)) {
+          if (signal?.aborted || disposed) fail('Gallery cancelled');
+          try {
+            const viewed = await document(root, item.bundle, signal);
+            const thumbnail = viewed.body.match(/<img[^>]+src="data:image\/png;base64,[^"]+"[^>]*>/)?.[0] ?? '';
+            bytes += Buffer.byteLength(thumbnail);
+            if (bytes > 8 * 1024 * 1024) break;
+            cards += `<section><h2>${escape(item.name)}</h2><p>${escape(item.state)} · ${escape(item.kind)}</p>${thumbnail}<p>${escape(item.bundle)}</p><small>${escape(viewed.revision_hash)}</small></section>`;
+          } catch (error) { cards += `<section><h2>${escape(item.name)}</h2><p>Cannot preview: ${escape(error.message)}</p></section>`; }
+        }
+        return { ok: true, html: `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>Daydream assets</title><style>body{background:#20232b;color:white;font:16px system-ui;margin:2rem}main{display:flex;flex-wrap:wrap;gap:2rem}section{width:300px;overflow-wrap:anywhere}img{max-width:280px;max-height:240px;object-fit:contain;image-rendering:pixelated}</style><h1>Your assets</h1><p>Up to 12 current candidates. Select an asset in OpenCode to review and decide. Imported means files exist, not proof they are placed in gameplay. Animation thumbnails are not motion review.</p><main>${cards}</main>` };
+      }
+      return await assetDocument(root, input, signal, source);
     },
     async dispose() { disposed = true; await Promise.all([...games.values()].map(stop)); },
   };

@@ -1,7 +1,7 @@
 import { Plugin } from '@opencode/plugin/tui';
 import { createBrowser } from './browser.js';
 import { previewCommand } from './preview-command.js';
-import { reviewCommand } from './review-command.js';
+import { assetsCommand } from './assets-command.js';
 
 export default Plugin.define({
   id: 'daydream.preview.tui',
@@ -16,9 +16,9 @@ export default Plugin.define({
       return result.output;
     };
     const preview = call('daydream.preview');
-    const review = reviewCommand(context, call('daydream.review'), preview, browser);
-    const command = previewCommand(context, preview, browser, review);
-    context.keymap.layer(() => ({ mode: 'global', commands: [command, review] }));
+    const assets = assetsCommand(context, call('daydream.review'), preview, browser);
+    const command = previewCommand(context, preview, browser);
+    context.keymap.layer(() => ({ mode: 'global', commands: [command, assets] }));
     return async () => { controller.abort(); await browser.dispose(); };
   },
 });

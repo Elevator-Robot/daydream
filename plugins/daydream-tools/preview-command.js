@@ -1,4 +1,6 @@
-export function previewCommand(context, call, browser, review) {
+import { pickAsset } from './asset-picker.js';
+
+export function previewCommand(context, call, browser) {
   let busy = false;
   return {
     id: 'daydream.preview', title: 'Preview game or asset', group: 'Daydream', palette: true,
@@ -17,13 +19,11 @@ export function previewCommand(context, call, browser, review) {
         if (!action) action = await context.ui.dialog.select({ title: 'Daydream preview', options: [
           { title: 'Game', description: 'Run the configured main scene in graphical Godot', value: 'game' },
           { title: 'Asset', description: 'Review a sprite, animation or environment tileset in your browser', value: 'asset' },
-          ...(review ? [{ title: 'Review / approve asset', description: 'Exact-revision approval, changes and separate import plan', value: 'review' }] : []),
           { title: 'Status', description: 'Inspect the tracked game process and launch diagnostics', value: 'status' },
           { title: 'Stop game', description: 'Stop only the game Daydream launched', value: 'stop' },
         ] });
         if (!action) return;
-        if (action === 'review' && review) { await review.run(remainder); return; }
-        if (!['game', 'asset', 'status', 'stop'].includes(action) || (action !== 'asset' && remainder)) throw new Error('Use /preview game, asset [revision path], review [revision path], status, or stop');
+        if (!['game', 'asset', 'status', 'stop'].includes(action) || (action !== 'asset' && remainder)) throw new Error('Use /preview game, asset [revision path], status, or stop. Manage artwork with /assets.');
         const invoke = async (request) => {
           const result = await call({ sessionID, ...request });
           if (!result?.ok) throw new Error(result?.error?.message ?? 'Preview failed; use /preview status for game diagnostics');
@@ -42,14 +42,7 @@ export function previewCommand(context, call, browser, review) {
           await context.ui.dialog.alert({ title: 'Game preview status', message: `${result.state}${result.version ? '\nGodot ' + result.version : ''}${result.code !== undefined ? '\nExit: ' + result.code : ''}\n${result.diagnostics ?? ''}\n\nA running process is not proof of visual correctness or playtesting.` });
         } else {
           let bundle = remainder;
-          if (!bundle) {
-            const result = await invoke({ action: 'assets' });
-            bundle = await context.ui.dialog.select({ title: 'Preview asset revision', options: [
-              ...result.assets.map(asset => ({ title: asset.bundle, description: asset.kind, value: asset.bundle })),
-              { title: 'Enter revision path…', description: 'For candidates outside the configured source directory', value: '\0manual' },
-            ] });
-            if (bundle === '\0manual') bundle = await context.ui.dialog.prompt({ title: 'Revision bundle path', placeholder: 'art/sprites/slime-v1' });
-          }
+          if (!bundle) bundle = await pickAsset(context, call, sessionID, browser, { readOnly: true });
           if (!bundle) return;
           if (!await context.ui.dialog.confirm({ title: 'Open asset preview?', message: 'Open a read-only sprite, animation or tileset viewer in your default browser. This does not approve or import the revision.', label: { confirm: 'Open preview', cancel: 'Cancel' } })) return;
           const result = await invoke({ action: 'asset', bundle });

@@ -79,19 +79,28 @@ class Operation:
     direct: bool = True
     paths: tuple = ()  # (input field, file/static_bundle/animation_bundle/output)
     project_reads: tuple = ()
+    engine: bool = False
+    discovery: bool = False
 
     def metadata(self):
         return {"name": self.name, "summary": self.summary, "input": copy.deepcopy(self.schema), "effect": self.effect,
                 "native": self.native, "tool": "daydream_" + self.name.replace(".", "_") if self.native and self.direct else None,
                 "paths": [list(item) for item in self.paths], "project_reads": list(self.project_reads),
-                "preview_default": self.effect != "read"}
+                "preview_default": self.effect != "read", "engine_serialization": self.engine}
 
 
 HASH = {"type": "string", "pattern": "^[0-9a-f]{64}$", "maxLength": 64}
-IMPORT = obj({"bundle": PATH, "name": SLUG, "destination": PATH, "revision_hash": HASH, "plan_hash": HASH, "apply": APPLY}, ["bundle"])
+LABEL = {"type": "string", "minLength": 1, "maxLength": 120, "description": "Friendly display name, e.g. Potion Shop Floor. File-safe IDs are derived automatically."}
+IMPORT = obj({"bundle": PATH, "name": LABEL, "destination": PATH, "revision_hash": HASH, "plan_hash": HASH, "apply": APPLY,
+              "strategy": {"type": "string", "enum": ["new", "copy", "update"], "default": "new", "description": "copy automatically chooses unused filenames; update keeps a selected managed asset's paths, protects manual edits and archives old bytes. Updates require a reviewed plan_hash on apply; get explicit user update authorization first."},
+              "target": SLUG}, ["bundle"])
 APPROVE = obj({"bundle": PATH, "revision_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$", "maxLength": 64},
                "reviewer": {"type": "string", "minLength": 1, "maxLength": 120}, "apply": APPLY}, ["bundle", "revision_hash", "reviewer"])
 PROJECT_READS = ("project.godot", ".daydream/config.json", ".daydream/assets.json")
+EDITOR_IMPORT = obj({**IMPORT["properties"],
+                     "godot": {"type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^/", "description": "Advanced optional override. Normally auto-detected from project settings, GODOT_BIN or PATH; execution permission is still required."},
+                     "godot_version": {"type": "string", "minLength": 3, "maxLength": 128, "pattern": "^4\\.[0-9]+(?:\\.[0-9]+(?:\\.[A-Za-z0-9_.-]+)?)?$", "description": "Advanced optional expected version. Normally read from project settings/features; no project upgrade is performed."},
+                     "engine_timeout": {"type": "integer", "minimum": 1, "maximum": 30, "default": 20}}, ["bundle"])
 OPERATIONS = (
     Operation("project.init", "Preview or initialize non-overwriting Daydream project metadata", obj({"assets_dir": PATH, "sources_dir": PATH, "apply": APPLY}, []), handlers.project_init, direct=False, project_reads=PROJECT_READS + (".daydream/.gitignore", ".daydream/.gdignore")),
     Operation("sprite.create", "Create a transparent static pixel-art sprite and nearest-neighbor preview", obj({"source": SPRITE, "output": PATH, "apply": APPLY}, ["source", "output"]), handlers.sprite_create, paths=(("output", "output"),)),
@@ -112,9 +121,26 @@ OPERATIONS = (
     Operation("tileset.inspect", "Validate an environment tileset and report compatible pixel edges, terrain coverage, collision flags and review artifact paths", obj({"bundle": PATH}, ["bundle"]), handlers.tileset_inspect, effect="read", paths=(("bundle", "tileset_bundle"),)),
     Operation("tileset.approve", "User review UI or explicitly authorized CLI only: approve exact tileset pixels, transitions, layout and collision metadata", APPROVE, handlers.tileset_approve, effect="approval", native=False, direct=False, paths=(("bundle", "tileset_bundle"),)),
     Operation("tileset.import", "Preview or import an approved seam-checked TileSet and TileMapLayer with full tiles, convex polygons, slopes and one-way collision settings for Godot 4.3+", IMPORT, handlers.tileset_import, paths=(("bundle", "tileset_bundle"),), project_reads=PROJECT_READS),
+    Operation("tileset.editor_import", "Preview/apply a script-free editor-visible TileMapLayer using auto-detected Godot checked against project settings. Even preview needs engine permission and runs only an isolated generated fixture, never game code. Never overwrites an existing map.", EDITOR_IMPORT, handlers.tileset_editor_import, paths=(("bundle", "tileset_bundle"),), project_reads=PROJECT_READS + ('.daydream/preview.json',), engine=True),
     Operation("review.inspect", "Read exact-revision approval state and retained user feedback for a sprite, animation or tileset", obj({"bundle": PATH, "kind": {"type": "string", "enum": ["sprite", "animation", "tileset"]}}, ["bundle", "kind"]), handlers.review_inspect, effect="read", direct=False, paths=(("bundle", "review_bundle"),)),
-    Operation("review.feedback", "User review UI or explicitly authorized CLI only: record immutable changes-requested feedback for an exact revision; never approve it", obj({"bundle": PATH, "kind": {"type": "string", "enum": ["sprite", "animation", "tileset"]}, "revision_hash": HASH, "reviewer": {"type": "string", "minLength": 1, "maxLength": 120}, "feedback": {"type": "string", "minLength": 1, "maxLength": 4000}, "apply": APPLY}, ["bundle", "kind", "revision_hash", "reviewer", "feedback"]), handlers.review_feedback, native=False, direct=False, paths=(("bundle", "review_bundle"),)),
+    Operation("review.feedback", "User UI or explicitly authorized CLI only: add exact-revision change-request feedback while retaining earlier notes; identical submissions are kept once. Never approve the candidate.", obj({"bundle": PATH, "kind": {"type": "string", "enum": ["sprite", "animation", "tileset"]}, "revision_hash": HASH, "reviewer": {"type": "string", "minLength": 1, "maxLength": 120}, "feedback": {"type": "string", "minLength": 1, "maxLength": 4000}, "apply": APPLY}, ["bundle", "kind", "revision_hash", "reviewer", "feedback"]), handlers.review_feedback, native=False, direct=False, paths=(("bundle", "review_bundle"),)),
+    Operation('assets.list', 'List current asset candidates and managed import status; optional history reveals older revisions. Does not approve or load Godot.', obj({'history': {'type': 'boolean', 'default': False}}, []), handlers.assets_list, effect='read', project_reads=PROJECT_READS, discovery=True),
+    Operation('assets.options', 'Suggest add-copy or safe-update choices for one revision, including manual-edit protection and current scene path.', obj({'bundle': PATH, 'kind': {'type': 'string', 'enum': ['sprite', 'animation', 'tileset']}}, ['bundle', 'kind']), handlers.assets_options, effect='read', direct=False, paths=(('bundle', 'review_bundle'),), project_reads=PROJECT_READS, discovery=True),
 )
+
+# Public workflow schemas allow ordinary display labels and automatically placed
+# immutable revisions. The canonical rendering formats still use validated IDs.
+for _op in OPERATIONS:
+    if _op.name in {'sprite.create', 'sprite.from_png', 'sprite.edit', 'animation.create', 'animation.assemble', 'animation.edit', 'tileset.create', 'tileset.transitions', 'tileset.edit'}:
+        _op.schema['required'] = [key for key in _op.schema['required'] if key != 'output']
+        _op.schema['properties']['output'] = {**PATH, 'description': 'Optional advanced output directory. Omit for automatic hidden revision storage; no manual version naming needed.'}
+        if _op.name in {'sprite.create', 'tileset.create', 'animation.create'}:
+            _field = 'recipe' if _op.name == 'animation.create' else 'source'
+            _schema = copy.deepcopy(_op.schema['properties'][_field])
+            _schema['properties']['name'] = LABEL
+            _op.schema['properties'][_field] = _schema
+        elif 'name' in _op.schema['properties']:
+            _op.schema['properties']['name'] = LABEL
 
 
 def find(name):

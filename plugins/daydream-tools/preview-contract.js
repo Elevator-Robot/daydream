@@ -3,8 +3,10 @@ export const previewInput = {
   type: "object",
   properties: {
     sessionID: { type: "string", minLength: 1, maxLength: 100 },
-    action: { type: "string", enum: ["game", "status", "stop", "assets", "asset"] },
+    action: { type: "string", enum: ["game", "status", "stop", "assets", "asset", "gallery"] },
     bundle: { type: "string", minLength: 1, maxLength: 4096 },
+    history: { type: 'boolean' },
+    scene: { type: 'string', minLength: 1, maxLength: 4096 },
   },
   required: ["sessionID", "action"], additionalProperties: false,
 };

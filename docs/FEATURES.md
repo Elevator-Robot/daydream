@@ -31,6 +31,12 @@ paid services, or implementing integrations without their own review.
 
 ## Target workflow
 
+The guided [asset lifecycle](ASSET_LIFECYCLE.md) adds `/assets`, friendly naming,
+automatic hidden revision storage, readable state/history/thumbnails and separate
+Add-copy/managed-update plans. Managed updates require unchanged registered files,
+exact approval/plan confirmation and recovery snapshots. No automatic game placement,
+manual-edit merge, history migration/pruning or force-overwrite is included.
+
 1. Describe a game object, environment, or effect.
 2. Agree on style, dimensions, palette, animation needs, and acceptance criteria.
 3. Generate or draw editable assets in a staging directory.
@@ -54,6 +60,7 @@ describes target capabilities, not packages already installed or selected.
 | Sprite editing — initial slice | Recolor, mirror, paint pixels, or fill a rectangle; resize is still planned | Pillow, fresh revision bundles, protected source copies | Only requested pixels/properties change; originals and their approvals are preserved |
 | Sprite animation — initial slice | Named frame-based clips such as idle/blink, with explicit timing and looping | Fixed canvas/palette/pivot, frame edits, atlas export, APNG motion and contact previews, `SpriteFrames`/`AnimatedSprite2D` import | Timing/order/loop/pivot and actual headless playback checked; human motion/jitter review still required |
 | Tilesets and terrain — initial slice | Editable ground/walls, center/corner/empty transitions, seam/layout previews, rectangles/convex pieces/slopes/one-way collisions | Shared `tileset.*` operations; Godot `TileSet` and runtime-populated `TileMapLayer` | Terrain painting, ramp/gap and one-way physics fixtures; play feel still needs the game's controller; see [tilesets](TILESETS.md) and [collisions](COLLISIONS.md) |
+| Editor-visible layouts — branch slice | Script-free saved TileMapLayer cells, normal editor painting/save/reload, no overwrite of manual edits | Auto-detected, project-checked Godot serializer in an isolated generated fixture; native/UI execution permission before preview/apply | Deterministic exact plans and before-`_ready()` cells tested; actual graphical editor erase/paint/save/reopen inspected; see [editor layouts](EDITOR_LAYOUTS.md) |
 | Backgrounds and props | Layered scenery, decorations, and parallax | Image creation/editing, layer export, composition preview, Godot scene templates | Consistent style and scale; layers align and scroll correctly |
 | Visual effects | Sparks, smoke, explosions, magic, and trails | Flipbook tooling, Godot particle resources, shader templates, graphical preview | Effect looks right in motion, cleans up, and meets a project-defined performance budget |
 | UI assets | Icons, panels, buttons, and HUD elements | Pixel/vector drawing, scalable panel rules, Godot `Control`/`Theme` resources | Readable at target resolutions; focus, scaling, and interaction work |

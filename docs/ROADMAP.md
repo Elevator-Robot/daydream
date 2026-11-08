@@ -3,16 +3,18 @@
 Internal milestones and acceptance criteria. For installation and everyday use,
 see the [user README](../README.md).
 
-**Last updated: 2026-11-05. Committed baseline: `ce9da22` (integrated review).
-This update includes richer tile collisions and the validation recorded below.**
+**Last updated: 2026-11-08. Branch: `feat/editor-visible-tile-layouts`, from `208a7f5`.
+Editor-visible layout work is implemented and undergoing branch validation; not merged.**
 
-## START HERE NEXT — review and richer collisions delivered; next increment unselected
+## START HERE NEXT — test the guided asset lifecycle on this branch
 
 > **P0 and P1 are complete. The user confirmed both on 2026-11-04.
 > Do not send them back through initial acceptance or treat the real-game trial
 > as the next unstarted milestone. The selected P2 feature—integrated asset review,
 > approval and separate import—is implemented and verified. The user then selected
-> richer collisions for P3. Do not confuse that selection with editor-visible layouts.**
+> richer collisions for P3 and has now explicitly selected editor-visible layouts
+> for P4 on a new branch. Do not reopen those earlier milestones or merge/publish
+> this branch without authorization.**
 
 ### Completed acceptance
 
@@ -32,7 +34,7 @@ not a reason to reopen the completed phases or ask the user to repeat them.
 
 - [x] User selected the integrated review/approval experience for sprites,
   animations and tilesets, replacing the mandatory CLI approval step.
-- [x] `/asset-review` and `/preview review`: exact-revision browser review, explicit
+- [x] `/assets`: exact-revision browser review, explicit
   approval, retained change requests or cancellation. Built-in `/review` is preserved.
 - [x] Shared-core hash-bound status/feedback, immutable records and fresh approval
   after revisions. Requested changes block further approval/import of that candidate.
@@ -61,17 +63,99 @@ not a reason to reopen the completed phases or ask the user to repeat them.
   not yet reported complete. Follow the [manual checklist](COLLISIONS.md#manual-test-checklist).
   Keep this new-feature acceptance distinct from the already completed P0/P1 trials.
 
-### P4 — select the next product increment (NEXT; not selected)
+### P4 — editor-visible layouts (selected; branch implementation)
 
-Collect feedback on the delivered workflow and choose the next improvement with
-the user. Editor-visible layouts remain a candidate, not an authorized task.
-Retain original P0/P1 trial details when supplied without inventing or reopening
-those completed trials. New-game controller testing needs explicit project scope.
+- [x] New branch, documentation/API study and isolated Godot serializer prototype.
+- [x] Opt-in `tileset.editor_import` and review UI mode: standard script-free scene
+  cells, existing resource/approval pipeline, automatic engine discovery/version
+  checks (no normal binary/version questions) and separate engine
+  execution grants. Preview may write only scratch files, not the target project.
+- [x] Stable generated scene-local IDs and a fresh engine reload; exact-content
+  plan hashes remain enforceable. No private tile-map byte encoding is written.
+- [x] Tests for deterministic plans, no user-game execution, permission denial,
+  version/stale-plan refusal, manual cell persistence and non-overwriting imports.
+- [x] Actual graphical Godot editor open/erase/paint/save/reload and viewport
+  inspection in a disposable fixture. See [evidence](validation/2026-11-07-editor-layouts.md).
+- [ ] User acceptance of the new layout-mode selection and normal editor painting
+  with the game's own engine. Use a disposable project first; preserve manual edits.
+- Commit/push of this feature branch was authorized on 2026-11-07.
+- [ ] Merge this branch only when explicitly requested; user acceptance remains pending.
 
-**P4 exit criterion:** a bounded increment is selected, implemented in the shared
-capability layer and validated with retained evidence.
-Completed testing is not blanket authorization to edit the tested game, install
-software, migrate an engine, connect a paid provider, or add an editor service.
+**P4 exit criterion:** the bounded editor-visible import is accepted with its
+execution/preservation boundaries, evidence retained, and release steps authorized.
+Manual painting does not imply JSON synchronization or an automatic merge feature.
+
+### P5 — guided assets and lifecycle (selected; implemented on this branch)
+
+The user requested ordinary naming, a clean workspace and guided add/update flow
+after encountering slug/path collisions. [Guided assets](ASSET_LIFECYCLE.md) now adds:
+
+- Friendly asset labels with derived file IDs; optional automatic hidden candidate
+  locations under `.daydream/revisions`. No user version suffixes are required.
+- `/assets`: current candidates, readable states, history, imported-file/manual-edit
+  status, help and a bounded validated browser thumbnail overview.
+- Asset management is now only `/assets [bundle]`, titled **Your assets** in the
+  palette. The former asset-review commands and preview-review route are removed,
+  not retained as aliases. `/preview` views/runs; OpenCode `/review` reviews code.
+- Guided Add a separate copy or explicit managed Update, plain-language summaries
+  with hashes/paths under Details, and post-import scene/opening guidance.
+- Updates preserve stable paths only for unchanged, compatible registered outputs;
+  prior bytes/metadata are saved under `.daydream/history/imports` before replacement.
+- Changed/manual files, stale plans and incompatible terrain/file layouts are
+  protected. No forced migration, overwrite of manual edits, cleanup or pruning.
+- New imported-scene preview runs only on explicit confirmation and normal game
+  permissions, without changing the main scene. Discovery/setup and writes retain
+  exact native grants. Approval and apply remain separate user actions.
+- Feedback follow-ups now retain earlier notes instead of producing the reported
+  “Feedback already exists” refusal. `/assets` offers **Add more feedback** and
+  **Read saved feedback**; repeated identical notes are idempotent, and approval/
+  import stay blocked until a fresh candidate is reviewed. The fix passed the full
+  suite and an actual isolated TUI follow-up flow. The user authorized committing,
+  pushing and creating a PR on 2026-11-08. See [evidence](validation/2026-11-08-feedback-followups.md).
+- **Make revised version** now continues the selected candidate's review flow:
+  it sends the exact asset and all current feedback to the session agent and
+  returns to chat. No remembered asset name or manually composed request is needed.
+  Saving notes and finishing review remain available without starting generation.
+  Full-suite and isolated live TUI handoff checks passed; see
+  [revision handoff evidence](validation/2026-11-08-revision-handoff.md).
+- Browser previews now offer **Compare with previous version**, a bounded older-
+  version picker, saved feedback and shared native-pixel zoom. Recorded ancestry
+  is preferred; the selected candidate and review ticket stay fixed. Missing or
+  damaged references are reported without hiding the current candidate.
+  Actual browser comparison, narrow layout and motion replay were checked in an
+  isolated fixture; see [comparison evidence](validation/2026-11-08-preview-comparison.md).
+- Guided, ordered interaction is now a standing contributor/agent requirement.
+  The asset UI and user walkthrough share five stages: create, review/revise,
+  approve, add/update, preview. Menus group actions in that order, highlight a
+  state-appropriate next action, and keep browsing/advanced/help/finish choices
+  separate from the normal progression. Success messages explain the next step.
+  Ordered stages and explicit decisions were exercised in an isolated real TUI;
+  see [ordered-flow evidence](validation/2026-11-08-ordered-workflow.md).
+
+**Next user test:** in a disposable project, create/revise an asset with a friendly
+name and no output path; use `/assets`, add a copy, update its unchanged managed
+output, then edit the imported scene manually and confirm Update is protected.
+Inspect retained history. The existing Potion Shop revisions/files were not moved,
+deleted or updated to test this feature. Its use there needs an explicit action.
+
+**Remaining:** user branch acceptance and separately authorized merge. Commit/push
+of the lifecycle changes and user-documentation rewrite was explicitly requested.
+The follow-up feedback, revision handoff, comparison and ordered-flow changes were
+also authorized for commit/push and PR creation on 2026-11-08.
+Automatic history pruning/snapshot restoration, reverse
+source sync, live reference analysis and multi-file atomic transactions are not
+implemented. Do not mark P4 or the new-feature acceptance complete merely because
+the earlier P0/P1 trials were completed.
+
+User documentation now starts at [the task guide](README.md), with menu-by-menu
+walkthroughs, ordinary example requests and a troubleshooting guide. Internal
+formats, permission/RPC details and implementation evidence are linked from the
+[contributor reference index](reference/README.md), not mixed into onboarding.
+
+### P6 — next increment (not selected)
+
+Choose from user feedback after branch acceptance. Existing-game integration,
+software installation, engine migration and paid providers need their own scope.
 
 ## Progress snapshot — what is actually done
 
@@ -87,14 +171,16 @@ not mean human acceptance or the full idea-to-playable product is complete.
 | Animation | Ordered clips, timing/loop/pivot, frame-revision assembly, atlas/APNG/contact/HTML previews, whole-animation approval and Godot resources | Real Godot ordering/timing/playback checks; P0/P1 user-confirmed, detailed motion feedback not yet recorded |
 | Environment tiles | Editable tiles, 162 terrain/empty corner patterns, seam/layout previews, rectangles/convex pieces/ramps/one-way geometry and approved TileSet/TileMapLayer import | Terrain/layout/physics fixtures; richer-collision movement checks; game-specific play feel still requires its actual controller |
 | User preview | Native `/preview` game/asset/status/stop UI, shared runtime service/RPC/tool, owned-process tracking, engine selection and browser viewer | Native/RPC status and graphical fixtures verified; user confirms live UI/real-game phases complete |
-| Review and approval | `/asset-review` across all asset kinds; explicit decisions, retained feedback and separately confirmed exact import plans; no model-facing approval tool | Actual standalone TUI approval/import/change/cancel flow verified with synthetic assets; see dated evidence |
+| Review and approval | `/assets` across all asset kinds; explicit decisions, retained feedback and separately confirmed exact import plans; no model-facing approval tool | Actual standalone TUI approval/import/change/cancel flow verified with synthetic assets; see dated evidence |
+| Editor-visible layouts (branch) | Approved cells saved in a standard script-free TileMapLayer scene; opt-in isolated Godot serializer with explicit engine grants and exact plan hashes | Cells before `_ready()`, deterministic bytes and manual edit/reload tested; actual graphical editor viewport inspected; user branch acceptance pending |
+| Guided asset lifecycle (branch) | Friendly names, hidden immutable revisions, current/history browser, auto-named copies, guarded stable-path updates and recovery snapshots | Synthetic tests across all kinds and actual TUI guided add/update; manual disk edits protected; no legacy migration/pruning |
 | Safety | Preview-before-apply, non-overwriting outputs/sidecars, project scope, exact-hash approval, no native auto-approval, no installs/permission widening | Tested in isolated fixtures; not an OS sandbox or authenticated proof of human review |
 
 ### Validation baseline
 
-- Latest feature validation: **145 Python-discovered tests passed** in the isolated
+- Latest branch validation: **169 Python-discovered tests passed** in the isolated
   Pillow environment with Godot/ttfx checks enabled. The dependency-free run passed
-  with **54 optional tests skipped**. Node adapter/viewer/review tests run through the suite.
+  with **70 optional tests skipped**. Node adapter/viewer/review tests run through the suite.
 - Separate graphical preview checks launched/stopped only an isolated synthetic
   Godot project. A synthetic tileset scene was also rendered; its actual viewport
   capture and numbered tile preview were inspected. These are not user-approved
@@ -112,8 +198,9 @@ not mean human acceptance or the full idea-to-playable product is complete.
 - General prompt-to-image generation, hosted providers, automatic game/level design,
   Godot editor control, and broader effects/audio/3D asset creation.
 - Animated tiles, hex/isometric terrain, automatic concave decomposition/alpha tracing,
-  navigation, and layouts baked into editor cell data. The generated TileSet is
-  editor-paintable; its companion example layout populates **at runtime**.
+  navigation, source-JSON synchronization and automatic merging of manual scene edits.
+  Existing runtime imports keep their companion behavior; this branch's explicit
+  editor import saves cells before runtime without a layout script.
 - Authenticated human identity, an OS sandbox, and review support for asset kinds
   not yet implemented. The integrated UI covers sprites, animations and tilesets;
   CLI approval remains a fallback and there is no model-facing approval tool.

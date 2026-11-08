@@ -1,5 +1,8 @@
 # Project-local Daydream configuration
 
+Contributor/integration reference. For the guided setup offered during asset use,
+see [Your assets](REVIEW.md).
+
 Daydream's initialization helper creates a small `.daydream/` directory inside
 an existing Godot project. It uses Python's standard library, runs no Godot code,
 and requires no plugin, daemon, provider, or network access.

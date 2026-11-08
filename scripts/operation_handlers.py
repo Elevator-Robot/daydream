@@ -31,6 +31,7 @@ def sprite_from_png(context, data):
 
 def sprite_edit(context, data):
     parent = sprite.load_revision(context.path(data["bundle"]))
+    context.display_name = parent['manifest']['provenance'].get('display_name')
     source = sprite.edit_source(parent["source"], data["patch"])
     provenance = {"method": "edit", "parent_revision_hash": parent["revision_hash"], "patch_sha256": sprite.digest(sprite.encoded(data["patch"])), "license": parent["manifest"]["provenance"].get("license")}
     return save(context, data, sprite.make_revision(source, provenance))
@@ -75,6 +76,7 @@ def animation_assemble(context, data):
 
 def animation_edit(context, data):
     parent = animation.load_revision(context.path(data["bundle"]))
+    context.display_name = parent['manifest']['provenance'].get('display_name')
     source = animation.edit_animation(parent["source"], data["patch"])
     provenance = {"method": "animation-edit", "parent_revision_hash": parent["revision_hash"],
                   "patch_sha256": sprite.digest(sprite.encoded(data["patch"])), "license": parent["manifest"]["provenance"].get("license")}
@@ -117,6 +119,7 @@ def tileset_transitions(context, data):
 
 def tileset_edit(context, data):
     parent = tileset.load_revision(context.path(data["bundle"]))
+    context.display_name = parent['manifest']['provenance'].get('display_name')
     source = copy.deepcopy(parent["source"])
     by_id = {tile["id"]: tile for tile in source["tiles"]}
     for change in data["tiles"]:
@@ -163,9 +166,35 @@ def tileset_import(context, data):
     return importing(context, data, tileset.load_revision, tileset_outputs)
 
 
+def tileset_editor_import(context, data):
+    from editor_layout import outputs
+    revision = tileset.load_revision(context.path(data["bundle"]))
+    report = tileset.seams(revision["source"])
+    if report["mismatch_count"] or report["layout_terrain_mismatches"]:
+        raise ValueError("Fix tile seam/layout mismatches before editor import")
+    info = {}
+    def build(revision, asset_dir, source_dir, name):
+        return outputs(revision, asset_dir, source_dir, name, godot=context.engine, godot_version=context.engine_version, timeout=data.get("engine_timeout", 20), engine_info=info)
+    result, writes = importing(context, data, tileset.load_revision, build)
+    result["serialization"] = info
+    result['serialization'].update({key: context.engine_selection[key] for key in ('selection', 'expected_version', 'project_target')})
+    return result, writes
+
+
 def save(context, data, files, kind="sprite"):
-    output = context.path(data["output"])
+    import json
+    from asset_lifecycle import managed_output
+    if getattr(context, 'display_name', None):
+        manifest = json.loads(files['manifest.json'])
+        if context.display_name != manifest['name']:
+            manifest['provenance']['display_name'] = context.display_name
+            files['manifest.json'] = sprite.encoded(manifest)
+    else:
+        manifest = json.loads(files['manifest.json'])
+    output = context.path(data['output']) if data.get('output') else managed_output(context, kind, manifest['name'], sprite.digest(files['manifest.json']))
     result = store.save_revision(output, files, data.get("apply", False), kind=kind)
+    result['display_name'] = manifest['provenance'].get('display_name', manifest['name'])
+    result['next'] = '/assets ' + context.relative(output)
     return result, [output / name for name in files]
 
 
@@ -176,8 +205,18 @@ def approve(context, data, loader):
 
 
 def importing(context, data, loader, output_builder):
-    result = store.import_revision(context.path(data["bundle"]), context.root, data.get("name"), data.get("destination"), data.get("apply", False), loader=loader, output_builder=output_builder, revision_hash=data.get("revision_hash"), plan_hash=data.get("plan_hash"))
-    return result, [context.path(path) for path in [*result["create"], result["update"]]]
+    result = store.import_revision(context.path(data["bundle"]), context.root, data.get("name"), data.get("destination"), data.get("apply", False), loader=loader, output_builder=output_builder, revision_hash=data.get("revision_hash"), plan_hash=data.get("plan_hash"), strategy=data.get('strategy', 'new'), target=data.get('target'))
+    return result, [context.path(path) for path in [*result["create"], *result.get('replace', []), *result.get('backup', []), result["update"]]]
+
+
+def assets_list(context, data):
+    from asset_lifecycle import list_assets
+    return list_assets(context, data), []
+
+
+def assets_options(context, data):
+    from asset_lifecycle import options
+    return options(context, data), []
 
 
 def review_loader(kind):
@@ -190,6 +229,6 @@ def review_inspect(context, data):
 
 
 def review_feedback(context, data):
-    from review_core import request_changes, FEEDBACK_FILE
+    from review_core import request_changes
     result = request_changes(context.path(data["bundle"]), data["revision_hash"], data["reviewer"], data["feedback"], data.get("apply", False), loader=review_loader(data["kind"]))
-    return result, [] if result["action"] == "keep_feedback" else [context.path(data["bundle"]) / FEEDBACK_FILE]
+    return result, [] if result["action"] == "keep_feedback" else [context.path(data["bundle"]) / result['file']]

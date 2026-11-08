@@ -176,12 +176,19 @@ def static_outputs(revision, asset_dir, source_dir, asset_name):
             {"texture": texture, "scene": scene, "source": source}, [texture + ".import", scene + ".uid"])
 
 
-def import_revision(bundle, project, name=None, destination=None, apply=False, *, loader=load_revision, output_builder=static_outputs, revision_hash=None, plan_hash=None):
+def import_revision(bundle, project, name=None, destination=None, apply=False, *, loader=load_revision, output_builder=static_outputs, revision_hash=None, plan_hash=None, strategy="new", target=None):
     with review_lock(bundle, apply):
-        return _import_revision(bundle, project, name, destination, apply, loader=loader, output_builder=output_builder, revision_hash=revision_hash, plan_hash=plan_hash)
+        return _import_revision(bundle, project, name, destination, apply, loader=loader, output_builder=output_builder, revision_hash=revision_hash, plan_hash=plan_hash, strategy=strategy, target=target)
 
 
-def _import_revision(bundle, project, name=None, destination=None, apply=False, *, loader=load_revision, output_builder=static_outputs, revision_hash=None, plan_hash=None):
+def _import_revision(bundle, project, name=None, destination=None, apply=False, *, loader=load_revision, output_builder=static_outputs, revision_hash=None, plan_hash=None, strategy="new", target=None):
+    from asset_lifecycle import friendly_name, find_record, unique_import_name, record_paths, check_tile_identity
+    if strategy not in {"new", "copy", "update"}:
+        raise ValueError("Choose add a copy or update a managed asset")
+    if strategy == "update" and (not isinstance(target, str) or not NAME.fullmatch(target)):
+        raise ValueError("Select the registered asset to update")
+    if strategy == "update" and apply and not plan_hash:
+        raise ValueError("Review the update plan first; applying an update needs its exact plan hash")
     revision = loader(bundle)
     from review_core import ensure_no_changes
     ensure_no_changes(revision)
@@ -199,13 +206,12 @@ def _import_revision(bundle, project, name=None, destination=None, apply=False, 
     project = Path(project).expanduser().resolve(strict=True)
     if not (project / "project.godot").is_file():
         raise ValueError("Import target must be a Godot project root")
-    asset_name = revision["source"]["name"] if name is None else name
-    if not isinstance(asset_name, str) or not NAME.fullmatch(asset_name):
-        raise ValueError("Import name must be a lowercase asset slug")
+    display_name, asset_name = friendly_name(revision["manifest"].get("provenance", {}).get("display_name", revision["source"]["name"]) if name is None else name)
     root = os.open(project, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     metadata = None
     lock = None
     temporary = None
+    archive = None
     try:
         try:
             metadata = os.open(".daydream", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=root)
@@ -217,13 +223,37 @@ def _import_revision(bundle, project, name=None, destination=None, apply=False, 
         validate_document(project, "config.json", config_bytes.decode("utf-8"))
         validate_document(project, "assets.json", index_bytes.decode("utf-8"))
         config, index = json.loads(config_bytes), json.loads(index_bytes)
+        previous = find_record(index, target) if strategy == "update" else None
+        if strategy == "update" and (previous is None or previous.get('kind') != revision['manifest']['kind']):
+            raise AssetConflict("That asset is not registered as the same type. Add a separate copy instead")
         category = "/tilesets" if revision["manifest"]["kind"] == "tileset" else "/sprites"
         asset_dir = relative_directory(project, destination if destination is not None else config["paths"]["assets"] + category)
         source_dir = relative_directory(project, config["paths"]["sources"] + category)
+        old_files = {}
+        if previous is not None:
+            from operations import Context
+            previous_paths = record_paths(Context(project), previous)
+            asset_name = previous['name']
+            display_name = previous.get('display_name', display_name)
+            if destination is not None or name is not None:
+                raise ValueError("An update keeps stable names and destinations. Add a copy to rename or relocate")
+            asset_dir = relative_directory(project, str(Path(previous_paths['texture']).parent))
+            source_dir = relative_directory(project, str(Path(previous_paths['source']).parent))
+            for relative in previous_paths.values():
+                with parent_fd(root, relative) as (directory, leaf):
+                    if directory is None: raise AssetConflict("An imported file is missing; add a separate copy or restore it first")
+                    old_files[relative] = read_regular(leaf, 32 * 1024 * 1024, dir_fd=directory, base=project / Path(relative).parent)
+                if digest(old_files[relative]) != previous['sha256'][relative]:
+                    raise AssetConflict(f"Modified outside Daydream: {relative}. Your edits are protected; add a separate copy instead")
+            check_tile_identity(old_files[previous_paths['source']], revision)
+        elif strategy == "copy":
+            asset_name = unique_import_name(project, index, display_name, asset_dir, source_dir)
         outputs, paths, reserved = output_builder(revision, asset_dir, source_dir, asset_name)
         if len(outputs) != len(paths):
             raise ValueError("Runtime and editable-source output paths overlap")
-        for relative in [*outputs, *reserved]:
+        if previous is not None and paths != previous_paths:
+            raise AssetConflict("This update changes the asset's file layout. Add a separate copy to keep existing references safe")
+        for relative in ([] if previous is not None else [*outputs, *reserved]):
             with parent_fd(root, relative) as (directory, leaf):
                 if directory is None:
                     continue
@@ -232,33 +262,69 @@ def _import_revision(bundle, project, name=None, destination=None, apply=False, 
                 except FileNotFoundError:
                     continue
                 raise AssetConflict(f"Refusing to replace existing asset: {relative}; use a new --name")
-        if any(record.get("name") == asset_name and record.get("kind") in ("sprite", "sprite_animation", "tileset") for record in index["assets"]):
+        if previous is None and any(record.get("name") == asset_name and record.get("kind") in ("sprite", "sprite_animation", "tileset") for record in index["assets"]):
             raise AssetConflict("Asset name already exists in the manifest; use a new --name")
         record = {"schema_version": 1, "kind": revision["manifest"]["kind"], "name": asset_name,
+                  "display_name": display_name, "bundle": os.path.relpath(revision['path'], project),
                   "revision_hash": revision["revision_hash"], "paths": paths,
                   "sha256": {relative: digest(data) for relative, data in outputs.items()},
                   "provenance": revision["manifest"].get("provenance"), "approval": approval}
-        index["assets"].append(record)
+        if previous is not None:
+            record = {**previous, **record}  # Preserve unrelated user registry annotations.
+        if previous is None: index["assets"].append(record)
+        else: index["assets"][index["assets"].index(previous)] = record
         updated = encoded(index)
         if len(updated) > 1024 * 1024:
             raise ValueError("Updated asset manifest would exceed its size limit")
         plan = {"action": "imported" if apply else "would_import", "project": str(project),
-                "create": list(outputs), "update": ".daydream/assets.json", "revision_hash": revision["revision_hash"]}
-        plan["plan_hash"] = digest(encoded({"revision_hash": revision["revision_hash"], "outputs": {path: digest(data) for path, data in outputs.items()}, "metadata": digest(updated)}))
+                "create": list(outputs) if previous is None else [], "replace": list(outputs) if previous is not None else [],
+                "update": ".daydream/assets.json", "revision_hash": revision["revision_hash"], "asset_name": asset_name,
+                "display_name": display_name, "strategy": strategy, "scene": paths.get('scene'),
+                "summary": (f"Update {display_name} at its existing paths. Scenes that reference it will see the approved revision; a recovery snapshot is kept. Save and close editors for these files first: unsaved edits cannot be detected."
+                            if previous else f"Add {display_name} as a separate asset. Existing scenes and gameplay are unchanged.")}
+        plan["plan_hash"] = digest(encoded({"revision_hash": revision["revision_hash"], "outputs": {path: digest(data) for path, data in outputs.items()}, "metadata": digest(updated), "prior_index": digest(index_bytes)}))
         if plan_hash is not None and plan_hash != plan["plan_hash"]:
             raise ValueError("Import plan changed; review the new destinations/content before applying")
+        backups = {}
+        if previous is not None:
+            archive = f".daydream/history/imports/{asset_name}/{plan['plan_hash']}"
+            backups = {archive + '/files/' + relative: data for relative, data in old_files.items()}
+            backups.update({archive + '/asset-record.json': encoded(previous), archive + '/assets-before.json': index_bytes,
+                            archive + '/plan.json': encoded(plan), archive + '/.gdignore': b''})
+            plan['history'] = archive
+            plan['backup'] = list(backups) + [archive + '/applied.json']
+            if os.path.lexists(project / archive):
+                raise AssetConflict(f"An earlier update snapshot exists at {archive}. Inspect possible partial work before retrying")
         if not apply:
             return plan
-        for relative in [*outputs, ".daydream/assets.json"]: asset_access.write(project / relative)
+        for relative in [*outputs, *plan.get('backup', []), ".daydream/assets.json"]: asset_access.write(project / relative)
         lock_fd = os.open(".sprites.lock", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=metadata)
         lock = os.fstat(lock_fd).st_ino
         with os.fdopen(lock_fd, "wb") as stream:
             stream.write(encoded({"tool": "daydream-sprites", "pid": os.getpid()}))
         if read_regular("assets.json", 1024 * 1024, dir_fd=metadata, base=metadata_path) != index_bytes or read_regular("config.json", 1024 * 1024, dir_fd=metadata, base=metadata_path) != config_bytes:
             raise ValueError("Project metadata changed during import planning; preview again")
-        for relative, data in outputs.items():
+        def unchanged(relative, expected):
+            with parent_fd(root, relative) as (directory, leaf):
+                if directory is None or read_regular(leaf, 32 * 1024 * 1024, dir_fd=directory, base=project / Path(relative).parent) != expected:
+                    raise AssetConflict(f"File changed during update: {relative}. Inspect the recovery snapshot before retrying")
+        for relative, data in old_files.items(): unchanged(relative, data)
+        for relative, data in backups.items():
             with parent_fd(root, relative, create=True) as (directory, leaf):
                 write_new(directory, leaf, data, base=project / Path(relative).parent)
+        for relative, data in outputs.items():
+            with parent_fd(root, relative, create=True) as (directory, leaf):
+                if previous is None:
+                    write_new(directory, leaf, data, base=project / Path(relative).parent)
+                else:
+                    candidate = '.daydream-update-' + uuid.uuid4().hex + '.tmp'
+                    try:
+                        write_new(directory, candidate, data, logical_path=project / relative)
+                        unchanged(relative, old_files[relative])
+                        os.replace(candidate, leaf, src_dir_fd=directory, dst_dir_fd=directory)
+                    finally:
+                        try: os.unlink(candidate, dir_fd=directory)
+                        except FileNotFoundError: pass
         candidate = ".sprites-" + uuid.uuid4().hex + ".tmp"
         write_new(metadata, candidate, updated, logical_path=metadata_path / "assets.json")
         temporary = candidate
@@ -267,7 +333,15 @@ def _import_revision(bundle, project, name=None, destination=None, apply=False, 
         asset_access.write(metadata_path / "assets.json")
         os.replace(temporary, "assets.json", src_dir_fd=metadata, dst_dir_fd=metadata)
         temporary = None
+        if previous is not None:
+            relative = archive + '/applied.json'
+            with parent_fd(root, relative, create=True) as (directory, leaf):
+                write_new(directory, leaf, encoded({'plan_hash': plan['plan_hash'], 'revision_hash': revision['revision_hash']}), base=project / Path(relative).parent)
         return plan
+    except (OSError, ValueError) as exc:
+        if archive and apply and lock is not None and not isinstance(exc, PermissionError):
+            raise AssetConflict(f"Update did not finish cleanly. Inspect {archive} and the managed files before retrying; previous bytes are retained if snapshot creation completed. Details: {exc}") from exc
+        raise
     finally:
         if metadata is not None:
             if temporary is not None:

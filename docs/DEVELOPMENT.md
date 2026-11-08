@@ -108,16 +108,23 @@ play-feel review. Never infer appearance or usability from headless success.
 
 ## Further documentation
 
+User task guides are indexed in [docs/README.md](README.md). Keep onboarding focused
+on prompts, commands, actual menu labels, decisions and expected results. The
+[reference index](reference/README.md) contains internal formats, algorithms and
+advanced integration details; do not mix those into user walkthroughs.
+
 - [Launcher](LAUNCHER.md): installation modes, startup, dependencies, and consent.
 - [Intro](INTRO.md): playback, reduced motion, and visual verification.
 - [Project configuration](PROJECT_CONFIG.md): local initialization and recovery.
 - [Static sprites](SPRITES.md): create/edit/approve/import workflow and limits.
 - [Frame animation](ANIMATIONS.md): timing, motion previews, approval, and Godot resources.
 - [Operations](OPERATIONS.md): shared catalog, CLI, native adapter and validation boundaries.
-- [Preview](PREVIEW.md): user slash command, owned Godot runtime and browser asset viewer.
-- [Environment tiles](TILESETS.md): shared tile generation, seams, terrain, layout and collision checks.
-- [Review and approval](REVIEW.md): user-only decisions, retained feedback and exact-plan import.
-- [Tile collisions](COLLISIONS.md): convex geometry, presets, overlay review, compatibility and physics fixtures.
+- [Preview reference](reference/PREVIEW.md): owned Godot runtime and browser asset viewer.
+- [Environment tiles reference](reference/TILESETS.md): generation, seams, terrain, layout and collision checks.
+- [Review reference](reference/REVIEW.md): user-only decisions, retained feedback and exact-plan import.
+- [Tile collision reference](reference/COLLISIONS.md): convex geometry, presets, compatibility and physics fixtures.
+- [Editor layout reference](reference/EDITOR_LAYOUTS.md): isolated serialization, execution grants and preservation.
+- [Lifecycle reference](reference/ASSET_LIFECYCLE.md): identity, revision storage, discovery, safe updates and recovery.
 - [Feature plan](FEATURES.md): proposed creative tools and hook safeguards.
 - [Roadmap](ROADMAP.md): implemented capabilities and acceptance criteria.
 

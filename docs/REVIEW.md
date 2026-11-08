@@ -1,99 +1,146 @@
-# User review, approval and import
+# Your assets
 
-The standard Daydream plugin now provides one integrated review flow for **static
-sprites, animations and tilesets**. It does not require terminal approval commands
-or a model call:
+Use **`/assets`** to create, browse, preview, approve and add artwork to your project.
+It works with sprites, animations and environment tiles.
 
-```text
-/asset-review                    Pick a staged asset revision
-/asset-review art/slime-v1       Review a specific revision
-/preview review                 Same flow through the preview picker
-```
+The flow is **1. Create → 2. Review/revise → 3. Approve → 4. Add/update →
+5. Preview**. Menus show the current step and highlight the next available action.
+You can finish for now and resume from the candidate's saved state.
 
-The command palette entry is **Review and approve an asset**; `/daydream-review`
-is an alias. OpenCode already uses `/review` for code review, so Daydream leaves
-that command alone. Restart OpenCode if its TUI has not discovered the new command.
-There is no new install flag, model-facing approval tool, service or browser server.
+## 1. Create: describe what you want
 
-## The actual user flow
+Open `/assets` and choose **Describe a new asset…**, or ask Daydream in the chat:
 
-1. Select a bundle or enter a project-local path; confirm opening its browser viewer.
-   The shared inspector verifies the files and exact manifest hash. The dialog
-   shows the candidate name, review state and hash prefix; the full hash appears
-   in the browser and final confirmation.
-2. Inspect the actual sprite, watch animation motion, or check tile layout and
-   collision outlines and exact geometry/settings. Viewer startup alone does not establish review.
-3. Choose **Approve exact revision**, **Request changes**, or **Cancel**. Cancel
-   is the default selection. Reopening the same preview is also available.
-4. Approval requires a reviewer label and an explicit confirmation of the full
-   revision hash and review responsibility. It records approval only—**no import**.
-5. Request changes requires feedback, a reviewer label and confirmation. The note
-   is retained against that exact revision; further approval/import of it is blocked.
-   Create a fresh revision to address the feedback. No generation/model request is
-   started automatically, and assets already imported are not removed.
-6. Once approved, choose **Review import plan**, using project defaults or explicit
-   name/destination overrides. Read the complete create/update path list and plan
-   hash, then separately confirm **Apply import**, or leave the asset staged.
+> Create a small pixel-art slime named Moonlight Slime. Use a soft purple palette
+> and show me a candidate before adding it to the game.
 
-If permissions deny a read, decision or write, that denial propagates; there is
-no CLI fallback, auto-reply or permission widening. Cancel or Escape writes no
-new decision/import. An approval already explicitly confirmed stays recorded if
-the user later cancels import. Browser launch failure does not offer approval.
-Some system browser openers stay alive for the viewer's lifetime; Daydream checks
-immediate errors but does not wait for browser exit or kill the viewer.
+Use an ordinary name—spaces and capitals are fine. You do not need to choose
+filenames or add version numbers. Describing an asset sends a request to your
+current AI assistant; simply browsing the list does not.
 
-## Exact-revision and exact-plan safety
+When the candidate is ready, open `/assets` again.
 
-- Review tickets are server-generated, bound to the session, real project location,
-  bundle, asset kind and revision hash. They expire after 20 minutes and are cleared
-  on plugin unload. A moved session or changed/corrupt bundle requires a fresh review.
-- Approval and feedback are written by the existing shared Python capability code,
-  with scoped read/edit grants. Custom `daydream.review.approve` / `.changes`
-  permissions include the exact bundle/hash and request no saved approval pattern.
-  Existing user/agent permission rules still apply, including explicit allow/deny.
-- `approval.json` remains compatible with CLI approvals. Feedback is an immutable
-  `changes-requested.json` record with kind, hash, reviewer, UTC timestamp and note.
-  Repeat identical feedback is harmless; different feedback does not overwrite it.
-- Status/feedback is discoverable via the read-only `review.inspect` operation.
-  Ask Daydream to address the saved feedback; the model cannot decide approval
-  through native tools. It must never call the decision RPC or CLI on the user's
-  behalf without explicit human review/authorization.
-- Import plans include the exact revision, generated output content/paths and
-  resulting asset-index content. The shared backend rechecks `revision_hash` and
-  `plan_hash` before writes. A stale plan is refused, even when destinations happen
-  to remain the same. A new plan must be shown and explicitly confirmed.
-- A per-bundle `.review.lock` serializes managed approval, feedback and import writes;
-  imports also retain the existing project-level lock, sidecar/collision refusal,
-  concurrent metadata checks and non-overwriting behavior. Lock/temp files are
-  implementation details of the permissioned logical output.
-- Cancellation/failure during writes may leave partial new output. Inspect it before
-  retrying; there is no destructive rollback, automatic retry or stale-lock deletion.
+## 2. Review or revise
 
-This is a **workflow and permission boundary, not an OS sandbox or authenticated
-human identity system**. Reviewer labels are self-declared. The user-interface RPC
-is not exposed as a model-facing decision tool, but arbitrary local code or another
-authorized OpenCode API client is not cryptographically prevented from using it.
-The documented CLI remains available for explicit human-authorized fallback work.
+### Pick a candidate
 
-## What did not change
+The list shows current candidates first. You can search by name, open a thumbnail
+overview, look at older versions, or view assets already added to the project.
 
-Preview does not approve. Approval does not import. Import does not place assets
-in existing game scenes, playtest the game, approve future revisions, or authorize
-unrelated changes. Art/motion/terrain/collision quality still requires human judgment.
-Changing pixel data, animation timing, tile layout or collision flags needs a new
-revision and fresh review. No general image provider, editor control, dependency
-installation or game-engine upgrade is added.
+| Status | What it means |
+| --- | --- |
+| **Draft** | Ready for you to inspect; not approved yet |
+| **Needs changes** | Your feedback was saved; choose **Make revised version** to proceed |
+| **Approved** | You approved this version; adding it to the project is a separate step |
+| **Imported** | Its files were added to the project; it may still need placement in a scene |
+| **Modified outside Daydream** | Some added files changed or are missing; an update will not replace them |
 
-## Verification
+### Preview and decide
 
-The Python suite tests shared state, hash-bound immutable feedback, all three asset
-kinds, denial of model-facing decisions, scoped UI grants, stale imports, locks and
-symlink refusal. Node tests exercise service tickets, expiry/session binding,
-permissions, cancellation, UI decisions and separate import confirmation using the
-real Python backend in isolated synthetic projects.
+Select the candidate and confirm opening its browser preview. Inspect the artwork
+at the size you intend to use. For animation, watch it move. For tiles, look at
+the arrangement, edges and collision outlines.
 
-An actual standalone OpenCode TUI was driven through approval, separate import,
-animation change requests and tileset cancellation with temporary configuration
-and a synthetic project. The browser was opened by the real client-side opener.
-See [the dated validation record](validation/2026-11-05-asset-review.md). None of
-these fixture approvals represents approval of user artwork or an existing game.
+After a revision, open **Compare with previous version** in the browser. The
+previous version appears on the left and the **New candidate** on the right, with
+saved feedback beneath each. Use **Older version** to compare another earlier
+candidate. **Artwork scale** zooms both sides equally, so changes are easy to judge.
+On narrow screens the versions stack vertically.
+
+The candidate under review stays fixed while you browse older versions. Approval
+in `/assets` applies to that candidate, not the older reference. When reviewing
+an older or already-approved candidate, its heading reads **Selected version**.
+If a previous version is unavailable, the preview explains why.
+
+Return to OpenCode and choose:
+
+- **Approve artwork** when this version is ready, continuing to step 3.
+- **Request changes** to save specific feedback.
+- **Open preview again** to take another look.
+- **Cancel / finish review** to leave without a new decision.
+
+If asked for a **reviewer label**, enter your name or simply **`user`**. It records
+who reviewed the artwork; it is not a login or an asset name.
+
+### Make the revised version
+
+After saving feedback, choose **Make revised version** in the same menu. Daydream
+already knows which asset you selected and includes all its saved feedback. You
+don't need to remember its name, enter a path, or compose another chat message.
+
+The menu closes and sends a request to your current assistant. Follow its progress
+in chat and answer any questions or tool-permission prompts. When the new candidate
+is ready, open `/assets` to review it. The earlier version and feedback are kept;
+the new version needs its own approval before adding it to your project.
+
+To postpone the revision, choose **Cancel / finish review** instead. Your feedback
+stays saved, and **Make revised version** is available when you reopen the candidate.
+
+Forgot something or want to clarify an earlier note? Choose **Add more feedback**
+before making the revision. Earlier notes are kept. **Read saved feedback**
+shows everything recorded for that version. Repeating the same note doesn't add
+a duplicate. The candidate remains **Needs changes** until Daydream prepares a
+new version for you to review; adding more feedback does not approve it.
+
+## 3. Approve the reviewed version
+
+When satisfied, choose **Approve artwork**, enter your reviewer label and confirm
+the review. Approval applies to the version you just viewed; a revised candidate
+needs a new review.
+
+The menu then highlights **Add or update in project** for step 4. Approval alone
+does not add files to your game. If you finish for now, you can resume at step 4
+when you reopen the approved candidate.
+
+## 4. Add or update in your project
+
+After approval, choose **Add or update in project**.
+
+### Add a separate copy
+
+Use this for a new asset, an experiment, or when you want to keep existing artwork.
+Keep the displayed name or enter another friendly name. Daydream chooses available
+filenames automatically. You do not need to resolve duplicate names yourself.
+
+### Update an existing asset
+
+Use **Update [asset name]** when you intend to change an asset already added by
+Daydream. Scenes that use it will see the new version. A copy of the previous
+files is retained first.
+
+Save and close any Godot scene you are editing before updating it. Daydream can
+detect saved file changes, but not unsaved work in an editor. If Update is disabled,
+use **Add a separate copy** rather than discarding your edits. See
+[versions and updates](ASSET_LIFECYCLE.md).
+
+For a new tile layout, choose **Editor-visible cells** if you want to paint it in
+Godot before playing. Daydream finds Godot for you. See [editing layouts](EDITOR_LAYOUTS.md).
+
+### Review the plan and confirm
+
+Read the plain-language summary: are you adding separate files, or updating
+something the game already uses?
+
+Choose **Show technical details** only if you want the exact filenames and extra
+information. Then choose **Add this asset** or **Apply this update** and confirm,
+or choose **Keep staged / back** to postpone it.
+
+If Daydream offers **Set up asset tracking**, allow it to keep track of assets in
+this project. That setup does not add artwork or change gameplay.
+
+## 5. Preview the result
+
+When finished, choose:
+
+- **Preview this scene** to run that standalone scene.
+- **How to open it in Godot** for ordered manual steps and how to continue into your game.
+- **Done** to return to your session.
+
+Adding an asset does not automatically place it into a level, change your main
+scene, or give it gameplay behavior. Ask for that separately:
+
+> Place the approved Moonlight Slime in a separate test scene so I can check its
+> size and animation. Keep the main level unchanged.
+
+Next: [playtest](PREVIEW.md) · [make sprites and animations](SPRITE_WORKFLOW.md) ·
+[create walls and floors](TILESETS.md) · [get help](TROUBLESHOOTING.md).

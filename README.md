@@ -2,21 +2,20 @@
 
 **Dream it. Make it playable.**
 
-Your AI coding and pixel-art companion for Godot. Open a project, describe what
-you want to change, and work with Daydream on scripts, scenes, sprites, and debugging.
+Create pixel-art sprites, animations, walls and floors for your Godot game.
+Describe what you want, preview the result, request changes, and decide when to
+add it to your project. Daydream also helps with game code and debugging.
 
-> **Early access:** Daydream supports coding, pixel-art sprites, and a first
-> frame-based animation workflow. General AI image generation and automatic game
-> assembly are not available yet. Review artwork and motion, then playtest in Godot.
+> **Early access:** the current art workflow focuses on pixel art. General image
+> generation and automatic level design are not available. Review the artwork and
+> playtest changes in Godot before using them in your game.
 
 ## Before you start
 
-- **Linux or macOS** with **Python 3.9+** and **Git**.
-- **[OpenCode V2](https://opencode.ai/v2/docs/)**, installed and connected to a model.
-- **Godot 4**, matching your game's version, when you want to run project checks.
+- Linux or macOS, with Python 3.9+ and Git.
+- [OpenCode V2](https://opencode.ai/v2/docs/), installed and connected to a model.
+- Godot 4 matching your game. Tile layouts require Godot 4.3 or newer.
 - Access to this repository.
-
-The animated intro is optional. Daydream works without `ttfx` installed.
 
 ## Install
 
@@ -27,166 +26,102 @@ git clone https://github.com/Elevator-Robot/daydream.git ~/Code/daydream
 cd ~/Code/daydream
 ```
 
-Preview the installation:
+Preview the installation, then apply it when you're ready:
 
 ```sh
 python3 scripts/install.py
-```
-
-Review the preview, then install:
-
-```sh
 python3 scripts/install.py --apply
 ```
 
-Keep the cloned folder in place after installing. The installer refuses to
-replace conflicting files and does not change your model settings or permissions.
+Keep this folder in place after installing. Existing conflicting files will not
+be replaced. Restart OpenCode after installation.
 
-## Start Daydream
+### Enable pixel-art creation
 
-Open your game's directory and run:
+Run these commands once from the Daydream folder:
 
 ```sh
-cd /path/to/your/game
-daydream
+python3 -m venv .venv-sprites
+.venv-sprites/bin/python -m pip install -r requirements-sprites.txt
 ```
 
-Or choose a directory directly:
+This installs the image support in Daydream's own Python environment. You can skip
+it if you only want help with game code.
+
+## Open your game
 
 ```sh
 daydream /path/to/your/game
 ```
 
-Daydream opens ready for your first request—no greeting message needed to start
-it. Each launch creates a new session without editing your project. Use the
-session picker to return to an earlier conversation.
+Or run `daydream` from inside the game folder. Each launch opens a fresh session;
+use OpenCode's session picker to return to an earlier conversation.
 
-### Try your first request
+For your first experiment, use a separate test project or scene. Keep your game
+under version control and save any unsaved Godot work before requesting file changes.
 
-Start by getting familiar with the project:
+## Make your first asset
 
-> Explain how this game is organized, identify the main scene, and suggest one
-> small improvement. Don't change anything yet.
+Ask in chat, or open **`/assets` → Describe a new asset…**:
 
-Then ask for a specific change:
+> Create a transparent 32×32 slime named Moonlight Slime. Use a soft purple palette
+> and show me a candidate before adding it to the game.
 
-> Add a double jump to the player using the existing movement code. Keep the
-> current controls and explain how to test it.
+Follow these five steps in order; the asset menus show your current step:
 
-Or investigate a problem:
+1. **Create.** Send the description above and follow Daydream's progress in chat.
+2. **Review or revise.** Open `/assets`, select the candidate, and inspect its
+   browser preview. Watch animations move; use **Compare with previous version**
+   when available. If changes are needed, choose **Request changes**, save the
+   feedback, then choose **Make revised version**. Review the new result here again.
+3. **Approve.** When satisfied, choose **Approve artwork** and confirm. For a
+   **reviewer label**—also used when saving feedback—enter your name or **`user`**.
+4. **Add or update.** Choose **Add or update in project**. For your first test,
+   choose **Add a separate copy** and keep its name. Read the plan, choose
+   **Add this asset**, then confirm. Existing managed assets also offer **Update**.
+5. **Preview.** Choose **Preview this scene**, or **How to open it in Godot** for
+   manual steps. Once the asset is placed in your game, use `/preview game` to
+   check it there and `/preview stop` when finished.
 
-> The player sometimes falls through this platform. Find the cause and propose
-> the smallest fix before making changes.
+**Approval does not add the asset yet. Adding a separate copy does not place it
+into your existing level.** Ask for that integration when you are ready.
 
-Give Daydream the scene, behavior, and expected result when possible. Use version
-control, review its changes, and playtest the result in Godot. Only open projects
-you trust.
+Use friendly names with spaces and capitals. Daydream keeps versions for you;
+you don't need to invent filenames or `v1/v2` suffixes.
 
-## Preview your game or artwork
+Full walkthrough: **[Your assets](docs/REVIEW.md)**.
 
-In an OpenCode session, run `/preview` to choose **Game** or **Asset**.
-Use `/preview game` to launch the whole project's main scene in graphical Godot,
-`/preview asset` to browse sprite/animation candidates, and `/preview stop` to
-stop the game Daydream launched. `/preview status` shows game diagnostics.
+## Three commands to remember
 
-Game preview executes project code and asks for authorization. The standard
-install includes the command; it does not need a model call. See
-[preview setup and engine pins](docs/PREVIEW.md).
+| Command | Use it for |
+| --- | --- |
+| `/assets` | Create, browse, preview, approve and add/update artwork |
+| `/preview game` | Playtest the project's normal starting scene |
+| `/preview stop` | Stop the game preview Daydream started |
 
-Run `/asset-review` (or `/preview review`) to review sprites, animations and
-tilesets, **approve an exact revision** or **request changes**, and then review
-and apply an import plan separately. No terminal approval command is needed.
-See [review and approval](docs/REVIEW.md). OpenCode's `/review` still means code review.
+Use `/preview status` when a game preview fails. `/preview asset` is available if
+you only want to view artwork. OpenCode's `/review` is for **code review**, not art.
 
-## Pixel-art sprites (optional)
+## What would you like to make?
 
-The standard install includes the [native tools interface](docs/OPERATIONS.md)
-for discoverable sprite and animation actions. Existing users can rerun the
-standard installer to add missing components without replacing matching links.
-Pillow remains a separate optional dependency for rendering.
+- **[Sprites and animations](docs/SPRITE_WORKFLOW.md)** — characters, props, idle
+  animations and movement frames.
+- **[Walls, floors and terrain](docs/TILESETS.md)** — matching tiles, edges and corners.
+- **[Ramps and platforms](docs/COLLISIONS.md)** — blocking shapes and one-way platforms.
+- **[Editable layouts in Godot](docs/EDITOR_LAYOUTS.md)** — paint generated layouts
+  before playing.
+- **[Versions and updates](docs/ASSET_LIFECYCLE.md)** — keep history and protect manual edits.
+- **[Preview and playtest](docs/PREVIEW.md)** — run the game or inspect a standalone scene.
 
-Enable sprite creation and editing once from your Daydream checkout:
+For coding help, try:
 
-```sh
-cd ~/Code/daydream
-python3 -m venv .venv-sprites
-.venv-sprites/bin/python -m pip install -r requirements-sprites.txt
-```
+> Explain how this game is organized and suggest one small improvement. Don't
+> change anything yet.
 
-Then open your game with `daydream` and try:
+> Add a double jump using the existing player movement code. Keep the controls
+> and tell me how to test it.
 
-> Create a transparent 32×32 slime using five colors. Show me the preview before
-> adding anything to the game.
-
-> Make the outline darker and keep the original version.
-
-Review the preview before approving it. Daydream can then add the approved sprite
-as a static Godot scene, without replacing existing assets. This first workflow
-uses explicit pixel designs, not a paid image-generation service.
-
-For animation, try:
-
-> Give the slime a four-frame idle animation. Keep its feet aligned and show me
-> a motion preview before importing it.
-
-Daydream can build ordered frames with timing and looping, then import an
-approved animation as a Godot scene. Watch the motion preview before approving;
-a still image alone cannot show whether it moves correctly.
-
-Follow the [sprite workflow](docs/SPRITE_WORKFLOW.md) from the first brief through
-revisions, approval, import, and testing in Godot.
-
-For walls and floors, Daydream can generate matching terrain transitions from
-your pixel-art seed tiles, check their seams, preview a layout, and import an
-approved Godot TileSet with collision flags. See the [environment-art workflow](docs/TILESETS.md).
-
-Tiles can also use custom convex pieces, ramp presets and one-way platforms,
-with reviewable geometry overlays. See [tile collisions](docs/COLLISIONS.md).
-
-## Useful options
-
-```sh
-daydream --no-intro  # start without the animation
-daydream --doctor    # check your setup without opening a new session
-daydream --help      # show available options
-```
-
-Already using OpenCode and only want the Daydream agent?
-
-```sh
-python3 scripts/install.py --agent-only         # preview
-python3 scripts/install.py --agent-only --apply
-```
-
-Restart OpenCode, then select `daydream` from its agent selector.
-
-## Troubleshooting
-
-**`daydream: command not found`**
-
-Make sure installation completed, then add the command directory to your current
-terminal's PATH:
-
-```sh
-export PATH="$HOME/.local/bin:$PATH"
-daydream --doctor
-```
-
-Add that PATH entry to your shell's startup configuration if it is missing in
-new terminals too.
-
-**Daydream won't start**
-
-Run `daydream --doctor`. Make sure OpenCode V2 is installed, then review the
-installer preview and rerun it with `--apply` if something is missing. If it
-reports a conflicting file, inspect it rather than overwriting it.
-
-**The intro doesn't appear**
-
-The animation needs `ttfx`; it is not required to use Daydream. Use
-`daydream --no-intro` to start without it.
-
-## Update
+## Update Daydream
 
 From the folder where you cloned Daydream:
 
@@ -196,9 +131,18 @@ python3 scripts/install.py
 python3 scripts/install.py --apply
 ```
 
-Start a new Daydream session to use the update. If Git reports local changes or
-an installer conflict, resolve those before continuing—don't discard your files.
+Restart OpenCode afterwards. If Git reports local changes or the installer reports
+a conflict, resolve those before continuing—don't discard your files.
+
+## Need help?
+
+Run `daydream --doctor` for a setup check, or see **[Troubleshooting](docs/TROUBLESHOOTING.md)**.
+Use `daydream --no-intro` to start without the optional opening animation.
+
+Already using OpenCode and only want the coding agent? Install with
+`python3 scripts/install.py --agent-only --apply`. That lighter option does not
+include `/assets`, previews or the launcher.
 
 ---
 
-Contributing? See the [development guide](docs/DEVELOPMENT.md).
+Contributing to Daydream? See the [development guide](docs/DEVELOPMENT.md).

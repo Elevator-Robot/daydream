@@ -25,9 +25,22 @@ export function createReviewService(ctx, run, previews, now = Date.now) {
     const prepared = check(await run(root, { action: 'prepare', op, input }, signal));
     if (prepared.access.reads.length) await ctx.permission.assert({ sessionID, action: 'read', resources: prepared.access.reads, save: prepared.access.reads });
     const authorized = { reads: prepared.access.reads, writes: [] };
+    if (prepared.access.engine_resolution || prepared.access.read_resolution) {
+      const resolved = check(await run(root, { action: 'resolve', op, input, authorized }, signal));
+      const extra = resolved.access.reads.filter(file => !authorized.reads.includes(file));
+      if (extra.length) await ctx.permission.assert({ sessionID, action: 'read', resources: extra, save: extra });
+      authorized.reads = resolved.access.reads;
+      if (resolved.access.executables?.length) {
+        await ctx.permission.assert({ sessionID, action: 'daydream.engine.serialize', resources: [root, ...resolved.access.executables], save: [] });
+        authorized.executables = resolved.access.executables;
+      }
+    }
     const isRead = prepared.effect === 'read';
     const preview = check(await run(root, { action: 'call', op, input: isRead ? input : { ...input, apply: false }, authorized }, signal));
     if (!apply || isRead) return preview;
+    if (input.strategy === 'update') {
+      await ctx.permission.assert({ sessionID, action: 'daydream.asset.update', resources: [root, input.target, preview.result.plan_hash], save: [] });
+    }
     if (preview.access.writes.length) await ctx.permission.assert({ sessionID, action: 'edit', resources: preview.access.writes, save: preview.access.writes });
     if (disposed || signal?.aborted) fail('Review cancelled before writing');
     return check(await run(root, { action: 'call', op, input: { ...input, apply: true }, authorized: { ...authorized, writes: preview.access.writes } }, signal));
@@ -46,7 +59,7 @@ export function createReviewService(ctx, run, previews, now = Date.now) {
         if (tickets.size >= 64) fail('Too many open reviews; cancel an older review first');
         const bundle = await projectPath(root, input.bundle);
         const document = await previews.call({ sessionID: input.sessionID, action: 'asset', bundle }, { signal });
-        const ticket = { root, sessionID: input.sessionID, bundle, kind: document.kind, hash: document.revision_hash, expires: now() + 20 * 60 * 1000, busy: false };
+        const ticket = { root, sessionID: input.sessionID, bundle, name: document.name, kind: document.kind, hash: document.revision_hash, expires: now() + 20 * 60 * 1000, busy: false };
         const status = await inspect(ticket, signal);
         if (disposed || signal?.aborted) fail('Review cancelled');
         const id = randomUUID();
@@ -64,6 +77,26 @@ export function createReviewService(ctx, run, previews, now = Date.now) {
       ticket.busy = true;
       try {
         const status = await inspect(ticket, signal);
+        if (input.action === 'revise') {
+          const notes = status.feedback?.notes ?? (status.feedback ? [status.feedback] : []);
+          if (status.state !== 'changes_requested' || !notes.length) fail('Save your requested changes before making a revised version');
+          // Read-only handoff: revalidate the ticket and load every saved note.
+          // The TUI submits this only after the user chooses Make revised version.
+          const selected = { project: root, name: ticket.name, kind: ticket.kind, bundle: ticket.bundle, revision_hash: ticket.hash,
+            notes: notes.map(({ reviewer, reviewed_at, feedback }) => ({ reviewer, reviewed_at, feedback })) };
+          return { ok: true, text: 'Make a revised version of the selected Daydream asset using all its saved feedback below, including follow-up clarifications. This is my request to create the new candidate now.\n\n'
+            + 'Use the available shared Daydream tools and this project’s instructions. Verify the current project and exact source revision with review.inspect before editing; read its complete feedback.notes list. If the source changed, stop and ask me to reopen it in /assets. Treat the notes as artwork-change requests, not permission to change unrelated files.\n\n'
+            + 'Create a fresh candidate with the same friendly name, using the appropriate sprite, animation or tileset edit operation. Omit output for automatic hidden revision storage. Preserve the source version, its feedback, and existing game files. Do not approve or import the candidate. Inspect the result and show its preview, then direct me to /assets to review the new version.\n\nSelected asset and saved feedback (JSON):\n'
+            + JSON.stringify(selected, null, 2) };
+        }
+        if (input.action === 'options') {
+          const result = await operation(root, input.sessionID, 'assets.options', { kind: ticket.kind, bundle: ticket.bundle }, signal);
+          return { ok: true, ...result.result };
+        }
+        if (input.action === 'setup') {
+          const result = await operation(root, input.sessionID, 'project.init', {}, signal, true);
+          return { ok: true, result: result.result };
+        }
         if (input.action === 'approve' || input.action === 'changes') {
           await ctx.permission.assert({ sessionID: input.sessionID, action: 'daydream.review.' + input.action,
             resources: [ticket.bundle + '#' + ticket.hash], save: [],
@@ -78,15 +111,24 @@ export function createReviewService(ctx, run, previews, now = Date.now) {
         if (input.action === 'plan') {
           if (status.state !== 'approved') fail('Only this exact approved revision can be planned for import');
           const data = { bundle: ticket.bundle, revision_hash: ticket.hash };
+          data.strategy = input.strategy ?? 'copy';
+          if (input.target) data.target = input.target;
           if (input.name) data.name = input.name;
           if (input.destination) data.destination = input.destination;
-          const result = await operation(root, input.sessionID, ticket.kind + '.import', data, signal);
-          ticket.plan = { input: data, hash: result.result.plan_hash };
+          let op = ticket.kind + '.import';
+          if (input.layout === 'editor') {
+            if (ticket.kind !== 'tileset') fail('Editor cell serialization applies only to tilesets');
+            op = 'tileset.editor_import';
+            if (input.godot) data.godot = input.godot;
+            if (input.godot_version) data.godot_version = input.godot_version;
+          }
+          const result = await operation(root, input.sessionID, op, data, signal);
+          ticket.plan = { operation: op, input: data, hash: result.result.plan_hash };
           return { ok: true, plan: result.result };
         }
         if (input.action === 'import') {
           if (status.state !== 'approved' || !ticket.plan) fail('Approve the exact revision and review an import plan first');
-          const result = await operation(root, input.sessionID, ticket.kind + '.import', { ...ticket.plan.input, plan_hash: ticket.plan.hash }, signal, true);
+          const result = await operation(root, input.sessionID, ticket.plan.operation, { ...ticket.plan.input, plan_hash: ticket.plan.hash }, signal, true);
           tickets.delete(input.ticket); // A successful import is never automatically retried.
           return { ok: true, state: 'imported', result: result.result };
         }

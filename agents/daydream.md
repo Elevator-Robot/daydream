@@ -39,7 +39,51 @@ duplicate welcome banner, run a terminal animation through a tool, or wait for
 an intro to finish before helping. Without the plugin, proceed normally; do not
 install it or change user configuration merely to display branding.
 
+## Guide the user through the workflow
+
+- Present procedures as short numbered steps in the order the user should perform
+  them. Put prerequisites first, identify their current step, and finish with the
+  next concrete action using the actual command or menu label.
+- Use this asset sequence consistently:
+  1. Describe the asset and let Daydream create a candidate.
+  2. Review and compare it; if needed, save feedback and choose **Make revised version**,
+     then review the new candidate.
+  3. Choose **Approve artwork** when satisfied.
+  4. Choose **Add or update in project**, review the plan, and separately apply it.
+  5. Choose **Preview this scene**; for assets already placed in gameplay, use
+     `/preview game` to check the game. A newly added copy still needs scene placement.
+- Resume from the user's actual state; do not send them back through completed
+  steps. Give one next action when that is enough, rather than repeating the whole
+  walkthrough. Treat the revision loop as part of review, not as an unrelated task.
+- Carry known asset/project context forward. Do not ask the user to recall asset
+  names, filenames, revision IDs or earlier notes to continue a selected flow.
+- Describe outcomes precisely: request sent, candidate created, artwork approved,
+  files added/updated, and game placement are different states. Make any remaining
+  user action clear without exposing implementation details unless requested.
+- Keep optional history, configuration and technical details after the normal path.
+  Streamlining guidance never means automatic approval/import or extra confirmation
+  dialogs for already-authorized routine work.
+
 ## Establish the project contract
+
+Prefer the guided asset lifecycle: accept ordinary labels (spaces/capitals are
+fine), omit `output` in native create/edit calls for automatic hidden revision
+storage, and direct users to `/assets` for current candidates/history/thumbnails.
+Do not make users invent slugs or version suffixes. New candidates are staged under
+`.daydream/revisions`, not spread through art folders by default. Preserve existing
+legacy folders; do not migrate/prune anything merely to tidy the workspace.
+
+After exact human approval, the user chooses Add a copy or an explicit managed
+Update. Use `assets.options` to inspect choices; `strategy:"copy"` handles filename
+collisions. `strategy:"update"` requires a selected `target`, explicit authorization,
+an exact reviewed plan hash and unchanged recorded files. It retains old bytes in
+`.daydream/history/imports` before replacement. Never bypass a manual-edit refusal,
+delete sidecars, force a layout/type conversion or infer update consent from an
+approval alone. Updates affect existing references; copies do not place anything
+into gameplay. Save/close editors before updates: unsaved buffers are not detected.
+If interrupted, inspect recovery evidence; never blindly retry/rollback. See
+`docs/reference/ASSET_LIFECYCLE.md` for implementation details. User-facing guidance
+is in `docs/ASSET_LIFECYCLE.md`. This is recoverable history, not automatic garbage collection.
 
 Use shared `tileset.*` operations for floors, walls and terrain rather than
 one-off environment generators. Draw/ingest matching static seed revisions,
@@ -48,8 +92,19 @@ the `/preview asset` layout and collision outlines. Art direction and
 perceptual seamlessness still need human review. Import requires whole-revision
 approval and Godot 4.3+; never migrate a game's engine to enable it. Generated
 TileSets are editor-paintable; their optional layer layout populates cells at
-runtime only. Do not claim existing maps were edited, collisions follow alpha
-contours, or all asset types are supported. See `docs/TILESETS.md` in the checkout.
+runtime in legacy import mode. `tileset.editor_import` instead saves script-free,
+editor-visible cells via auto-detected Godot checked against project settings/features.
+Do not make users type executable paths/version strings in the normal review flow;
+manual overrides are advanced setup only. Honor configured pins and never migrate
+the game silently. Even preview
+runs that engine in a generated scratch project and requires separate execution
+permission; it never opens the target game's code. Use `/assets` for the mode
+choice, preserve manual Godot edits by never overwriting/reimporting their files,
+and use a new name for a fresh generated scene. Manual editor edits do not sync
+back to staged source JSON or inherit new approval. See `docs/reference/EDITOR_LAYOUTS.md`
+for technical behavior and `docs/EDITOR_LAYOUTS.md` for the user's walkthrough.
+Do not claim existing maps were edited, collisions follow alpha
+contours, or all asset types are supported. See `docs/reference/TILESETS.md` in the checkout.
 
 Tiles support legacy solid rectangles or explicit convex collision pieces, slope
 presets and one-way platforms through `tileset.create/edit`. Coordinates are
@@ -59,7 +114,8 @@ Show yellow solid/cyan one-way coverage and exact coordinate/settings listings;
 do not infer shapes from alpha or enable one-way behavior without agreement.
 Collision-only edits, including margins, need a new revision and approval. Test
 slopes/one-way behavior with the game's actual controller; fixture physics is not
-play-feel acceptance. See `docs/COLLISIONS.md` for limits and examples.
+play-feel acceptance. See `docs/reference/COLLISIONS.md` for technical limits and
+`docs/COLLISIONS.md` for user prompts and testing steps.
 
 The standard plugin also provides `/preview` directly to the user: `game` runs
 the current project's main scene in graphical Godot, `asset` opens a validated
@@ -76,14 +132,28 @@ canonical operation schemas, then the direct asset tools or `daydream_call`.
 Native writes default to previews; `apply:true` is a request for permissioned
 writes, not artwork approval. For existing static frame bundles, discover
 `animation.assemble` rather than inventing atlas/GIF packing scripts. Model-facing
-tools cannot record approval. Direct the user to `/asset-review` or `/preview review`
+tools cannot record approval. Direct the user to `/assets`
 for explicit exact-revision approval, change requests, and separately confirmed
 import. Never invoke the decision RPC, reply to a user permission prompt, or use
 the CLI to imitate the user's review clicks. Explicitly human-authorized CLI
 approval remains a fallback, not a way around a denied/cancelled UI decision.
+After a revision, point out **Compare with previous version** in the browser
+preview. It shows earlier artwork and saved feedback at the same pixel scale.
+Changing its older-version picker leaves the candidate under review fixed;
+approval/import in `/assets` still applies only to that selected candidate.
 Use `review.inspect` to read retained feedback/state and create a fresh revision
-when changes are requested. Feedback does not authorize automatic generation or
-undo assets already imported. The CLI fallback is `daydream ops search/describe/call`;
+when changes are requested. Read the complete `feedback.notes` list, including
+follow-up clarifications, rather than only the original note. Users can add notes
+with **Add more feedback** or inspect them with **Read saved feedback** in `/assets`;
+never tell them to delete feedback or add a copy to bypass a change request.
+After saving notes, users can choose **Make revised version** in that same menu.
+This sends an explicit creation request with the selected bundle, kind, hash and
+all saved notes to chat; act on it without asking the user to identify the asset
+again. Verify the project and source hash, use the matching shared edit capability
+with automatic revision storage, preserve earlier versions, and show the new
+candidate's preview. Direct the user back to `/assets` for a fresh review.
+Saving feedback alone does not start generation or undo imported assets.
+The CLI fallback is `daydream ops search/describe/call`;
 see the checkout's `docs/OPERATIONS.md`. Native tools ship with the standard
 install, but verify availability: older or agent-only installations may lack them.
 

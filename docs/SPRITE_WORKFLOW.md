@@ -1,130 +1,86 @@
-# The sprite workflow
+# Make a sprite or animation
 
-Take a sprite from an idea to a reviewed asset in your Godot project:
+**Describe → Preview → Revise → Approve → Add → Playtest**
 
-**Describe → Create → Preview → Revise → Animate (optional) → Approve → Import → Test**
+Before starting, [enable pixel-art creation](../README.md#enable-pixel-art-creation)
+and open your game with `daydream /path/to/your/game`.
 
-## Before you start
+## Describe the sprite
 
-Enable the [optional sprite tools](../README.md#pixel-art-sprites-optional), then
-open a trusted Godot project:
+Tell Daydream what it represents, how large it should be and what style it should
+match. If you don't know the size or palette, ask for a recommendation first.
 
-```sh
-daydream /path/to/your/game
-```
+> Create a transparent 32×32 slime named Moonlight Slime. Use five colors that
+> match the game's purple-and-green palette. Show me a candidate before adding it.
 
-Use a throwaway project for your first test. Daydream currently works with
-explicit pixel designs, not a general AI image-generation service.
+You can also ask Daydream to start from an existing small PNG. Name the file and
+explain what you want changed. Keep the original available for comparison.
 
-## 1. Describe the sprite
+## Inspect it
 
-Tell Daydream what it represents, its dimensions, and the style or palette to use.
-Mention any existing artwork it needs to match.
+Open `/assets`, select the candidate and confirm opening the preview.
 
-> Create a transparent 32×32 slime using five colors. Match the existing game's
-> pixel-art style. Show me a preview before importing anything.
+- Can you recognize it at the size it will appear in the game?
+- Do the colors, outline and shading fit the surrounding artwork?
+- Are the edges sharp and the background transparent where intended?
 
-**Result:** an agreed brief with clear size, palette, and appearance goals.
+The checkerboard behind a transparent sprite is only a viewing aid. It will not
+appear in the exported artwork.
 
-## 2. Create a candidate
+## Request a revision
 
-Daydream creates an editable pixel design, a transparent PNG, and an enlarged
-preview. You can also start from an existing palette-limited PNG.
+Choose **Request changes** and enter what needs improving, for example:
 
-**Result:** a new candidate version. Nothing is imported into the game yet.
+> Make the outline darker and the eyes easier to read.
 
-## 3. Review the preview
+After saving the note, choose **Make revised version**. Daydream receives the
+selected asset and all saved notes automatically. Follow progress in chat, then
+return to `/assets` to review the result.
 
-Use `/asset-review` or `/preview review` for the integrated user review flow:
-open an exact revision, approve it or request changes, then review/apply import
-separately. It works for static sprites, animations and tilesets. See
-[review and approval](REVIEW.md); CLI approval remains available as a fallback.
+New candidates preserve the original. Use **Show older revisions** in `/assets`
+when you want to inspect an earlier version.
 
-Open the actual preview and check:
+## Add animation if needed
 
-- Silhouette and readability at the intended size.
-- Colors, outline, shading, and consistency with the game.
-- Transparency and sharp pixel edges.
+Skip this step for a static sprite. Otherwise, describe the motion:
 
-The enlarged preview uses a checkerboard to show transparency. That checkerboard
-is not part of the exported sprite. A preview is not an in-game screenshot.
+> Give Moonlight Slime a four-frame idle animation with a slow blink. Keep its
+> feet aligned and show me the motion before adding it.
 
-**Decision:** request changes or continue with this candidate. Creation alone
-does not count as approval.
+Watch playback in the browser. Check the speed, loop transition and whether the
+character seems to slide or jump between frames. A still image cannot show this.
 
-## 4. Revise without losing the original
+For a revision:
 
-Ask for specific changes:
+> Slow down the blink and hold the eyes open longer. Save a new candidate.
 
-> Make the outline darker and keep the original version. Show me the new preview.
+Approving the original still sprite does not approve its animation. Review the
+complete motion before choosing **Approve artwork**.
 
-Daydream saves a fresh revision rather than changing the original. Recoloring,
-mirroring, pixel edits, and rectangle fills are supported. Compare the versions
-and repeat this review/edit loop until you are satisfied.
+## Approve and add
 
-**Result:** a clearly identified candidate to keep, with previous versions intact.
+In `/assets`:
 
-## 5. Add animation, if needed
+1. Choose **Approve artwork** for the candidate you just inspected.
+2. If prompted, enter your name or `user` as the reviewer label, then confirm.
+3. Choose **Add or update in project**.
+4. Use **Add a separate copy** for a new asset or experiment. Use **Update** only
+   when you intend to change the existing Daydream asset named in the summary.
+5. Review and separately confirm the change.
 
-Skip this step for a static sprite.
+See [Your assets](REVIEW.md) for the full guided flow. You do not need to enter
+filenames, version numbers or terminal approval commands.
 
-> Give this slime a four-frame idle animation. Keep its feet aligned. Show me
-> the animation before importing it.
+## Test in Godot
 
-Agree on the named animation, frame order, timing, looping, and pivot. Daydream
-provides a motion preview and a labeled contact sheet.
+Choose **How to open it in Godot** or **Preview this scene** after adding it.
+Check the size, position, transparency and animation once more in the actual game
+renderer. A standalone sprite scene won't have movement or gameplay behavior
+unless you add it separately.
 
-Watch the motion preview in a browser or APNG-capable viewer. Check the timing,
-loop transition, and alignment. A contact sheet—or an image tool displaying only
-the first frame—cannot establish that the animation moves correctly.
+When ready, ask Daydream to place the approved asset into a specific test scene or
+level. Keep that request small and say what should remain unchanged.
 
-> Slow the blink down. Save a new version and keep the previous animation.
-
-**Result:** a reviewed animation candidate. Approval of its original static
-sprite does not approve the animation.
-
-## 6. Approve an exact version
-
-Tell Daydream which candidate you approve:
-
-> I approve the darker-outline version. Use that exact revision.
-
-For animation, approve the complete clip after watching it, including its timing
-and looping. Daydream records approval for that exact revision. Changes to pixels,
-frames, pivot, timing, looping, or previews require another review and approval.
-
-**Result:** an approved candidate, not permission to make unrelated game changes.
-
-## 7. Review and apply the import
-
-Authorize adding the approved candidate:
-
-> Show me where this approved sprite will be added, then import it as a standalone
-> Godot scene. Don't replace existing assets or change the main scene.
-
-Review the planned destinations before applying them. Daydream adds the approved
-image and editable source, along with either a static `Sprite2D` scene or animated
-`AnimatedSprite2D` scene. Existing assets are not overwritten; choose a new name
-if a destination is already occupied.
-
-**Result:** a reusable Godot asset. Import does not automatically place it in a
-level, add movement/collisions, or build a character controller.
-
-## 8. Test it in Godot
-
-Open the generated scene and instance it in a test level. Check:
-
-- Correct dimensions, transparency, colors, and sharp filtering.
-- Position and pivot relative to the level and other artwork.
-- For animation: frame order, timing, looping, and visible jitter.
-
-Run project checks when authorized, but do not treat a passing headless check as
-visual approval. If something looks wrong, return to the revision step; keep the
-existing imported asset until you deliberately decide how to replace it.
-
-**Done when:** you have reviewed the actual artwork/motion, approved the exact
-candidate, inspected the import, and checked its appearance in Godot.
-
----
-
-Command formats and limits: [static sprites](SPRITES.md) · [animations](ANIMATIONS.md).
+If something looks wrong, ask for another candidate and repeat the review. Your
+previous version remains available. See [versions and updates](ASSET_LIFECYCLE.md)
+before replacing a scene you have manually edited.

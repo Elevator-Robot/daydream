@@ -80,9 +80,17 @@ def prepare(operation, data, context):
                             if index >= 256: raise ValueError("Revision directory has too many entries")
                             if re.fullmatch(r"[a-z][a-z0-9_-]{0,47}\.(motion|contact)\.png", entry.name): names.add(entry.name)
             else: raise ValueError("Unsupported catalog path authority")
+            if path.is_dir():
+                from review_core import feedback_filenames
+                names.update(feedback_filenames(path))
             reads.update(str(context.path(str(path / name))) for name in names)
     reads.update(str(context.path(path)) for path in operation.project_reads)
-    return {"reads": sorted(reads), "writes": []}
+    access = {"reads": sorted(reads), "writes": []}
+    if operation.engine:
+        access["engine_resolution"] = True
+    if operation.discovery or data.get('strategy') == 'update':
+        access['read_resolution'] = True
+    return access
 
 
 def failure(name, code, message, next_step, *, partial=False):
@@ -100,13 +108,13 @@ def artifacts(result, status):
     return items
 
 
-def execute(name, data, project, *, surface="cli", prepare_only=False, authorized=None):
+def execute(name, data, project, *, surface="cli", prepare_only=False, resolve_only=False, authorized=None):
     operation = find(name)
     if operation is None: return failure(name, "not_found", "Unknown Daydream operation", "Use daydream ops search to discover an existing operation.")
     writing = isinstance(data, dict) and data.get("apply") is True and operation.effect != "read"
     try:
         if surface == "native" and not operation.native:
-            return failure(name, "unsupported", "Approval/feedback decisions are not written by model-facing tools", "Use the user /asset-review UI or explicitly authorized CLI review; do not self-approve.")
+            return failure(name, "unsupported", "Approval/feedback decisions are not written by model-facing tools", "Use the user /assets UI or explicitly authorized CLI review; do not self-approve.")
         context = Context(project)
         access = prepare(operation, data, context)
         if prepare_only:
@@ -115,7 +123,7 @@ def execute(name, data, project, *, surface="cli", prepare_only=False, authorize
         write_grants = None
         if surface in {"native", "review_ui"}:
             authorized = authorized or {"reads": [], "writes": []}
-            if not isinstance(authorized, dict) or set(authorized) != {"reads", "writes"}:
+            if not isinstance(authorized, dict) or not {"reads", "writes"}.issubset(authorized) or set(authorized) - {"reads", "writes", "executables"}:
                 raise ValueError("Invalid adapter authorization envelope")
             for paths in authorized.values():
                 if not isinstance(paths, list) or any(not isinstance(path, str) for path in paths):
@@ -123,12 +131,36 @@ def execute(name, data, project, *, surface="cli", prepare_only=False, authorize
             if not reads.issubset(set(authorized["reads"])):
                 raise PermissionError("Adapter must authorize all planned reads before execution")
             write_grants = set(authorized["writes"])
+        if access.get('read_resolution'):
+            from asset_lifecycle import discover_reads
+            with asset_access.grants(reads, set()):
+                reads |= discover_reads(context, name, data)
+            access['reads'] = sorted(reads)
+            access.pop('read_resolution', None)
+            if not resolve_only and surface in {'native', 'review_ui'} and not reads.issubset(set(authorized['reads'])):
+                raise PermissionError("Authorize the additional managed asset reads before continuing")
+        from asset_lifecycle import normalize_request
+        data, context.display_name = normalize_request(name, data)
         with asset_access.grants(reads, write_grants if writing else set()):
+            if operation.engine:
+                from engine_selection import project_engine
+                selected = project_engine(context, data)
+                context.engine = selected['godot']
+                context.engine_version = selected['expected_version']
+                context.engine_selection = selected
+                access.pop('engine_resolution', None)
+                access['executables'] = [context.engine]
+                if resolve_only:
+                    return {"ok": True, "status": "resolved", "operation": name, "access": access, "engine": selected}
+                if surface in {"native", "review_ui"} and not set(access['executables']).issubset(set(authorized.get('executables', []))):
+                    raise PermissionError("Separate Godot serialization execution permission is required before preview or apply")
+            elif resolve_only:
+                return {"ok": True, "status": "resolved", "operation": name, "access": access}
             result, writes = operation.handler(context, data)
         access["writes"] = [str(context.path(str(path))) for path in writes]
         status = "done" if operation.effect == "read" or writing else "preview"
         return {"ok": True, "status": status, "operation": name, "result": result, "access": access,
-                "artifacts": artifacts(result, status), "evidence": {"images_viewed": False, "motion_reviewed": False, "godot_run": False}}
+                "artifacts": artifacts(result, status), "evidence": {"images_viewed": False, "motion_reviewed": False, "godot_run": operation.engine}}
     except DependencyMissing as exc:
         return failure(name, "dependency_missing", exc, "Enable the optional sprite environment using requirements-sprites.txt; no software was installed.")
     except ApprovalRequired as exc:
@@ -161,8 +193,8 @@ def protocol(request, project, surface="cli"):
     if action == "describe":
         operation = find(request.get("op"))
         return {"ok": True, "status": "done", "result": {"operation": operation.metadata()}} if operation else failure(request.get("op"), "not_found", "Unknown operation", "Use daydream ops search.")
-    if action in {"call", "prepare"}:
-        return execute(request.get("op"), request.get("input", {}), project, surface=surface, prepare_only=action == "prepare", authorized=request.get("authorized"))
+    if action in {"call", "prepare", "resolve"}:
+        return execute(request.get("op"), request.get("input", {}), project, surface=surface, prepare_only=action == "prepare", resolve_only=action == "resolve", authorized=request.get("authorized"))
     raise ValueError("Unknown operation protocol action")
 
 
