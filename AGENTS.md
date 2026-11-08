@@ -30,6 +30,11 @@ that goal; do not imply complete Summer parity or implemented editor control.
 - Keep preview-before-apply, exact-revision approval, non-overwriting writes,
   cancellation, and honest evidence in the shared implementation, not only prompts
   or adapters. Tools must not auto-approve artwork or hide failed/partial outcomes.
+- Normal asset workflows use friendly labels and automatic hidden revision paths.
+  Keep raw IDs/paths/hashes as details, not required user knowledge. Explicit
+  managed updates may replace only verified unchanged registered outputs after
+  exact-plan confirmation and a complete recovery snapshot; new imports stay
+  non-overwriting. Never migrate/delete an existing game's history automatically.
 - Prefer extending shared sprite/animation capabilities over one-off per-game
   generators when addressing a recurring product gap. Preserve existing game work;
   do not rewrite another repository as an architectural cleanup.
@@ -37,6 +42,10 @@ that goal; do not imply complete Summer parity or implemented editor control.
 ## Contributor boundaries
 
 - Read `README.md` and `docs/ROADMAP.md` before changing the scope.
+- User documentation teaches tasks, menu choices and expected results. Keep
+  schemas, RPC/adapter details, internal storage algorithms and test evidence in
+  contributor/reference/validation docs. Start users at `docs/README.md`; link
+  implementation readers through `docs/DEVELOPMENT.md` and `docs/reference/`.
 - `agents/daydream.md` is the installable agent. This file is only for contributors
   working on this repository; never install it as global game instructions.
 - Keep game-specific paths, engine pins, design decisions, and test commands in

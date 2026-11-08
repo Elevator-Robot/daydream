@@ -1,5 +1,7 @@
 # Sprite animation — first slice
 
+Contributor/integration reference. User instructions are in [sprites and animations](SPRITE_WORKFLOW.md).
+
 Scope: build a bounded, named animation from static pixel-art frames, review its
 motion, and import an approved `SpriteFrames` resource and `AnimatedSprite2D`
 scene. It extends—not replaces—the static [sprite workflow](SPRITES.md).

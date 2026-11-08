@@ -53,6 +53,19 @@ test('game launches graphical main scene, duplicate is refused, stop only owns i
   assert.equal((await f.call('status')).state, 'exited');
 });
 
+test('post-import scene preview uses explicit argv without changing the main scene', async t => {
+  const f = await fixture(t);
+  const before = await readFile(path.join(f.root, 'project.godot'));
+  await mkdir(path.join(f.root, 'assets'));
+  await writeFile(path.join(f.root, 'assets/test.tscn'), '[gd_scene format=3]\n[node name="Fixture" type="Node2D"]\n');
+  const result = await f.call('game', { scene: 'assets/test.tscn' });
+  assert.equal(result.state, 'running');
+  assert.deepEqual(f.spawned[1].args, ['--path', f.root, 'res://assets/test.tscn']);
+  assert.deepEqual(await readFile(path.join(f.root, 'project.godot')), before);
+  await assert.rejects(f.call('game'), /Another preview/);
+  await f.call('stop');
+});
+
 test('permissions block even the version executable, with no fallback', async t => {
   for (const deny of ['read', 'daydream.preview.game', 'edit']) {
     const f = await fixture(t, { deny });
@@ -98,12 +111,14 @@ test('unload stops owned game; cancellation and concurrent starts do not duplica
 test('source discovery uses configured source root and ignores symlink candidates', async t => {
   const f = await fixture(t);
   await mkdir(path.join(f.root, '.daydream'));
-  await writeFile(path.join(f.root, '.daydream/config.json'), JSON.stringify({ paths: { sources: 'custom art' } }));
+  await writeFile(path.join(f.root, '.daydream/config.json'), JSON.stringify({ schema_version: 1, paths: { sources: 'custom art', assets: 'assets' } }));
   await mkdir(path.join(f.root, 'custom art/slime'), { recursive: true });
-  await writeFile(path.join(f.root, 'custom art/slime/manifest.json'), JSON.stringify({ kind: 'sprite' }));
+  await writeFile(path.join(f.root, 'custom art/slime/manifest.json'), JSON.stringify({ kind: 'sprite', name: 'slime' }));
   await symlink('/etc', path.join(f.root, 'custom art/escape'), 'dir');
   const result = await f.call('assets');
-  assert.deepEqual(result.assets, [{ bundle: 'custom art/slime', kind: 'sprite' }]);
+  assert.equal(result.assets.length, 1);
+  assert.equal(result.assets[0].bundle, 'custom art/slime');
+  assert.equal(result.assets[0].kind, 'sprite');
   await assert.rejects(f.call('asset', { bundle: '../escape' }), /Invalid project path/);
   await assert.rejects(f.call('asset', { bundle: 'custom art/escape' }), /Symlinks/);
 });
@@ -140,6 +155,10 @@ assert r['ok'],r`, f.root, recipe], { encoding: 'utf8' });
     }
     await assert.rejects(readFile(path.join(f.root, bundle, 'approval.json')), { code: 'ENOENT' });
   }
+  const gallery = await f.call('gallery');
+  assert.match(gallery.html, /Your assets/);
+  assert.match(gallery.html, /data:image\/png;base64,/);
+  assert.match(gallery.html, /Content-Security-Policy/);
   await writeFile(path.join(f.root, 'art/dot/preview.png'), 'tampered');
   await assert.rejects(f.call('asset', { bundle: 'art/dot' }));
 });
@@ -201,6 +220,15 @@ test('slash arguments preserve path spaces and open assets only after confirmati
   await f.command.run('unknown');
   assert.equal(f.calls.length, 2);
   assert.equal(f.toasts.at(-1).variant, 'error');
+});
+
+test('preview no longer accepts the removed review route', async () => {
+  const f = commandFixture();
+  await f.command.run('review art/tiles/floor');
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.opened.length, 0);
+  assert.equal(f.toasts.at(-1).variant, 'error');
+  assert.match(f.toasts.at(-1).message, /Manage artwork with \/assets/);
 });
 
 test('real graphical Godot starts and stops an isolated synthetic scene', { skip: process.env.DAYDREAM_GRAPHICAL_TEST !== '1' }, async t => {

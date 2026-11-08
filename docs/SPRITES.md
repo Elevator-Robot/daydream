@@ -1,5 +1,7 @@
 # Sprite workflow — first vertical slice
 
+Contributor/integration reference. User instructions are in [sprites and animations](SPRITE_WORKFLOW.md).
+
 For the step-by-step user journey, see [the sprite workflow](SPRITE_WORKFLOW.md).
 This document covers the static tool's formats, safeguards, and validation.
 

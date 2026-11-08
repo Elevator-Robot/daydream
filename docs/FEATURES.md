@@ -31,6 +31,12 @@ paid services, or implementing integrations without their own review.
 
 ## Target workflow
 
+The guided [asset lifecycle](ASSET_LIFECYCLE.md) adds `/assets`, friendly naming,
+automatic hidden revision storage, readable state/history/thumbnails and separate
+Add-copy/managed-update plans. Managed updates require unchanged registered files,
+exact approval/plan confirmation and recovery snapshots. No automatic game placement,
+manual-edit merge, history migration/pruning or force-overwrite is included.
+
 1. Describe a game object, environment, or effect.
 2. Agree on style, dimensions, palette, animation needs, and acceptance criteria.
 3. Generate or draw editable assets in a staging directory.

@@ -41,6 +41,25 @@ install it or change user configuration merely to display branding.
 
 ## Establish the project contract
 
+Prefer the guided asset lifecycle: accept ordinary labels (spaces/capitals are
+fine), omit `output` in native create/edit calls for automatic hidden revision
+storage, and direct users to `/assets` for current candidates/history/thumbnails.
+Do not make users invent slugs or version suffixes. New candidates are staged under
+`.daydream/revisions`, not spread through art folders by default. Preserve existing
+legacy folders; do not migrate/prune anything merely to tidy the workspace.
+
+After exact human approval, the user chooses Add a copy or an explicit managed
+Update. Use `assets.options` to inspect choices; `strategy:"copy"` handles filename
+collisions. `strategy:"update"` requires a selected `target`, explicit authorization,
+an exact reviewed plan hash and unchanged recorded files. It retains old bytes in
+`.daydream/history/imports` before replacement. Never bypass a manual-edit refusal,
+delete sidecars, force a layout/type conversion or infer update consent from an
+approval alone. Updates affect existing references; copies do not place anything
+into gameplay. Save/close editors before updates: unsaved buffers are not detected.
+If interrupted, inspect recovery evidence; never blindly retry/rollback. See
+`docs/reference/ASSET_LIFECYCLE.md` for implementation details. User-facing guidance
+is in `docs/ASSET_LIFECYCLE.md`. This is recoverable history, not automatic garbage collection.
+
 Use shared `tileset.*` operations for floors, walls and terrain rather than
 one-off environment generators. Draw/ingest matching static seed revisions,
 generate transitions, inspect exact-edge and corner-coverage evidence, and show
@@ -54,12 +73,13 @@ Do not make users type executable paths/version strings in the normal review flo
 manual overrides are advanced setup only. Honor configured pins and never migrate
 the game silently. Even preview
 runs that engine in a generated scratch project and requires separate execution
-permission; it never opens the target game's code. Use `/asset-review` for the mode
+permission; it never opens the target game's code. Use `/assets` for the mode
 choice, preserve manual Godot edits by never overwriting/reimporting their files,
 and use a new name for a fresh generated scene. Manual editor edits do not sync
-back to staged source JSON or inherit new approval. See `docs/EDITOR_LAYOUTS.md`.
+back to staged source JSON or inherit new approval. See `docs/reference/EDITOR_LAYOUTS.md`
+for technical behavior and `docs/EDITOR_LAYOUTS.md` for the user's walkthrough.
 Do not claim existing maps were edited, collisions follow alpha
-contours, or all asset types are supported. See `docs/TILESETS.md` in the checkout.
+contours, or all asset types are supported. See `docs/reference/TILESETS.md` in the checkout.
 
 Tiles support legacy solid rectangles or explicit convex collision pieces, slope
 presets and one-way platforms through `tileset.create/edit`. Coordinates are
@@ -69,7 +89,8 @@ Show yellow solid/cyan one-way coverage and exact coordinate/settings listings;
 do not infer shapes from alpha or enable one-way behavior without agreement.
 Collision-only edits, including margins, need a new revision and approval. Test
 slopes/one-way behavior with the game's actual controller; fixture physics is not
-play-feel acceptance. See `docs/COLLISIONS.md` for limits and examples.
+play-feel acceptance. See `docs/reference/COLLISIONS.md` for technical limits and
+`docs/COLLISIONS.md` for user prompts and testing steps.
 
 The standard plugin also provides `/preview` directly to the user: `game` runs
 the current project's main scene in graphical Godot, `asset` opens a validated
@@ -86,7 +107,7 @@ canonical operation schemas, then the direct asset tools or `daydream_call`.
 Native writes default to previews; `apply:true` is a request for permissioned
 writes, not artwork approval. For existing static frame bundles, discover
 `animation.assemble` rather than inventing atlas/GIF packing scripts. Model-facing
-tools cannot record approval. Direct the user to `/asset-review` or `/preview review`
+tools cannot record approval. Direct the user to `/assets`
 for explicit exact-revision approval, change requests, and separately confirmed
 import. Never invoke the decision RPC, reply to a user permission prompt, or use
 the CLI to imitate the user's review clicks. Explicitly human-authorized CLI

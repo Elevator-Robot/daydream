@@ -18,7 +18,7 @@ export function definitions(ctx, catalog, run) {
   }
   async function call(name, input, execution) {
     const operation = byName.get(name);
-    if (!operation?.native) return content(errorResult("unsupported", "Operation is not exposed as a model-facing tool; use the user /asset-review UI or an explicitly authorized CLI review workflow"));
+    if (!operation?.native) return content(errorResult("unsupported", "Operation is not exposed as a model-facing tool; use the user /assets UI or an explicitly authorized CLI review workflow"));
     const project = await workspace(execution);
     const prepared = await run(project, { action: "prepare", op: name, input }, execution.signal);
     if (!prepared.ok) return content(prepared);
@@ -26,19 +26,24 @@ export function definitions(ctx, catalog, run) {
     await assert(execution, "read", prepared.access.reads);
     const previewInput = operation.effect === "read" ? input : { ...input, apply: false };
     const authorized = { reads: prepared.access.reads, writes: [] };
-    if (prepared.access.engine_resolution) {
+    if (prepared.access.engine_resolution || prepared.access.read_resolution) {
       const resolved = await run(project, { action: 'resolve', op: name, input, authorized }, execution.signal);
       if (!resolved.ok) return content(resolved);
-      await assert(execution, 'daydream.engine.serialize', [project, ...resolved.access.executables]);
-      authorized.executables = resolved.access.executables;
+      await assert(execution, 'read', resolved.access.reads.filter(file => !authorized.reads.includes(file)));
+      authorized.reads = resolved.access.reads;
+      if (resolved.access.executables?.length) {
+        await assert(execution, 'daydream.engine.serialize', [project, ...resolved.access.executables]);
+        authorized.executables = resolved.access.executables;
+      }
     } else if (prepared.access.executables?.length) {
       await assert(execution, 'daydream.engine.serialize', [project, ...prepared.access.executables]);
       authorized.executables = prepared.access.executables;
     }
     const preview = await run(project, { action: "call", op: name, input: previewInput, authorized }, execution.signal);
     if (!preview.ok || operation.effect === "read" || input.apply !== true) return content(preview);
+    if (input.strategy === 'update') await assert(execution, 'daydream.asset.update', [project, input.target, preview.result.plan_hash]);
     await assert(execution, "edit", preview.access.writes);
-    const applied = prepared.access.engine_resolution && preview.result?.plan_hash ? { ...input, plan_hash: preview.result.plan_hash } : input;
+    const applied = (prepared.access.engine_resolution || input.strategy === 'update') && preview.result?.plan_hash ? { ...input, plan_hash: input.plan_hash ?? preview.result.plan_hash } : input;
     return content(await run(project, { action: "call", op: name, input: applied, authorized: { ...authorized, writes: preview.access.writes } }, execution.signal));
   }
   const tools = [

@@ -1,5 +1,7 @@
 # The `daydream` terminal entry point
 
+Contributor/integration reference. For installation and normal use, see [getting started](../README.md).
+
 The launcher opens the normal OpenCode V2 TUI with a fresh, empty primary
 Daydream session. It reuses the existing agent and intro plugin, not another
 agent implementation or an external animation window.

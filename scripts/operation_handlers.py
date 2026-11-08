@@ -31,6 +31,7 @@ def sprite_from_png(context, data):
 
 def sprite_edit(context, data):
     parent = sprite.load_revision(context.path(data["bundle"]))
+    context.display_name = parent['manifest']['provenance'].get('display_name')
     source = sprite.edit_source(parent["source"], data["patch"])
     provenance = {"method": "edit", "parent_revision_hash": parent["revision_hash"], "patch_sha256": sprite.digest(sprite.encoded(data["patch"])), "license": parent["manifest"]["provenance"].get("license")}
     return save(context, data, sprite.make_revision(source, provenance))
@@ -75,6 +76,7 @@ def animation_assemble(context, data):
 
 def animation_edit(context, data):
     parent = animation.load_revision(context.path(data["bundle"]))
+    context.display_name = parent['manifest']['provenance'].get('display_name')
     source = animation.edit_animation(parent["source"], data["patch"])
     provenance = {"method": "animation-edit", "parent_revision_hash": parent["revision_hash"],
                   "patch_sha256": sprite.digest(sprite.encoded(data["patch"])), "license": parent["manifest"]["provenance"].get("license")}
@@ -117,6 +119,7 @@ def tileset_transitions(context, data):
 
 def tileset_edit(context, data):
     parent = tileset.load_revision(context.path(data["bundle"]))
+    context.display_name = parent['manifest']['provenance'].get('display_name')
     source = copy.deepcopy(parent["source"])
     by_id = {tile["id"]: tile for tile in source["tiles"]}
     for change in data["tiles"]:
@@ -179,8 +182,19 @@ def tileset_editor_import(context, data):
 
 
 def save(context, data, files, kind="sprite"):
-    output = context.path(data["output"])
+    import json
+    from asset_lifecycle import managed_output
+    if getattr(context, 'display_name', None):
+        manifest = json.loads(files['manifest.json'])
+        if context.display_name != manifest['name']:
+            manifest['provenance']['display_name'] = context.display_name
+            files['manifest.json'] = sprite.encoded(manifest)
+    else:
+        manifest = json.loads(files['manifest.json'])
+    output = context.path(data['output']) if data.get('output') else managed_output(context, kind, manifest['name'], sprite.digest(files['manifest.json']))
     result = store.save_revision(output, files, data.get("apply", False), kind=kind)
+    result['display_name'] = manifest['provenance'].get('display_name', manifest['name'])
+    result['next'] = '/assets ' + context.relative(output)
     return result, [output / name for name in files]
 
 
@@ -191,8 +205,18 @@ def approve(context, data, loader):
 
 
 def importing(context, data, loader, output_builder):
-    result = store.import_revision(context.path(data["bundle"]), context.root, data.get("name"), data.get("destination"), data.get("apply", False), loader=loader, output_builder=output_builder, revision_hash=data.get("revision_hash"), plan_hash=data.get("plan_hash"))
-    return result, [context.path(path) for path in [*result["create"], result["update"]]]
+    result = store.import_revision(context.path(data["bundle"]), context.root, data.get("name"), data.get("destination"), data.get("apply", False), loader=loader, output_builder=output_builder, revision_hash=data.get("revision_hash"), plan_hash=data.get("plan_hash"), strategy=data.get('strategy', 'new'), target=data.get('target'))
+    return result, [context.path(path) for path in [*result["create"], *result.get('replace', []), *result.get('backup', []), result["update"]]]
+
+
+def assets_list(context, data):
+    from asset_lifecycle import list_assets
+    return list_assets(context, data), []
+
+
+def assets_options(context, data):
+    from asset_lifecycle import options
+    return options(context, data), []
 
 
 def review_loader(kind):

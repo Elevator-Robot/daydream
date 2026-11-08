@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { createRunner } from '../plugins/daydream-tools/runner.js';
 import { createReviewService } from '../plugins/daydream-tools/review.js';
 import { createPreviewService } from '../plugins/daydream-tools/preview.js';
-import { reviewCommand } from '../plugins/daydream-tools/review-command.js';
+import { assetsCommand } from '../plugins/daydream-tools/assets-command.js';
+import { pickAsset } from '../plugins/daydream-tools/asset-picker.js';
 
 const checkout = fileURLToPath(new URL('../', import.meta.url));
 const python = process.env.DAYDREAM_TEST_PYTHON ?? 'python3';
@@ -121,17 +122,19 @@ function ui({ decisions = ['approve', 'cancel'], confirm = true, browserFails = 
     if (input.action === 'open') return { ok: true, ticket: 'ticket', name: 'dot', kind, html: '<h1>fixture</h1>', revision_hash: 'a'.repeat(64), status: { ...status } };
     if (input.action === 'approve') { status.state = 'approved'; return { ok: true, status: { ...status } }; }
     if (input.action === 'changes') { status.state = 'changes_requested'; return { ok: true, status: { ...status } }; }
+    if (input.action === 'options') return { ok: true, initialized: true, targets: [] };
     if (input.action === 'plan') return { ok: true, plan: { create: ['assets/dot.png'], update: '.daydream/assets.json', plan_hash: 'b'.repeat(64) } };
     return { ok: true };
   };
-  const command = reviewCommand(context, call, async () => ({ assets: [] }), { open: async () => { if (browserFails) throw new Error('browser failed'); } });
+  const command = assetsCommand(context, call, async () => ({ assets: [] }), { open: async () => { if (browserFails) throw new Error('browser failed'); } });
   return { command, calls, toasts, prompts };
 }
 
 test('user approval is explicit, retains exact hash, and does not auto-import', async () => {
   const f = ui();
-  assert.equal(f.command.slash.name, 'asset-review');
-  assert.equal(f.command.slash.aliases.includes('review'), false);
+  assert.equal(f.command.id, 'daydream.assets');
+  assert.equal(f.command.title, 'Your assets');
+  assert.deepEqual(f.command.slash, { name: 'assets', arguments: true });
   await f.command.run('art/dot');
   assert.deepEqual(f.calls.map(call => call.action), ['open', 'approve', 'cancel']);
   assert.equal(f.calls[1].reviewer, 'test reviewer');
@@ -145,8 +148,8 @@ test('browser failure, cancel and declined confirmation never decide', async () 
 });
 
 test('approved asset still requires separate plan and apply action', async () => {
-  const f = ui({ decisions: ['approve', 'plan', 'defaults'] }); await f.command.run('art/dot');
-  assert.deepEqual(f.calls.map(call => call.action), ['open', 'approve', 'plan', 'import']);
+  const f = ui({ decisions: ['approve', 'plan', 'copy', 'keep', 'apply', 'done'] }); await f.command.run('art/dot');
+  assert.deepEqual(f.calls.map(call => call.action), ['open', 'approve', 'options', 'plan', 'import']);
 });
 
 test('request changes records feedback without starting generation', async () => {
@@ -157,8 +160,77 @@ test('request changes records feedback without starting generation', async () =>
   assert.equal(f.calls[1].feedback, 'Shorten the nose');
 });
 
+test('friendly import names are passed through, details are optional and applying is separate', async () => {
+  const f = ui({ decisions: ['approve', 'plan', 'copy', 'rename', 'details', 'apply', 'done'] });
+  f.prompts.splice(0, f.prompts.length, 'test reviewer', 'Potion Shop Floor!');
+  await f.command.run('art/dot');
+  const plan = f.calls.find(call => call.action === 'plan');
+  assert.equal(plan.name, 'Potion Shop Floor!');
+  assert.equal(plan.strategy, 'copy');
+  assert.equal(f.calls.filter(call => call.action === 'import').length, 1);
+});
+
+test('asset picker exposes readable status and history without changing assets', async () => {
+  const listed = [], dialogs = [], choices = ['\0history', 'art/old'];
+  const context = { ui: { dialog: { select: async input => { dialogs.push(input); return choices.shift(); } } } };
+  const selected = await pickAsset(context, async input => {
+    listed.push(input);
+    return { ok: true, assets: [{ name: 'Potion Shop Floor', bundle: input.history ? 'art/old' : 'art/current', kind: 'tileset', state: 'changes_requested', older_revisions: 3 }] };
+  }, 'test-session');
+  assert.equal(selected, 'art/old');
+  assert.deepEqual(listed.map(input => input.history), [false, true]);
+  assert.match(dialogs[0].options[0].description, /Needs changes/);
+  assert.match(dialogs[0].options[0].description, /3 older/);
+});
+
+test('describing a new asset submits only the explicit user brief, never approval', async () => {
+  const sent = [];
+  const context = { client: { session: { prompt: async value => sent.push(value) } }, ui: {
+    router: { current: () => ({ type: 'session', sessionID: 'test' }) }, toast: { show: () => {} },
+    dialog: { select: async () => '\0create', prompt: async () => 'Mossy walls called Moonlight Floor' },
+  } };
+  await pickAsset(context, async () => ({ ok: true, assets: [] }), 'test');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].sessionID, 'test');
+  assert.match(sent[0].text, /Mossy walls called Moonlight Floor/);
+  assert.match(sent[0].text, /Do not approve or import/);
+});
+
+test('read-only preview picker cannot start asset creation', async () => {
+  const sent = [], menus = [];
+  const context = { client: { session: { prompt: async value => sent.push(value) } }, ui: {
+    dialog: { select: async input => { menus.push(input); return '\0create'; } },
+  } };
+  await pickAsset(context, async () => ({ ok: true, assets: [] }), 'test', undefined, { readOnly: true });
+  assert.equal(sent.length, 0);
+  assert.equal(menus[0].options.some(item => item.value === '\0create'), false);
+});
+
+test('real service discovers safe updates and preserves prior bytes at stable paths', { skip: !pillow }, async t => {
+  const f = await fixture(t);
+  let opened = await f.call({ action: 'open', bundle: 'art/dot' });
+  await f.call({ action: 'approve', ticket: opened.ticket, reviewer: 'synthetic user' });
+  await f.call({ action: 'plan', ticket: opened.ticket });
+  await f.call({ action: 'import', ticket: opened.ticket });
+  const edited = spawnSync(python, ['-c', `import sys;sys.path.insert(0,sys.argv[1]);from operations import execute
+r=execute('sprite.edit',{'bundle':'art/dot','patch':{'schema_version':1,'operations':[{'op':'recolor','symbol':'a','color':'#123456'}]},'apply':True},sys.argv[2]);assert r['ok'],r
+print(r['result']['directory'])`, path.join(checkout, 'scripts'), f.root], { encoding: 'utf8' });
+  assert.equal(edited.status, 0, edited.stderr);
+  opened = await f.call({ action: 'open', bundle: edited.stdout.trim() });
+  await f.call({ action: 'approve', ticket: opened.ticket, reviewer: 'synthetic user' });
+  const choices = await f.call({ action: 'options', ticket: opened.ticket });
+  assert.equal(choices.targets[0].can_update, true);
+  const original = await readFile(path.join(f.root, 'assets/sprites/dot.png'));
+  const planned = await f.call({ action: 'plan', ticket: opened.ticket, strategy: 'update', target: 'dot' });
+  assert.ok(planned.plan.replace.includes('assets/sprites/dot.png'));
+  const result = await f.call({ action: 'import', ticket: opened.ticket });
+  assert.equal(result.result.asset_name, 'dot');
+  assert.ok(f.permissions.some(request => request.action === 'daydream.asset.update'));
+  assert.deepEqual(await readFile(path.join(f.root, result.result.history, 'files/assets/sprites/dot.png')), original);
+});
+
 test('refusal details remain in a dialog until dismissed and never retry import', async () => {
-  const calls = [], alerts = [], decisions = ['plan', 'defaults'];
+  const calls = [], alerts = [], decisions = ['plan', 'copy', 'keep', 'cancel'];
   let dismiss;
   const context = { ui: { router: { current: () => ({ type: 'session', sessionID: 'test' }) },
     toast: { show: () => {} }, dialog: {
@@ -166,9 +238,10 @@ test('refusal details remain in a dialog until dismissed and never retry import'
       select: async () => decisions.shift(),
       alert: async value => { alerts.push(value); await new Promise(resolve => { dismiss = resolve; }); },
     } } };
-  const command = reviewCommand(context, async input => {
+  const command = assetsCommand(context, async input => {
     calls.push(input.action);
     if (input.action === 'open') return { ok: true, ticket: 'test-ticket', name: 'floor', revision_hash: 'a'.repeat(64), status: { state: 'approved' }, html: '<h1>fixture</h1>' };
+    if (input.action === 'options') return { ok: true, targets: [] };
     if (input.action === 'plan') return { ok: false, error: { message: 'Refusing to replace existing asset: art/tilesets/floor.json; use a new --name' } };
     return { ok: true };
   }, async () => ({ assets: [] }), { open: async () => {} });
@@ -176,14 +249,14 @@ test('refusal details remain in a dialog until dismissed and never retry import'
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(alerts.length, 1);
   assert.match(alerts[0].message, /Refusing to replace existing asset/);
-  assert.deepEqual(calls, ['open', 'plan']);
+  assert.deepEqual(calls, ['open', 'options', 'plan']);
   dismiss();
   await running;
-  assert.deepEqual(calls, ['open', 'plan', 'cancel']);
+  assert.deepEqual(calls, ['open', 'options', 'plan', 'cancel']);
 });
 
 test('tileset editor mode auto-detects Godot without path or version questions', async () => {
-  const f = ui({ decisions: ['approve', 'plan', 'defaults', 'editor'], kind: 'tileset' });
+  const f = ui({ decisions: ['approve', 'plan', 'copy', 'keep', 'editor', 'apply', 'done'], kind: 'tileset' });
   f.prompts.splice(0, f.prompts.length, 'test reviewer');
   await f.command.run('art/floor');
   const plan = f.calls.find(call => call.action === 'plan');

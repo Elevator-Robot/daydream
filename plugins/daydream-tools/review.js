@@ -25,14 +25,22 @@ export function createReviewService(ctx, run, previews, now = Date.now) {
     const prepared = check(await run(root, { action: 'prepare', op, input }, signal));
     if (prepared.access.reads.length) await ctx.permission.assert({ sessionID, action: 'read', resources: prepared.access.reads, save: prepared.access.reads });
     const authorized = { reads: prepared.access.reads, writes: [] };
-    if (prepared.access.engine_resolution) {
+    if (prepared.access.engine_resolution || prepared.access.read_resolution) {
       const resolved = check(await run(root, { action: 'resolve', op, input, authorized }, signal));
-      await ctx.permission.assert({ sessionID, action: 'daydream.engine.serialize', resources: [root, ...resolved.access.executables], save: [] });
-      authorized.executables = resolved.access.executables;
+      const extra = resolved.access.reads.filter(file => !authorized.reads.includes(file));
+      if (extra.length) await ctx.permission.assert({ sessionID, action: 'read', resources: extra, save: extra });
+      authorized.reads = resolved.access.reads;
+      if (resolved.access.executables?.length) {
+        await ctx.permission.assert({ sessionID, action: 'daydream.engine.serialize', resources: [root, ...resolved.access.executables], save: [] });
+        authorized.executables = resolved.access.executables;
+      }
     }
     const isRead = prepared.effect === 'read';
     const preview = check(await run(root, { action: 'call', op, input: isRead ? input : { ...input, apply: false }, authorized }, signal));
     if (!apply || isRead) return preview;
+    if (input.strategy === 'update') {
+      await ctx.permission.assert({ sessionID, action: 'daydream.asset.update', resources: [root, input.target, preview.result.plan_hash], save: [] });
+    }
     if (preview.access.writes.length) await ctx.permission.assert({ sessionID, action: 'edit', resources: preview.access.writes, save: preview.access.writes });
     if (disposed || signal?.aborted) fail('Review cancelled before writing');
     return check(await run(root, { action: 'call', op, input: { ...input, apply: true }, authorized: { ...authorized, writes: preview.access.writes } }, signal));
@@ -69,6 +77,14 @@ export function createReviewService(ctx, run, previews, now = Date.now) {
       ticket.busy = true;
       try {
         const status = await inspect(ticket, signal);
+        if (input.action === 'options') {
+          const result = await operation(root, input.sessionID, 'assets.options', { kind: ticket.kind, bundle: ticket.bundle }, signal);
+          return { ok: true, ...result.result };
+        }
+        if (input.action === 'setup') {
+          const result = await operation(root, input.sessionID, 'project.init', {}, signal, true);
+          return { ok: true, result: result.result };
+        }
         if (input.action === 'approve' || input.action === 'changes') {
           await ctx.permission.assert({ sessionID: input.sessionID, action: 'daydream.review.' + input.action,
             resources: [ticket.bundle + '#' + ticket.hash], save: [],
@@ -83,6 +99,8 @@ export function createReviewService(ctx, run, previews, now = Date.now) {
         if (input.action === 'plan') {
           if (status.state !== 'approved') fail('Only this exact approved revision can be planned for import');
           const data = { bundle: ticket.bundle, revision_hash: ticket.hash };
+          data.strategy = input.strategy ?? 'copy';
+          if (input.target) data.target = input.target;
           if (input.name) data.name = input.name;
           if (input.destination) data.destination = input.destination;
           let op = ticket.kind + '.import';

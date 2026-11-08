@@ -85,6 +85,8 @@ def prepare(operation, data, context):
     access = {"reads": sorted(reads), "writes": []}
     if operation.engine:
         access["engine_resolution"] = True
+    if operation.discovery or data.get('strategy') == 'update':
+        access['read_resolution'] = True
     return access
 
 
@@ -109,7 +111,7 @@ def execute(name, data, project, *, surface="cli", prepare_only=False, resolve_o
     writing = isinstance(data, dict) and data.get("apply") is True and operation.effect != "read"
     try:
         if surface == "native" and not operation.native:
-            return failure(name, "unsupported", "Approval/feedback decisions are not written by model-facing tools", "Use the user /asset-review UI or explicitly authorized CLI review; do not self-approve.")
+            return failure(name, "unsupported", "Approval/feedback decisions are not written by model-facing tools", "Use the user /assets UI or explicitly authorized CLI review; do not self-approve.")
         context = Context(project)
         access = prepare(operation, data, context)
         if prepare_only:
@@ -126,6 +128,16 @@ def execute(name, data, project, *, surface="cli", prepare_only=False, resolve_o
             if not reads.issubset(set(authorized["reads"])):
                 raise PermissionError("Adapter must authorize all planned reads before execution")
             write_grants = set(authorized["writes"])
+        if access.get('read_resolution'):
+            from asset_lifecycle import discover_reads
+            with asset_access.grants(reads, set()):
+                reads |= discover_reads(context, name, data)
+            access['reads'] = sorted(reads)
+            access.pop('read_resolution', None)
+            if not resolve_only and surface in {'native', 'review_ui'} and not reads.issubset(set(authorized['reads'])):
+                raise PermissionError("Authorize the additional managed asset reads before continuing")
+        from asset_lifecycle import normalize_request
+        data, context.display_name = normalize_request(name, data)
         with asset_access.grants(reads, write_grants if writing else set()):
             if operation.engine:
                 from engine_selection import project_engine
@@ -140,7 +152,7 @@ def execute(name, data, project, *, surface="cli", prepare_only=False, resolve_o
                 if surface in {"native", "review_ui"} and not set(access['executables']).issubset(set(authorized.get('executables', []))):
                     raise PermissionError("Separate Godot serialization execution permission is required before preview or apply")
             elif resolve_only:
-                raise ValueError("This operation does not need engine discovery")
+                return {"ok": True, "status": "resolved", "operation": name, "access": access}
             result, writes = operation.handler(context, data)
         access["writes"] = [str(context.path(str(path))) for path in writes]
         status = "done" if operation.effect == "read" or writing else "preview"

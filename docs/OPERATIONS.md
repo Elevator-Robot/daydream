@@ -1,11 +1,20 @@
 # Discoverable asset operations
 
+Contributor/integration reference. For normal use, start with [Your assets](REVIEW.md).
+
 Daydream's local capability catalog is shared by the CLI and the included native
 OpenCode V2 server plugin. It reuses the existing sprite rendering, revision,
 approval and import implementations. No MCP server, daemon, cloud account,
 generation provider, or permission changes are added.
 
 ## CLI
+
+For the normal user flow, see [guided assets](ASSET_LIFECYCLE.md): friendly names,
+optional automatic `output`, current/history discovery and safe add/update choices.
+`assets.list` and `assets.options` use metadata-read permission followed by exact
+read-grant resolution before inspecting candidate/managed files. Import strategies
+are `new` (legacy collision refusal), `copy` (automatic unused names), and explicit
+`update` (unchanged managed files, exact plan hash and recovery snapshot required).
 
 From a game directory, using the checkout's launcher or installed `daydream`:
 
@@ -33,10 +42,10 @@ The catalog includes `project.init`, `sprite.create/from_png/edit/inspect/approv
 and `animation.create/assemble/edit/inspect/approve/import` (each slash-separated
 action is its own `area.action` ID). Describe returns exact bounded input schemas.
 Environment art adds `tileset.create/transitions/edit/inspect/approve/import`;
-see [tilesets](TILESETS.md) for terrain, seams, collisions and approval boundaries.
+see [tileset reference](reference/TILESETS.md) for terrain, seams, collisions and approval boundaries.
 `tileset.create/edit` now accept bounded convex collision pieces; edits also offer
 slope/platform presets. Inspect returns coverage/one-way counts and an optional
-collision overlay. Schema validation is shared with the CLI; see [collisions](COLLISIONS.md).
+collision overlay. Schema validation is shared with the CLI; see [collision reference](reference/COLLISIONS.md).
 `animation.assemble` takes existing static revision bundles, ordered frame IDs,
 named clips, durations, loop flags and a shared pivot; it validates canvas and
 palette consistency and generates standard animation artifacts/provenance.
@@ -79,7 +88,7 @@ after read permission, read-only `resolve` discovery returns the executable reso
 Even preview runs detected/compatibility-checked Godot in an isolated generated
 project, not the game. Native/UI adapters assert `daydream.engine.serialize` and
 pass exact execution grants before calling it. Target-project writes still require apply/edit grants;
-preview may create only owned temporary serialization files. See [editor layouts](EDITOR_LAYOUTS.md).
+preview may create only owned temporary serialization files. See [editor layout reference](reference/EDITOR_LAYOUTS.md).
 
 ## Outcomes and review
 
@@ -91,7 +100,7 @@ Artifacts returned by a preview are planned paths, not written images.
 
 Neither successful tool execution nor inspecting a contact sheet establishes
 motion quality or graphical Godot correctness. Model-facing tools **cannot write
-approval decisions**. The user can now use `/asset-review` for exact-revision
+approval decisions**. The user can use `/assets` for exact-revision
 approval or change requests, with a separately confirmed import plan; the CLI
 approval remains an explicitly authorized fallback. See [review](REVIEW.md).
 Reviewer labels are not authenticated proof of human identity.

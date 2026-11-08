@@ -1,5 +1,9 @@
 # Asset review validation — 2026-11-05
 
+Historical record: the slash spellings below describe the version tested that
+day. Asset management has since moved entirely to `/assets`; the former command
+names and preview-review route have been removed, not retained as aliases.
+
 ## Scope
 
 Verify the new integrated user review flow, not repeat the user's completed P0/P1
