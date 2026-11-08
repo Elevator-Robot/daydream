@@ -39,7 +39,7 @@ export function previewCommand(context, call, browser) {
           context.ui.toast.show({ title: 'Daydream preview', message: 'Tracked preview stopped; other Godot instances were not touched', variant: 'success' });
         } else if (action === 'status') {
           const result = await invoke({ action });
-          await context.ui.dialog.alert({ title: 'Game preview status', message: `${result.state}${result.version ? '\nGodot ' + result.version : ''}${result.code !== undefined ? '\nExit: ' + result.code : ''}\n${result.diagnostics ?? ''}\n\nA running process is not proof of visual correctness or playtesting.` });
+          await context.ui.dialog.alert({ title: 'Game preview status', message: `${result.state}${result.version ? '\nGodot ' + result.version : ''}${typeof result.code === 'number' ? '\nExit: ' + result.code : ''}${result.signal ? '\nSignal: ' + result.signal : ''}\n${result.diagnostics ?? ''}\n\nA running process is not proof of visual correctness or playtesting.` });
         } else {
           let bundle = remainder;
           if (!bundle) bundle = await pickAsset(context, call, sessionID, browser, { readOnly: true });

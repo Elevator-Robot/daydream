@@ -62,6 +62,14 @@ The picker collapses history by default; previous candidates remain recoverable 
 their normal exact-revision review. Explicit output paths and old helper CLIs remain
 available for advanced/fallback use.
 
+Discovery groups candidates by `(kind, asset ID)` and orders them by manifest
+file modification time, with path as a deterministic tie-breaker. It exposes
+`is_latest` for every row in both current and history views. This is the existing
+saved-file ordering, not a new permanent version-number scheme or inferred release
+status. Same-named sprites and animations are separate groups. The picker shows
+**Latest**/**Older**, friendly type names and UTC saved times, keeping raw revision
+paths in preview details instead of normal row descriptions.
+
 This applies to **new** tool-created candidates. Existing `art/.../v1/v2` bundles
 are not moved/deleted/migrated automatically. Nothing is pruned automatically, and
 history still uses disk space. Hidden storage keeps the dev workspace tidy; it is

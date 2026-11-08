@@ -46,8 +46,13 @@ the selected candidate beside an earlier version, with their saved feedback.
 The **Older version** picker changes the reference side; your selected candidate
 stays fixed. Large images scroll, and narrow screens stack the two versions.
 
-Watch animation playback rather than judging it only from a still image. Clips
-use their own timing; **Replay motion** restarts both visible versions. For tiles,
+Watch animation playback rather than judging it only from a still image.
+**Loop preview** is on by default, so one-shot clips such as attacks repeat while
+you review them. Turn it off to follow the saved loop settings shown beside each
+clip. This affects the browser preview only; it does not create a revision or
+change how the animation plays in your game.
+
+Clips use their own timing; **Replay motion** restarts both visible versions. For tiles,
 inspect the layout and collision outlines. Numbered tiles and animation contact
 sheets remain available in expandable details.
 

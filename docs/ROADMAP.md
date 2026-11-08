@@ -3,8 +3,8 @@
 Internal milestones and acceptance criteria. For installation and everyday use,
 see the [user README](../README.md).
 
-**Last updated: 2026-11-08. Branch: `feat/editor-visible-tile-layouts`, from `208a7f5`.
-Editor-visible layout work is implemented and undergoing branch validation; not merged.**
+**Last updated: 2026-11-08. Branch: `feat/preview-playback-and-version-labels`, from `0bf56e2`.
+Stacked on `feat/editor-visible-tile-layouts`; neither branch is merged.**
 
 ## START HERE NEXT — test the guided asset lifecycle on this branch
 
@@ -131,6 +131,17 @@ after encountering slug/path collisions. [Guided assets](ASSET_LIFECYCLE.md) now
   separate from the normal progression. Success messages explain the next step.
   Ordered stages and explicit decisions were exercised in an isolated real TUI;
   see [ordered-flow evidence](validation/2026-11-08-ordered-workflow.md).
+- Candidate rows now distinguish **Latest** from **Older**, use friendly type labels
+  and show saved times. A same-named static sprite and animation are explicitly
+  separate histories. The normal list shows the latest of each type, newest saved
+  first; raw revision paths remain in preview details.
+  See [latest-label validation](validation/2026-11-08-latest-candidates.md).
+- **Loop preview**, enabled by default, repeats one-shot animation clips for review
+  without changing saved loop flags or creating a new asset revision. Users can
+  turn it off to inspect saved playback behavior; hidden comparisons/page cleanup
+  stop automatic replay timers.
+  [Preview-loop validation](validation/2026-11-08-preview-loop.md) records timer,
+  source-preservation and actual browser playback checks.
 
 **Next user test:** in a disposable project, create/revise an asset with a friendly
 name and no output path; use `/assets`, add a copy, update its unchanged managed
@@ -185,6 +196,11 @@ not mean human acceptance or the full idea-to-playable product is complete.
   Godot project. A synthetic tileset scene was also rendered; its actual viewport
   capture and numbered tile preview were inspected. These are not user-approved
   artwork or an existing-game playtest.
+- Fixed the reported preview RPC failure, `Expected JSON value at ["code"]`, by
+  omitting unknown process-status fields while retaining real zero/null exit codes.
+  A live isolated OpenCode RPC check launched real Godot, read running status,
+  detected the same running instance, stopped it and read its exit status. See
+  [preview response evidence](validation/2026-11-08-preview-json.md).
 - Commands and fixture boundaries: [development](DEVELOPMENT.md). Prior temporary
   images/logs may disappear; do not treat their paths as durable acceptance reports
   or infer user acceptance from unit-test counts. P0/P1 completion is attributed

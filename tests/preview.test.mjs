@@ -13,6 +13,7 @@ import { createBrowser } from '../plugins/daydream-tools/browser.js';
 import { createRunner } from '../plugins/daydream-tools/runner.js';
 import { assetViewer, olderVersions, viewerScript, HISTORY_LIMIT } from '../plugins/daydream-tools/asset-viewer.js';
 import { createHash } from 'node:crypto';
+import { runInNewContext } from 'node:vm';
 
 const checkout = fileURLToPath(new URL('../', import.meta.url));
 const python = process.env.DAYDREAM_TEST_PYTHON ?? 'python3';
@@ -44,15 +45,29 @@ async function fixture(t, { deny, version = '4.7.2.stable.test', exitCode } = {}
 test('game launches graphical main scene, duplicate is refused, stop only owns its child', async t => {
   const f = await fixture(t);
   assert.equal((await f.call('status')).state, 'not_running');
-  assert.equal((await f.call('game')).state, 'running');
+  const launched = await f.call('game');
+  assert.equal(launched.state, 'running');
+  // RPC validates JSON values before serializing: present-but-undefined fields
+  // fail there even though the native tool's JSON.stringify silently drops them.
+  assert.deepEqual(launched, JSON.parse(JSON.stringify(launched)));
+  assert.equal(Object.hasOwn(launched, 'code'), false);
+  assert.equal(Object.hasOwn(launched, 'signal'), false);
+  const running = await f.call('status');
+  assert.deepEqual(running, JSON.parse(JSON.stringify(running)));
   assert.deepEqual(f.spawned[1].args, ['--path', f.root]);
   assert.equal(f.spawned[1].options.shell, false);
-  assert.equal((await f.call('game')).already_running, true);
+  const repeated = await f.call('game');
+  assert.equal(repeated.already_running, true);
+  assert.deepEqual(repeated, JSON.parse(JSON.stringify(repeated)));
   assert.equal(f.spawned.length, 2);
   assert.deepEqual(f.permissions.slice(0, 3).map(item => item.action), ['read', 'daydream.preview.game', 'edit']);
   assert.equal((await f.call('stop')).state, 'stopped');
   assert.equal(f.spawned[1].child.killedWith, 'SIGTERM');
-  assert.equal((await f.call('status')).state, 'exited');
+  const exited = await f.call('status');
+  assert.equal(exited.state, 'exited');
+  assert.equal(exited.code, null);
+  assert.equal(exited.signal, 'SIGTERM');
+  assert.deepEqual(exited, JSON.parse(JSON.stringify(exited)));
 });
 
 test('post-import scene preview uses explicit argv without changing the main scene', async t => {
@@ -88,12 +103,19 @@ test('pin mismatch and missing main scene fail without a game process', async t 
   assert.equal(f.spawned.length, 1);
 });
 
-test('immediate launch failures retain diagnostics and nonzero exit status', async t => {
-  const f = await fixture(t, { exitCode: 1 });
-  const result = await f.call('game');
-  assert.equal(result.ok, false);
-  assert.equal(result.state, 'failed');
-  assert.match((await f.call('status')).diagnostics, /fixture startup failed/);
+test('immediate exits retain zero/nonzero codes and JSON-safe status diagnostics', async t => {
+  for (const exitCode of [0, 1]) {
+    const f = await fixture(t, { exitCode });
+    const result = await f.call('game');
+    assert.equal(result.ok, exitCode === 0);
+    assert.equal(result.state, exitCode === 0 ? 'exited' : 'failed');
+    assert.equal(result.code, exitCode);
+    assert.deepEqual(result, JSON.parse(JSON.stringify(result)));
+    const status = await f.call('status');
+    assert.equal(status.code, exitCode);
+    assert.deepEqual(status, JSON.parse(JSON.stringify(status)));
+    if (exitCode !== 0) assert.match(status.diagnostics, /fixture startup failed/);
+  }
 });
 
 test('unload stops owned game; cancellation and concurrent starts do not duplicate', async t => {
@@ -155,6 +177,88 @@ test('viewer escapes feedback/names, pins the selected revision and permits only
   assert.match(html, /Comparing older versions never changes the candidate under review/);
   assert.match(html, /id="older-version"/);
   assert.match(html, /width:calc\(var\(--pixel-width\)\*var\(--zoom\)\)/);
+});
+
+test('preview looping repeats visible one-shots, follows the toggle, and cleans up hidden/history timers', () => {
+  const element = (values = {}) => ({ listeners: {}, addEventListener(type, handler) { this.listeners[type] = handler; },
+    emit(type, event = {}) { this.listeners[type]?.({ target: this, ...event }); }, ...values });
+  const elements = { compare: element({ open: false }), 'older-version': element({ value: '0' }), 'history-panel': element({ hidden: true }),
+    panels: element({ classList: { toggle() {} } }), 'loop-preview': element({ checked: true }), 'replay-motion': element(), zoom: element() };
+  const panes = [element({ dataset: { historyIndex: '0' }, hidden: false }), element({ dataset: { historyIndex: '1' }, hidden: true })];
+  function image(loop, duration, frames = 2, pane) {
+    let source = 'data:image/png;base64,YQ==';
+    return { dataset: { loop: String(loop), durationMs: String(duration), visualFrames: String(frames) }, plays: 0,
+      getClientRects: () => pane && (pane.hidden || elements['history-panel'].hidden) ? [] : [{}],
+      get src() { return source; }, set src(value) { source = value; this.plays++; this.onload?.(); } };
+  }
+  const shot = image(false, 666), looping = image(true, 200), still = image(false, 300, 1);
+  const reference = image(false, 900, 2, panes[0]), olderReference = image(false, 1200, 2, panes[1]);
+  const images = [shot, looping, still, reference, olderReference];
+  const timers = new Map(), revoked = [];
+  let nextTimer = 0, nextURL = 0;
+  const document = element({ hidden: false, getElementById: id => elements[id],
+    querySelectorAll: selector => selector === 'img[data-motion]' ? images : panes,
+    documentElement: { style: { setProperty() {} } } });
+  const window = element();
+  runInNewContext(viewerScript, { document, window, Blob, Uint8Array, atob,
+    URL: { createObjectURL: () => 'blob:test-' + ++nextURL, revokeObjectURL: url => revoked.push(url) },
+    setTimeout: (callback, duration) => { const id = ++nextTimer; timers.set(id, { callback, duration }); return id; },
+    clearTimeout: id => timers.delete(id) });
+  assert.deepEqual([...timers.values()].map(timer => timer.duration), [666]);
+  const initialURL = shot.src, idlePlays = looping.plays;
+  const [id, timer] = timers.entries().next().value;
+  timers.delete(id); timer.callback();
+  assert.notEqual(shot.src, initialURL);
+  assert.ok(revoked.includes(initialURL));
+  assert.equal(looping.plays, idlePlays); // The attack's replay never restarts native idle loops.
+  assert.equal(reference.plays, 0);
+  assert.equal(timers.size, 1);
+  elements['loop-preview'].checked = false;
+  elements['loop-preview'].emit('change');
+  assert.equal(timers.size, 0);
+  const beforeReplay = shot.plays;
+  elements['replay-motion'].emit('click');
+  assert.equal(shot.plays, beforeReplay + 1);
+  assert.equal(timers.size, 0);
+  elements['loop-preview'].checked = true;
+  elements['loop-preview'].emit('change');
+  elements.compare.open = true; elements.compare.emit('toggle');
+  assert.deepEqual([...timers.values()].map(timer => timer.duration), [666, 900]);
+  elements['older-version'].value = '1'; elements['older-version'].emit('change');
+  assert.deepEqual([...timers.values()].map(timer => timer.duration), [666, 1200]);
+  document.hidden = true; document.emit('visibilitychange');
+  assert.equal(timers.size, 0);
+  document.hidden = false; document.emit('visibilitychange');
+  assert.equal(timers.size, 2);
+  const lateLoad = shot.onload;
+  window.emit('pagehide'); lateLoad();
+  assert.equal(timers.size, 0);
+  window.emit('pageshow', { persisted: true });
+  assert.equal(timers.size, 2);
+});
+
+test('preview-only looping retains source bytes and uses the actual rounded clip duration', { skip: !pillow }, async t => {
+  const f = await fixture(t);
+  const generated = spawnSync(python, ['-c', `import sys,json
+sys.path.insert(0,sys.argv[1]);sys.path.insert(0,sys.argv[2]);from review_fixture import create;from operations import execute
+root=sys.argv[3];create(root)
+recipe={'schema_version':1,'name':'One Shot','pivot':[2,4],'frames':[{'id':'rest'},{'id':'flash','pixels':['bbbb']*4}],'animations':[{'name':'attack','fps':3,'loop':False,'frames':[{'frame':'rest','duration':1},{'frame':'flash','duration':1}]}],'default_animation':'attack'}
+r=execute('animation.create',{'base':'art/dot','recipe':recipe,'apply':True},root);assert r['ok'],r
+bundle=r['result']['directory'];r=execute('animation.inspect',{'bundle':bundle},root);assert r['ok'],r
+print(json.dumps({'bundle':bundle,'inspected':r['result']}))`, path.join(checkout, 'scripts'), path.join(checkout, 'tests'), f.root], { encoding: 'utf8' });
+  assert.equal(generated.status, 0, generated.stderr);
+  const { bundle, inspected } = JSON.parse(generated.stdout);
+  assert.equal(inspected.previews[0].duration_ms, 666);
+  assert.equal(inspected.previews[0].loop, false);
+  const files = ['source.json', 'manifest.json', 'attack.motion.png'];
+  const before = await Promise.all(files.map(file => readFile(path.join(bundle, file))));
+  const viewer = await f.call('asset', { bundle });
+  assert.match(viewer.html, /id="loop-preview" type="checkbox" checked/);
+  assert.match(viewer.html, /data-loop="false" data-duration-ms="666" data-visual-frames="2"/);
+  assert.match(viewer.html, /Saved playback: plays once/);
+  assert.match(viewer.html, /review only/);
+  assert.deepEqual(await Promise.all(files.map(file => readFile(path.join(bundle, file)))), before);
+  await assert.rejects(readFile(path.join(bundle, 'approval.json')), { code: 'ENOENT' });
 });
 
 test('all asset kinds compare validated prior revisions and saved notes without changing review target', { skip: !pillow }, async t => {

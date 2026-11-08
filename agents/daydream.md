@@ -141,6 +141,10 @@ After a revision, point out **Compare with previous version** in the browser
 preview. It shows earlier artwork and saved feedback at the same pixel scale.
 Changing its older-version picker leaves the candidate under review fixed;
 approval/import in `/assets` still applies only to that selected candidate.
+Use **Loop preview** for continuous review of one-shot clips such as attacks;
+it is enabled by default and changes only browser playback. Turn it off to inspect
+the saved loop behavior. Do not create an asset revision or change gameplay loop
+flags when the user only wants repeated preview playback.
 Use `review.inspect` to read retained feedback/state and create a fresh revision
 when changes are requested. Read the complete `feedback.notes` list, including
 follow-up clarifications, rather than only the original note. Users can add notes

@@ -48,9 +48,12 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
     await ctx.permission.assert({ sessionID, action, resources, save: resources, ...(source ? { source } : {}) });
   }
   function snapshot(entry) {
-    return { state: entry.state, pid: entry.child?.pid, code: entry.code, signal: entry.signal,
+    const value = { state: entry.state, pid: entry.child?.pid, code: entry.code, signal: entry.signal,
       version: entry.version, diagnostics: entry.diagnostics,
       evidence: { graphical_correctness: false, playtested: false } };
+    // OpenCode validates RPC values before JSON serialization. A running process
+    // has no exit code/signal yet; omit unknown fields, preserving real 0/null.
+    return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined));
   }
   async function stop(entry) {
     if (!entry || entry.state !== 'running') return;
@@ -161,13 +164,14 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
     if (!review.ok) fail(review.error.message);
     if (review.result.revision_hash !== result.result.revision_hash) fail('Revision changed during preview; try again');
     let total = 0;
-    const image = async (name, scale = 1, motion = false) => {
+    const image = async (name, scale = 1, motion) => {
       const data = await read(await projectPath(root, path.join(directory, name)), 8 * 1024 * 1024);
       total += data.length;
       if (total > 10 * 1024 * 1024) fail('Preview images exceed the 10 MiB viewer limit');
       if (createHash('sha256').update(data).digest('hex') !== manifest.files[name]) fail('Preview image changed during review');
       const width = data.readUInt32BE(16);
-      return scale ? `<div class="viewport"><img class="art"${motion ? ' data-motion' : ''} style="--pixel-width:${width / scale}px" alt="${escape(name)}" src="data:image/png;base64,${data.toString('base64')}"></div>`
+      const playback = motion ? ` data-motion data-loop="${motion.loop}" data-duration-ms="${motion.duration_ms}" data-visual-frames="${motion.visual_frames}"` : '';
+      return scale ? `<div class="viewport"><img class="art"${playback} style="--pixel-width:${width / scale}px" alt="${escape(name)}" src="data:image/png;base64,${data.toString('base64')}"></div>`
         : `<img class="reference" alt="${escape(name)}" src="data:image/png;base64,${data.toString('base64')}">`;
     };
     let body = '';
@@ -180,7 +184,7 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
       }
     }
     else for (const clip of result.result.previews) {
-      body += `<section><h3>${escape(clip.animation)}</h3>${await image(path.basename(clip.motion), 4, true)}<details><summary>Contact sheet (reference layout)</summary>${await image(path.basename(clip.contact_sheet), 0)}</details></section>`;
+      body += `<section><h3>${escape(clip.animation)}</h3><p class="version-meta">Saved playback: ${clip.loop ? 'loops' : 'plays once'}</p>${await image(path.basename(clip.motion), 4, clip)}<details><summary>Contact sheet (reference layout)</summary>${await image(path.basename(clip.contact_sheet), 0)}</details></section>`;
     }
     return { body, revision_hash: result.result.revision_hash, kind, manifest_kind: manifest.kind, id: result.result.name, bundle,
       parent_revision_hash: manifest.provenance?.parent_revision_hash, state: review.result.state,
