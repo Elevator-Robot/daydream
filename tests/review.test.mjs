@@ -30,7 +30,7 @@ async function fixture(t, deny) {
   const reviews = createReviewService(ctx, run, previews, () => time);
   t.after(() => reviews.dispose());
   const call = input => reviews.call({ sessionID: 'test-session', ...input });
-  return { root, permissions, reviews, call, advance: () => { time += 21 * 60 * 1000; } };
+  return { root, permissions, reviews, call, advance: () => { time += 21 * 60 * 1000; }, setDeniedAction: action => { deny = action; } };
 }
 
 test('all three asset kinds review approve plan and import through one service', { skip: !pillow }, async t => {
@@ -64,9 +64,74 @@ test('changes are retained and block further approval/import, cancel writes noth
   const second = await f.call({ action: 'open', bundle: 'art/dot' });
   const changed = await f.call({ action: 'changes', ticket: second.ticket, reviewer: 'test', feedback: 'Make the outline darker' });
   assert.equal(changed.status.state, 'changes_requested');
+  const followup = await f.call({ action: 'changes', ticket: second.ticket, reviewer: 'test', feedback: 'Also make the eyes brighter' });
+  assert.deepEqual(followup.status.feedback.notes.map(note => note.feedback), ['Make the outline darker', 'Also make the eyes brighter']);
+  const repeated = await f.call({ action: 'changes', ticket: second.ticket, reviewer: 'test', feedback: 'Also make the eyes brighter' });
+  assert.equal(repeated.result.action, 'keep_feedback');
+  assert.equal(repeated.status.feedback.notes.length, 2);
   await assert.rejects(f.call({ action: 'approve', ticket: second.ticket, reviewer: 'test' }), /Changes were requested/);
   await assert.rejects(f.call({ action: 'plan', ticket: second.ticket }), /Only this exact approved/);
   assert.equal(JSON.parse(await readFile(path.join(f.root, 'art/dot/changes-requested.json'))).feedback, 'Make the outline darker');
+});
+
+test('revision handoff uses the selected exact asset and all latest notes for every kind without writes', { skip: !pillow }, async t => {
+  const f = await fixture(t);
+  for (const [kind, bundle] of [['sprite', 'art/dot'], ['animation', 'art/walk'], ['tileset', 'art/floor']]) {
+    const opened = await f.call({ action: 'open', bundle });
+    await assert.rejects(f.call({ action: 'revise', ticket: opened.ticket }), /Save your requested changes/);
+    await f.call({ action: 'changes', ticket: opened.ticket, reviewer: 'user', feedback: 'Darker please' });
+    const original = await readFile(path.join(f.root, bundle, 'changes-requested.json'));
+    // Another open review adds feedback after the first viewer was prepared.
+    const second = await f.call({ action: 'open', bundle });
+    await f.call({ action: 'changes', ticket: second.ticket, reviewer: 'user', feedback: 'Keep the eyes bright though' });
+    f.permissions.length = 0;
+    const request = await f.call({ action: 'revise', ticket: opened.ticket });
+    const selected = JSON.parse(request.text.split('Selected asset and saved feedback (JSON):\n')[1]);
+    assert.equal(selected.project, f.root);
+    assert.equal(selected.bundle, path.join(f.root, bundle));
+    assert.equal(selected.name, opened.name);
+    assert.equal(selected.kind, kind);
+    assert.equal(selected.revision_hash, opened.revision_hash);
+    assert.deepEqual(selected.notes.map(note => note.feedback), ['Darker please', 'Keep the eyes bright though']);
+    assert.match(request.text, /Do not approve or import/);
+    assert.match(request.text, /review\.inspect/);
+    assert.ok(f.permissions.length && f.permissions.every(item => item.action === 'read'));
+    assert.deepEqual(await readFile(path.join(f.root, bundle, 'changes-requested.json')), original);
+    await assert.rejects(readFile(path.join(f.root, bundle, 'approval.json')), { code: 'ENOENT' });
+    await assert.rejects(f.reviews.call({ sessionID: 'different', action: 'revise', ticket: opened.ticket }), /does not belong/);
+  }
+  const opened = await f.call({ action: 'open', bundle: 'art/dot' });
+  f.advance();
+  await assert.rejects(f.call({ action: 'revise', ticket: opened.ticket }), /expired/);
+});
+
+test('revision handoff honors read denial and cancellation', { skip: !pillow }, async t => {
+  const f = await fixture(t);
+  const opened = await f.call({ action: 'open', bundle: 'art/dot' });
+  await f.call({ action: 'changes', ticket: opened.ticket, reviewer: 'user', feedback: 'Darker please' });
+  f.setDeniedAction('read');
+  await assert.rejects(f.call({ action: 'revise', ticket: opened.ticket }), /denied/);
+  const controller = new AbortController(); controller.abort();
+  await assert.rejects(f.reviews.call({ sessionID: 'test-session', action: 'revise', ticket: opened.ticket }, { signal: controller.signal }), /cancelled/);
+});
+
+test('comparison keeps approval bound to the selected candidate, never its earlier reference', { skip: !pillow }, async t => {
+  const f = await fixture(t);
+  const original = await f.call({ action: 'open', bundle: 'art/dot' });
+  await f.call({ action: 'changes', ticket: original.ticket, reviewer: 'fixture', feedback: 'Darker please' });
+  const edited = spawnSync(python, ['-c', `import sys,json;sys.path.insert(0,sys.argv[1]);from operations import execute
+r=execute('sprite.edit',{'bundle':'art/dot','patch':{'schema_version':1,'operations':[{'op':'recolor','symbol':'a','color':'#123456'}]},'apply':True},sys.argv[2]);assert r['ok'],r
+print(json.dumps(r['result']))`, path.join(checkout, 'scripts'), f.root], { encoding: 'utf8' });
+  assert.equal(edited.status, 0, edited.stderr);
+  const candidate = JSON.parse(edited.stdout);
+  const opened = await f.call({ action: 'open', bundle: candidate.directory });
+  assert.match(opened.html, /Compare with previous version/);
+  assert.match(opened.html, /Darker please/);
+  assert.equal(opened.revision_hash, candidate.revision_hash);
+  await f.call({ action: 'approve', ticket: opened.ticket, reviewer: 'fixture' });
+  assert.equal(JSON.parse(await readFile(path.join(candidate.directory, 'approval.json'))).revision_hash, candidate.revision_hash);
+  await assert.rejects(readFile(path.join(f.root, 'art/dot/approval.json')), { code: 'ENOENT' });
+  await assert.rejects(f.call({ action: 'approve', ticket: original.ticket, reviewer: 'fixture' }), /Changes were requested/);
 });
 
 test('permission denial does not write approval and tickets expire', { skip: !pillow }, async t => {
@@ -107,6 +172,7 @@ files=core.make_revision(source,{'method':'pixel-spec','input_sha256':core.diges
 for name,data in files.items():(bundle/name).write_bytes(data)
 `, path.join(checkout, 'scripts'), path.join(f.root, 'art/dot')], { encoding: 'utf8' });
   assert.equal(changed.status, 0, changed.stderr);
+  await assert.rejects(f.call({ action: 'revise', ticket: opened.ticket }), /Revision changed after preview/);
   await assert.rejects(f.call({ action: 'approve', ticket: opened.ticket, reviewer: 'test' }), /Revision changed after preview/);
   await assert.rejects(readFile(path.join(f.root, 'art/dot/approval.json')), { code: 'ENOENT' });
 });
@@ -138,6 +204,104 @@ test('user approval is explicit, retains exact hash, and does not auto-import', 
   await f.command.run('art/dot');
   assert.deepEqual(f.calls.map(call => call.action), ['open', 'approve', 'cancel']);
   assert.equal(f.calls[1].reviewer, 'test reviewer');
+});
+
+test('saved feedback is readable and follow-up prompts retain the earlier notes', async () => {
+  const notes = [{ reviewer: 'user', feedback: 'Darker please', reviewed_at: '2026-11-08T00:00:00+00:00' }];
+  const menus = [], alerts = [], calls = [], prompts = ['Also make the eyes brighter', 'user'];
+  const choices = ['feedback', 'changes', 'cancel'];
+  const context = { ui: {
+    router: { current: () => ({ type: 'session', sessionID: 'test' }) }, toast: { show: () => {} },
+    dialog: { confirm: async () => true, select: async input => { menus.push(input); return choices.shift(); },
+      alert: async input => { alerts.push(input); }, prompt: async () => prompts.shift() },
+  } };
+  const status = () => ({ state: 'changes_requested', feedback: { ...notes[0], notes: [...notes] } });
+  const command = assetsCommand(context, async input => {
+    calls.push(input);
+    if (input.action === 'open') return { ok: true, ticket: 'ticket', name: 'Slime', html: '<h1>fixture</h1>', revision_hash: 'a'.repeat(64), status: status() };
+    if (input.action === 'changes') { notes.push({ reviewer: input.reviewer, feedback: input.feedback, reviewed_at: '2026-11-08T00:01:00+00:00' }); return { ok: true, result: { action: 'changes_requested' }, status: status() }; }
+    return { ok: true };
+  }, async () => ({ assets: [] }), { open: async () => {} });
+  await command.run('art/slime');
+  assert.match(menus[0].options.find(option => option.value === 'changes').title, /Add more feedback/);
+  assert.equal(menus[0].options.find(option => option.value === 'approve').disabled, true);
+  assert.equal(menus[0].options.find(option => option.value === 'plan').disabled, true);
+  assert.match(alerts[0].message, /Darker please/);
+  assert.equal(notes.length, 2);
+  assert.deepEqual(calls.map(input => input.action), ['open', 'changes', 'cancel']);
+});
+
+function revisionUI({ choices = ['changes', 'revise'], prepare, send } = {}) {
+  const calls = [], sent = [], menus = [], alerts = [], toasts = [], prompts = ['Darker please', 'user'];
+  let sessionID = 'test', status = { state: 'unreviewed' };
+  const context = { client: { session: { prompt: async input => { sent.push(input); await send?.(); } } }, ui: {
+    router: { current: () => ({ type: 'session', sessionID }) }, toast: { show: input => toasts.push(input) },
+    dialog: { confirm: async () => true, select: async input => { menus.push(input); return choices.shift(); },
+      prompt: async () => prompts.shift(), alert: async input => alerts.push(input) },
+  } };
+  const command = assetsCommand(context, async input => {
+    calls.push(input);
+    if (input.action === 'open') return { ok: true, ticket: 'ticket', name: 'Selected floor', html: 'preview', status };
+    if (input.action === 'changes') {
+      status = { state: 'changes_requested', feedback: { notes: [{ reviewer: input.reviewer, feedback: input.feedback }] } };
+      return { ok: true, result: { action: 'changes_requested' }, status };
+    }
+    if (input.action === 'revise') {
+      await prepare?.(() => { sessionID = 'another-session'; });
+      return { ok: true, text: 'Exact asset and complete feedback from server' };
+    }
+    return { ok: true };
+  }, async () => ({ ok: true, assets: [{ name: 'Selected floor', bundle: 'art/floor', kind: 'tileset' }] }), { open: async () => {} });
+  return { command, calls, sent, menus, alerts, toasts, prompts };
+}
+
+test('save feedback then make revised version returns to chat with one request and no name prompt', async () => {
+  const f = revisionUI({ choices: ['art/floor', 'changes', 'revise'] });
+  await f.command.run();
+  assert.deepEqual(f.calls.map(input => input.action), ['open', 'changes', 'revise', 'cancel']);
+  assert.deepEqual(f.sent, [{ sessionID: 'test', text: 'Exact asset and complete feedback from server' }]);
+  assert.deepEqual(f.prompts, []); // Only the change text and reviewer were needed.
+  assert.equal(f.menus.at(-1).current, 'revise');
+  assert.equal(f.menus.at(-1).options.find(item => item.value === 'revise').disabled, false);
+  assert.equal(f.toasts.at(-1).title, 'Revision request sent');
+});
+
+test('finishing review after saving feedback does not submit a model request', async () => {
+  const f = revisionUI({ choices: ['changes', 'cancel'] });
+  await f.command.run('art/floor');
+  assert.equal(f.sent.length, 0);
+  assert.deepEqual(f.calls.map(input => input.action), ['open', 'changes', 'cancel']);
+});
+
+test('failed validation and session changes during revision preparation never send', async () => {
+  for (const prepare of [async () => { throw new Error('Review expired'); }, async move => move()]) {
+    const f = revisionUI({ prepare });
+    await f.command.run('art/floor');
+    assert.equal(f.sent.length, 0);
+    assert.equal(f.alerts.length, 1);
+    assert.equal(f.toasts.at(-1).variant, 'error');
+    assert.equal(f.calls.at(-1).action, 'cancel');
+  }
+});
+
+test('failed prompt submission is reported without a retry or false success', async () => {
+  const f = revisionUI({ send: async () => { throw new Error('Connection lost'); } });
+  await f.command.run('art/floor');
+  assert.equal(f.sent.length, 1);
+  assert.match(f.alerts[0].message, /Check the chat before trying again/);
+  assert.equal(f.toasts.some(item => item.title === 'Revision request sent'), false);
+  assert.equal(f.calls.at(-1).action, 'cancel');
+});
+
+test('repeated command dispatch while submitting cannot duplicate the revision request', async () => {
+  let finish;
+  const f = revisionUI({ send: () => new Promise(resolve => { finish = resolve; }) });
+  const running = f.command.run('art/floor');
+  await new Promise(resolve => setImmediate(resolve));
+  await f.command.run('art/floor');
+  assert.equal(f.sent.length, 1);
+  finish();
+  await running;
 });
 
 test('browser failure, cancel and declined confirmation never decide', async () => {

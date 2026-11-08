@@ -2,6 +2,20 @@
 
 New to Daydream? Start with [installation and your first asset](../README.md).
 
+## Your asset workflow, in order
+
+1. **Create:** describe what you want and let Daydream prepare a candidate.
+2. **Review or revise:** inspect and compare it; save feedback and choose
+   **Make revised version** if needed, then review the result.
+3. **Approve:** choose **Approve artwork** when satisfied.
+4. **Add or update:** choose **Add or update in project**, review the plan, and confirm.
+5. **Preview:** try the standalone scene, then the game once the asset is placed.
+
+The menus show the current step. Resume where you left off; saved decisions stay
+recorded. Follow the [guided walkthrough](REVIEW.md) for each choice.
+
+## Find a task
+
 | I want to… | Read this |
 | --- | --- |
 | Create, preview, approve or add artwork | [Your assets](REVIEW.md) |

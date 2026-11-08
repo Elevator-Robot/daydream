@@ -11,6 +11,8 @@ import { createPreviewService } from '../plugins/daydream-tools/preview.js';
 import { previewCommand } from '../plugins/daydream-tools/preview-command.js';
 import { createBrowser } from '../plugins/daydream-tools/browser.js';
 import { createRunner } from '../plugins/daydream-tools/runner.js';
+import { assetViewer, olderVersions, viewerScript, HISTORY_LIMIT } from '../plugins/daydream-tools/asset-viewer.js';
+import { createHash } from 'node:crypto';
 
 const checkout = fileURLToPath(new URL('../', import.meta.url));
 const python = process.env.DAYDREAM_TEST_PYTHON ?? 'python3';
@@ -124,6 +126,105 @@ test('source discovery uses configured source root and ignores symlink candidate
 });
 
 const pillow = spawnSync(python, ['-c', 'import PIL']).status === 0;
+
+test('comparison prefers ancestry, excludes other assets/newer versions and deduplicates hashes', () => {
+  const current = { id: 'floor', manifest_kind: 'tileset', revision_hash: 'current', parent_revision_hash: 'parent' };
+  const row = (revision_hash, modified_at, extra = {}) => ({ id: 'floor', kind: 'tileset', revision_hash, modified_at, bundle: revision_hash, ...extra });
+  const catalog = { assets: [row('newer', 100), row('parent', 90, { parent_revision_hash: 'first' }), row('current', 50),
+    row('older-branch', 40), row('first', 30), row('first', 20), row('other-type', 10, { kind: 'sprite' }), row('other-name', 10, { id: 'wall' })] };
+  const result = olderVersions(current, catalog);
+  assert.deepEqual(result.previous.map(item => item.revision_hash), ['parent', 'first', 'older-branch']);
+  assert.equal(result.isLatest, false);
+  const missing = olderVersions({ ...current, parent_revision_hash: 'missing' }, catalog);
+  assert.match(missing.previous[0].error, /could not be found/);
+  assert.equal(missing.previous[0].revision_hash, 'missing');
+  const bounded = olderVersions({ ...current, parent_revision_hash: undefined }, { assets: [row('current', 100), ...Array.from({ length: 20 }, (_, i) => row('old-' + i, 99 - i))] });
+  assert.equal(bounded.previous.length, HISTORY_LIMIT);
+  assert.equal(bounded.limited, true);
+});
+
+test('viewer escapes feedback/names, pins the selected revision and permits only its fixed script', () => {
+  const hostile = '</script><script>alert(1)</script><img src=x onerror=alert(2)>';
+  const current = { name: hostile, revision_hash: 'selected-hash', state: 'unreviewed', body: '<p>validated artwork</p>',
+    notes: [{ reviewer: hostile, reviewed_at: hostile, feedback: hostile }], bundle: hostile };
+  const html = assetViewer(current, [{ ...current, revision_hash: 'old-hash', modified_at: 1000000 }]);
+  assert.equal((html.match(/<script>/g) ?? []).length, 1);
+  assert.ok(html.includes("script-src 'sha256-" + createHash('sha256').update(viewerScript).digest('base64') + "'"));
+  assert.equal(html.includes(hostile), false);
+  assert.match(html, /data-reviewed-revision="selected-hash"/);
+  assert.match(html, /Comparing older versions never changes the candidate under review/);
+  assert.match(html, /id="older-version"/);
+  assert.match(html, /width:calc\(var\(--pixel-width\)\*var\(--zoom\)\)/);
+});
+
+test('all asset kinds compare validated prior revisions and saved notes without changing review target', { skip: !pillow }, async t => {
+  const f = await fixture(t);
+  const generated = spawnSync(python, ['-c', `import sys,json
+sys.path.insert(0,sys.argv[1]);sys.path.insert(0,sys.argv[2])
+from review_fixture import create
+from operations import execute
+root=sys.argv[3];bundles=create(root);result={}
+def call(op,data):
+ r=execute(op,data,root);assert r['ok'],r;return r['result']
+for kind,bundle in bundles.items():
+ revision=call('review.inspect',{'kind':kind,'bundle':bundle})['revision_hash']
+ call('review.feedback',{'kind':kind,'bundle':bundle,'revision_hash':revision,'reviewer':'fixture','feedback':'Darken the edges <not a tag>','apply':True})
+ change={'recolor':{'symbol':'a','color':'#556677'}} if kind=='tileset' else {'patch':{'schema_version':1,'operations':[{'op':'recolor','symbol':'a','color':'#556677'}]}}
+ if kind=='tileset':change['tiles']=[]
+ second=call(kind+'.edit',{'bundle':bundle,**change,'apply':True})
+ call('review.feedback',{'kind':kind,'bundle':second['directory'],'revision_hash':second['revision_hash'],'reviewer':'fixture','feedback':'Keep the middle bright','apply':True})
+ change={'recolor':{'symbol':'a','color':'#112233'},'tiles':[]} if kind=='tileset' else {'patch':{'schema_version':1,'operations':[{'op':'recolor','symbol':'a','color':'#112233'}]}}
+ third=call(kind+'.edit',{'bundle':second['directory'],**change,'apply':True})
+ result[kind]={'original':bundle,'original_hash':revision,'second':second,'third':third}
+print(json.dumps(result))`, path.join(checkout, 'scripts'), path.join(checkout, 'tests'), f.root], { encoding: 'utf8' });
+  assert.equal(generated.status, 0, generated.stderr);
+  const bundles = JSON.parse(generated.stdout);
+  for (const [kind, versions] of Object.entries(bundles)) {
+    const original = path.join(f.root, versions.original, 'changes-requested.json');
+    const before = await readFile(original);
+    const viewer = await f.call('asset', { bundle: versions.third.directory });
+    assert.equal(viewer.kind, kind);
+    assert.equal(viewer.revision_hash, versions.third.revision_hash);
+    assert.match(viewer.html, /Compare with previous version/);
+    assert.match(viewer.html, /Darken the edges &lt;not a tag&gt;/);
+    assert.match(viewer.html, /Keep the middle bright/);
+    assert.match(viewer.html, /data-history-index="1"/);
+    assert.ok(viewer.html.indexOf(versions.second.revision_hash) < viewer.html.indexOf(versions.original_hash));
+    assert.ok(viewer.html.includes(`data-reviewed-revision="${versions.third.revision_hash}"`));
+    assert.match(viewer.html, /--pixel-width:4px/); // APNG's embedded 4x pixels are normalized too.
+    assert.deepEqual(await readFile(original), before);
+    await assert.rejects(readFile(path.join(versions.third.directory, 'approval.json')), { code: 'ENOENT' });
+    const oldest = await f.call('asset', { bundle: versions.original });
+    assert.doesNotMatch(oldest.html, /id="older-version"/);
+    assert.match(oldest.html, /Selected version/);
+  }
+  const versions = bundles.sprite;
+  await writeFile(path.join(versions.second.directory, 'sprite.png'), 'tampered');
+  const partial = await f.call('asset', { bundle: versions.third.directory });
+  assert.equal(partial.revision_hash, versions.third.revision_hash);
+  assert.match(partial.html, /Cannot preview this earlier version/);
+  assert.match(partial.html, /Darken the edges &lt;not a tag&gt;/); // Other history remains usable.
+  await writeFile(path.join(versions.third.directory, 'sprite.png'), 'tampered');
+  await assert.rejects(f.call('asset', { bundle: versions.third.directory }));
+  assert.ok(f.permissions.every(item => item.action === 'read'));
+  assert.equal(f.spawned.length, 0);
+});
+
+test('comparison metadata denial is explicit and does not retry or hide the selected asset', { skip: !pillow }, async t => {
+  const f = await fixture(t);
+  const generated = spawnSync(python, [path.join(checkout, 'tests/review_fixture.py'), f.root], { encoding: 'utf8' });
+  assert.equal(generated.status, 0, generated.stderr);
+  let denied = 0;
+  f.ctx.permission.assert = async input => {
+    if (input.resources.some(file => file.endsWith('/.daydream/assets.json'))) { denied++; throw new Error('history read denied'); }
+  };
+  const viewer = await f.call('asset', { bundle: 'art/dot' });
+  assert.match(viewer.html, /Version comparison unavailable: history read denied/);
+  assert.match(viewer.html, /Candidate under review/);
+  assert.equal(denied, 1);
+  const controller = new AbortController(); controller.abort();
+  await assert.rejects(f.service.call({ sessionID: 'fixture', action: 'asset', bundle: 'art/dot' }, { signal: controller.signal }));
+});
 test('real sprite animation and tileset viewers embed validated images and never approve', { skip: !pillow }, async t => {
   const f = await fixture(t);
   const recipe = JSON.stringify({ schema_version: 1, name: 'dot', width: 2, height: 2, palette: { a: '#ffffff' }, pixels: ['a.', '.a'] });

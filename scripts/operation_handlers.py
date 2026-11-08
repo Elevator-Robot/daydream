@@ -229,6 +229,6 @@ def review_inspect(context, data):
 
 
 def review_feedback(context, data):
-    from review_core import request_changes, FEEDBACK_FILE
+    from review_core import request_changes
     result = request_changes(context.path(data["bundle"]), data["revision_hash"], data["reviewer"], data["feedback"], data.get("apply", False), loader=review_loader(data["kind"]))
-    return result, [] if result["action"] == "keep_feedback" else [context.path(data["bundle"]) / FEEDBACK_FILE]
+    return result, [] if result["action"] == "keep_feedback" else [context.path(data["bundle"]) / result['file']]

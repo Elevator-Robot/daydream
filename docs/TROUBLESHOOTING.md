@@ -74,6 +74,29 @@ Reopen `/assets`, select the candidate and prepare a fresh plan. Read it before
 applying. Another change, a long pause or a restart can make an earlier plan stale.
 An approval you already confirmed is retained if the artwork itself is unchanged.
 
+## I already left feedback but want to add or correct it
+
+Open the same candidate in `/assets` and choose **Add more feedback**. Use
+**Read saved feedback** to see earlier notes. A clarification can say which earlier
+instruction it changes; the history is retained rather than replaced.
+
+If you see the older “Feedback already exists” refusal, update/restart Daydream
+and reopen the candidate. Don't delete your notes or add a copy to bypass it.
+Choose **Make revised version** to send the selected asset and all saved notes
+to Daydream.
+
+## I saved feedback, but nothing is being revised
+
+Choose **Make revised version** in the candidate's review menu. Saving a note keeps
+the menu open so you can add more feedback before starting. If you already closed
+it, reopen the candidate in `/assets` and choose **Make revised version** there.
+You don't need to type its name into chat.
+
+The request appears in chat, where you can follow progress and answer questions
+or tool-permission prompts. If sending fails, check chat before trying again to
+avoid sending the same request twice. If the action is missing, update/restart
+Daydream and reopen `/assets`.
+
 ## Godot isn't found, or its version doesn't match
 
 Ask Daydream:

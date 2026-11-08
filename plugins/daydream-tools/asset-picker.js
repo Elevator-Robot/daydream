@@ -1,20 +1,24 @@
 export const stateLabel = value => ({ draft: 'Draft', unreviewed: 'Draft', approved: 'Approved', changes_requested: 'Needs changes', imported: 'Imported', modified: 'Modified outside Daydream' }[value] ?? value);
+export const assetStep = (number, title) => `Step ${number} of 5 — ${title}`;
 
 export async function pickAsset(context, list, sessionID, browser, { readOnly = false } = {}) {
   let history = false;
   for (;;) {
     const result = await list({ sessionID, action: 'assets', history });
     if (!result?.ok) throw new Error(result?.error?.message ?? 'Could not list assets');
-    const selected = await context.ui.dialog.select({ title: history ? 'Asset history — select a revision' : 'Your assets — current candidates', options: [
+    const canCreate = !readOnly && context.client?.session?.prompt;
+    const selected = await context.ui.dialog.select({ title: history ? 'Asset history — select a revision' : readOnly ? 'Choose artwork to preview' : 'Your assets — create or continue',
+      current: result.assets?.[0]?.bundle ?? (canCreate ? '\0create' : '\0help'), options: [
+      ...(canCreate ? [{ title: 'Describe a new asset…', value: '\0create', category: '1 · Create', description: 'Tell Daydream what to make; then review its candidate' }] : []),
       ...(result.assets ?? []).map(asset => ({ title: asset.name ?? asset.bundle, value: asset.bundle,
+        category: readOnly ? 'Choose artwork' : '2 · Choose a candidate to review',
         description: `${stateLabel(asset.state ?? 'draft')} · ${asset.kind}${asset.older_revisions ? ` · ${asset.older_revisions} older revisions` : ''} · ${asset.bundle}` })),
-      { title: history ? 'Back to current assets' : 'Show older revisions', value: '\0history', description: 'History is retained; nothing is deleted' },
-      { title: 'View imported assets', value: '\0imported', description: 'Stable scene paths and manual-edit status; no changes' },
-      ...(browser ? [{ title: 'Open thumbnail overview', value: '\0gallery', description: 'Up to 12 validated current candidates in your browser' }] : []),
-      { title: 'Help: create an asset', value: '\0help', description: 'Ask Daydream using ordinary words; it manages filenames and revisions' },
-      ...(!readOnly && context.client?.session?.prompt ? [{ title: 'Describe a new asset…', value: '\0create', description: 'Send a creation request to the current agent; review before approval/import' }] : []),
-      { title: 'Enter a revision path (advanced)', value: '\0manual' },
-      { title: 'Close', value: '\0close' },
+      ...(browser ? [{ title: 'Open thumbnail overview', value: '\0gallery', category: 'Browse and history', description: 'See the available artwork before choosing a candidate' }] : []),
+      { title: history ? 'Back to current assets' : 'Show older revisions', value: '\0history', category: 'Browse and history', description: 'History is retained; nothing is deleted' },
+      { title: 'View imported assets', value: '\0imported', category: 'Browse and history', description: 'See files already added and their current status' },
+      { title: 'Workflow steps', value: '\0help', category: 'Help and advanced', description: 'Create → review/revise → approve → add/update → preview' },
+      { title: 'Enter a revision path (advanced)', value: '\0manual', category: 'Help and advanced' },
+      { title: 'Close', value: '\0close', category: 'Finish' },
     ] });
     if (!selected || selected === '\0close') return;
     if (selected === '\0history') { history = !history; continue; }
@@ -36,18 +40,18 @@ export async function pickAsset(context, list, sessionID, browser, { readOnly = 
       continue;
     }
     if (selected === '\0help') {
-      await context.ui.dialog.alert({ title: 'Create → review → add to game', message: 'Ask Daydream: “Create a small pixel-art floor named Potion Shop Floor. Show me a candidate before importing.”\n\nNew tool-generated revisions are kept under .daydream/revisions automatically. You review the picture here, approve it, then separately choose Add a copy or Update an unchanged managed asset.\n\nImported means resource files exist, not that a scene has been placed into gameplay. Existing game maps are never silently rewritten.' });
+      await context.ui.dialog.alert({ title: 'Your asset workflow — in order', message: 'In /assets:\n\n1. Create: choose Describe a new asset… and follow progress in chat.\n2. Review: select the candidate and inspect its preview. Compare earlier versions if available. To revise, Request changes → save feedback → Make revised version, then review the result.\n3. Approve: choose Approve artwork when satisfied. For Reviewer label, enter your name or user.\n4. Add/update: choose Add or update in project, choose a copy or an existing managed asset, review the plan, then confirm applying it.\n5. Preview: choose Preview this scene. If the asset is already placed in your game, use /preview game to check it there. A new copy still needs placement.\n\nResume at the step that matches your candidate’s status. Daydream carries its name and saved feedback for you.' });
       continue;
     }
     if (selected === '\0create') {
       if (readOnly) return;
-      const brief = await context.ui.dialog.prompt({ title: 'Describe your asset (sends a model request)', placeholder: 'A mossy stone floor called Moonlight Floor, 16×16 pixel tiles' });
+      const brief = await context.ui.dialog.prompt({ title: assetStep(1, 'Describe your asset'), placeholder: 'A mossy stone floor called Moonlight Floor, 16×16 pixel tiles' });
       if (!brief?.trim()) continue;
       if (brief.length > 4000) { await context.ui.dialog.alert({ title: 'Shorten the asset brief', message: 'Please keep this request under 4000 characters.' }); continue; }
       const route = context.ui.router.current();
       if (route.type !== 'session' || route.sessionID !== sessionID) throw new Error('Session changed; describe the asset again in its intended project');
       await context.client.session.prompt({ sessionID, text: `Create a staged asset for review in this project using the available shared Daydream tools and project instructions. Use a friendly name and omit output for automatic hidden revision storage. Clarify any missing art-direction requirements. Do not approve or import it; I will review the candidate in /assets.\n\nMy asset brief:\n${brief.trim()}` });
-      context.ui.toast.show({ title: 'Asset request sent', message: 'Daydream will prepare a candidate. Return to /assets to review it; nothing is automatically approved or imported.', variant: 'success' });
+      context.ui.toast.show({ title: 'Step 1 — request sent', message: 'Follow progress in chat. Next: open /assets, select the new candidate, and review its preview (step 2).', variant: 'success' });
       return;
     }
     if (selected === '\0manual') return await context.ui.dialog.prompt({ title: 'Revision folder', placeholder: 'art/tiles/hut-floor-v5' });

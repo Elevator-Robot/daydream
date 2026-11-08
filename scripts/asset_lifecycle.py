@@ -106,7 +106,8 @@ def discover_reads(context, operation, data):
                         if entry.is_dir(follow_symlinks=False) and not entry.name.startswith('.'): children.append(Path(entry.path))
                 if manifest:
                     bundles.append(directory)
-                    for name in ('manifest.json', 'approval.json', 'changes-requested.json'):
+                    from review_core import feedback_filenames
+                    for name in ('manifest.json', 'approval.json', *feedback_filenames(directory)):
                         reads.add(str(context.path(str(directory / name))))
                 else:
                     pending.extend(children[:max(0, 2000-len(pending))])
@@ -156,16 +157,20 @@ def list_assets(context, data):
             label, _ = friendly_name(manifest.get('provenance', {}).get('display_name', manifest['name']))
             hash_value = digest(raw)
             state = 'draft'
-            for filename, decision in (('approval.json', 'approved'), ('changes-requested.json', 'changes_requested')):
+            for filename, decision in (('approval.json', 'approved'),):
                 try:
                     record = json.loads(read_regular(bundle / filename, 65536))
                     if record.get('revision_hash') == hash_value: state = decision
                 except FileNotFoundError: pass
+            from review_core import load_feedback
+            if load_feedback({'path': bundle, 'manifest': manifest, 'revision_hash': hash_value}):
+                state = 'changes_requested'
             current = next((row for row in active if row['revision_hash'] == hash_value), None)
             if current and state != 'changes_requested': state = current['state']
             candidates.append({'bundle': context.relative(bundle), 'id': manifest['name'],
                                'name': label,
                                'kind': manifest['kind'], 'state': state, 'revision_hash': hash_value,
+                               'parent_revision_hash': manifest.get('provenance', {}).get('parent_revision_hash'),
                                'modified_at': (bundle / 'manifest.json').stat().st_mtime_ns})
         except (ValueError, OSError, AttributeError): invalid += 1
     candidates.sort(key=lambda row: (-row['modified_at'], row['bundle']))

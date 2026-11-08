@@ -80,6 +80,9 @@ def prepare(operation, data, context):
                             if index >= 256: raise ValueError("Revision directory has too many entries")
                             if re.fullmatch(r"[a-z][a-z0-9_-]{0,47}\.(motion|contact)\.png", entry.name): names.add(entry.name)
             else: raise ValueError("Unsupported catalog path authority")
+            if path.is_dir():
+                from review_core import feedback_filenames
+                names.update(feedback_filenames(path))
             reads.update(str(context.path(str(path / name))) for name in names)
     reads.update(str(context.path(path)) for path in operation.project_reads)
     access = {"reads": sorted(reads), "writes": []}

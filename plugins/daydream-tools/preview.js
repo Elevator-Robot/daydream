@@ -3,6 +3,7 @@ import { lstat, open, realpath } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { assetViewer, feedbackHTML, olderVersions, VIEWER_BODY_LIMIT } from './asset-viewer.js';
 
 const escape = (value) => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 export class PreviewFailure extends Error {}
@@ -156,28 +157,63 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
     // Bind the document to the exact revision that was validated, even if files change.
     const manifestHash = createHash('sha256').update(await read(path.join(directory, 'manifest.json'))).digest('hex');
     if (manifestHash !== result.result.revision_hash) fail('Revision changed during preview; try again');
+    const review = await run(root, { action: 'call', op: 'review.inspect', input: { bundle, kind }, authorized: { reads: prepared.access.reads, writes: [] } }, signal);
+    if (!review.ok) fail(review.error.message);
+    if (review.result.revision_hash !== result.result.revision_hash) fail('Revision changed during preview; try again');
     let total = 0;
-    const image = async (name) => {
+    const image = async (name, scale = 1, motion = false) => {
       const data = await read(await projectPath(root, path.join(directory, name)), 8 * 1024 * 1024);
       total += data.length;
       if (total > 10 * 1024 * 1024) fail('Preview images exceed the 10 MiB viewer limit');
       if (createHash('sha256').update(data).digest('hex') !== manifest.files[name]) fail('Preview image changed during review');
-      return `<img alt="${escape(name)}" src="data:image/png;base64,${data.toString('base64')}">`;
+      const width = data.readUInt32BE(16);
+      return scale ? `<div class="viewport"><img class="art"${motion ? ' data-motion' : ''} style="--pixel-width:${width / scale}px" alt="${escape(name)}" src="data:image/png;base64,${data.toString('base64')}"></div>`
+        : `<img class="reference" alt="${escape(name)}" src="data:image/png;base64,${data.toString('base64')}">`;
     };
     let body = '';
-    if (kind === 'sprite') body = await image('preview.png');
+    if (kind === 'sprite') body = `<h3>Artwork · ${result.result.width} × ${result.result.height} pixels</h3>${await image('sprite.png')}`;
     else if (kind === 'tileset') {
-      body = `<p>Boundary mismatches: ${result.result.seams.mismatch_count}. Yellow: solid geometry; cyan: one-way geometry. Human collision/play-feel review required.</p><h2>Tiles</h2>${await image('preview.png')}<h2>Layout</h2>${await image('layout.png')}`;
+      body = `<h3>Layout</h3>${await image('layout.png')}<h3>Tiles</h3>${await image('atlas.png')}<details><summary>Numbered tiles and seam checks</summary><p>Boundary mismatches: ${result.result.seams.mismatch_count}. Yellow: solid geometry; cyan: one-way geometry.</p>${await image('preview.png', 0)}</details>`;
       if (result.result.collision_preview) {
         const geometry = result.result.tiles.map(tile => ({ id: tile.id, solid: tile.solid, polygons: tile.collisions ?? null }));
-        body += `<h2>Collision coverage (not artwork)</h2>${await image('collisions.png')}<p>Raster overlays are approximate; exact coordinates use top-left tile pixels on a half-pixel grid. One-way polygons block from local above; omitted one_way is false and omitted margin is 1. A legacy solid:true with polygons:null is the unchanged full-tile rectangle; solid:false with polygons:null has no collisions. No shapes are inferred from alpha.</p><details><summary>Exact collision geometry</summary><pre>${escape(JSON.stringify(geometry, null, 2))}</pre></details>`;
+        body += `<h3>Collision coverage (not artwork)</h3>${await image('collisions.png')}<p>Raster overlays are approximate; exact coordinates use top-left tile pixels on a half-pixel grid. One-way polygons block from local above; omitted one_way is false and omitted margin is 1. A legacy solid:true with polygons:null is the unchanged full-tile rectangle; solid:false with polygons:null has no collisions. No shapes are inferred from alpha.</p><details><summary>Exact collision geometry</summary><pre>${escape(JSON.stringify(geometry, null, 2))}</pre></details>`;
       }
     }
     else for (const clip of result.result.previews) {
-      body += `<section><h2>${escape(clip.animation)}</h2>${await image(path.basename(clip.motion))}<h3>Contact sheet</h3>${await image(path.basename(clip.contact_sheet))}</section>`;
+      body += `<section><h3>${escape(clip.animation)}</h3>${await image(path.basename(clip.motion), 4, true)}<details><summary>Contact sheet (reference layout)</summary>${await image(path.basename(clip.contact_sheet), 0)}</details></section>`;
     }
-    const html = `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>Daydream preview</title><style>body{font:16px system-ui;background:#20232b;color:#eee;margin:2rem}img{image-rendering:pixelated;max-width:100%;background:repeating-conic-gradient(#bbb 0% 25%,#ddd 0% 50%) 0/16px 16px}code{overflow-wrap:anywhere}</style><h1>${escape(manifest.provenance?.display_name ?? result.result.name)}</h1><p>Revision: <code>${escape(result.result.revision_hash)}</code></p><p>Preview only — opening this viewer does not approve or import.</p>${body}`;
-    return { ok: true, html, revision_hash: result.result.revision_hash, kind, name: manifest.provenance?.display_name ?? result.result.name };
+    return { body, revision_hash: result.result.revision_hash, kind, manifest_kind: manifest.kind, id: result.result.name, bundle,
+      parent_revision_hash: manifest.provenance?.parent_revision_hash, state: review.result.state,
+      notes: review.result.feedback?.notes ?? [], name: manifest.provenance?.display_name ?? result.result.name };
+  }
+  async function assetDocument(root, input, signal, source) {
+    const current = await document(root, input.bundle, signal);
+    const history = [];
+    let notice = '', isLatest = true;
+    try {
+      const catalog = await assets(root, { ...input, history: true }, signal, source);
+      const selected = olderVersions(current, catalog);
+      isLatest = selected.isLatest;
+      if (selected.limited) notice = 'Comparison shows up to eight earlier versions within the preview size limit. Use Show older revisions in /assets for more history.';
+      let bytes = Buffer.byteLength(current.body + feedbackHTML(current.notes));
+      for (const item of selected.previous) {
+        if (signal?.aborted || disposed) fail('Comparison cancelled');
+        let viewed = item;
+        if (!item.error) {
+          try {
+            viewed = { ...item, ...await document(root, item.bundle, signal) };
+            if (viewed.revision_hash !== item.revision_hash) fail('Earlier version changed while opening comparison; reopen the preview');
+            const size = Buffer.byteLength(viewed.body + feedbackHTML(viewed.notes));
+            if (bytes + size > VIEWER_BODY_LIMIT) fail('This earlier version exceeds the comparison size limit. Open it separately with Show older revisions in /assets.');
+            bytes += size;
+          } catch (error) { viewed = { ...item, error: `Cannot preview this earlier version: ${error.message}` }; }
+        }
+        history.push(viewed);
+      }
+    } catch (error) { notice = `Version comparison unavailable: ${error.message}`; }
+    if (signal?.aborted || disposed) fail('Comparison cancelled');
+    return { ok: true, html: assetViewer(current, history, { notice, isLatest }), revision_hash: current.revision_hash,
+      kind: current.kind, name: current.name };
   }
   return {
     async call(input, { signal, source } = {}) {
@@ -208,7 +244,7 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
           if (signal?.aborted || disposed) fail('Gallery cancelled');
           try {
             const viewed = await document(root, item.bundle, signal);
-            const thumbnail = viewed.html.match(/<img[^>]+src="data:image\/png;base64,[^"]+"[^>]*>/)?.[0] ?? '';
+            const thumbnail = viewed.body.match(/<img[^>]+src="data:image\/png;base64,[^"]+"[^>]*>/)?.[0] ?? '';
             bytes += Buffer.byteLength(thumbnail);
             if (bytes > 8 * 1024 * 1024) break;
             cards += `<section><h2>${escape(item.name)}</h2><p>${escape(item.state)} · ${escape(item.kind)}</p>${thumbnail}<p>${escape(item.bundle)}</p><small>${escape(viewed.revision_hash)}</small></section>`;
@@ -216,7 +252,7 @@ export function createPreviewService(ctx, run, spawnProcess = spawn) {
         }
         return { ok: true, html: `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>Daydream assets</title><style>body{background:#20232b;color:white;font:16px system-ui;margin:2rem}main{display:flex;flex-wrap:wrap;gap:2rem}section{width:300px;overflow-wrap:anywhere}img{max-width:280px;max-height:240px;object-fit:contain;image-rendering:pixelated}</style><h1>Your assets</h1><p>Up to 12 current candidates. Select an asset in OpenCode to review and decide. Imported means files exist, not proof they are placed in gameplay. Animation thumbnails are not motion review.</p><main>${cards}</main>` };
       }
-      return await document(root, input.bundle, signal);
+      return await assetDocument(root, input, signal, source);
     },
     async dispose() { disposed = true; await Promise.all([...games.values()].map(stop)); },
   };

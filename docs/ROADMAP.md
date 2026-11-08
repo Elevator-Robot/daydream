@@ -3,7 +3,7 @@
 Internal milestones and acceptance criteria. For installation and everyday use,
 see the [user README](../README.md).
 
-**Last updated: 2026-11-07. Branch: `feat/editor-visible-tile-layouts`, from `208a7f5`.
+**Last updated: 2026-11-08. Branch: `feat/editor-visible-tile-layouts`, from `208a7f5`.
 Editor-visible layout work is implemented and undergoing branch validation; not merged.**
 
 ## START HERE NEXT — test the guided asset lifecycle on this branch
@@ -106,6 +106,31 @@ after encountering slug/path collisions. [Guided assets](ASSET_LIFECYCLE.md) now
 - New imported-scene preview runs only on explicit confirmation and normal game
   permissions, without changing the main scene. Discovery/setup and writes retain
   exact native grants. Approval and apply remain separate user actions.
+- Feedback follow-ups now retain earlier notes instead of producing the reported
+  “Feedback already exists” refusal. `/assets` offers **Add more feedback** and
+  **Read saved feedback**; repeated identical notes are idempotent, and approval/
+  import stay blocked until a fresh candidate is reviewed. The fix passed the full
+  suite and an actual isolated TUI follow-up flow. The user authorized committing,
+  pushing and creating a PR on 2026-11-08. See [evidence](validation/2026-11-08-feedback-followups.md).
+- **Make revised version** now continues the selected candidate's review flow:
+  it sends the exact asset and all current feedback to the session agent and
+  returns to chat. No remembered asset name or manually composed request is needed.
+  Saving notes and finishing review remain available without starting generation.
+  Full-suite and isolated live TUI handoff checks passed; see
+  [revision handoff evidence](validation/2026-11-08-revision-handoff.md).
+- Browser previews now offer **Compare with previous version**, a bounded older-
+  version picker, saved feedback and shared native-pixel zoom. Recorded ancestry
+  is preferred; the selected candidate and review ticket stay fixed. Missing or
+  damaged references are reported without hiding the current candidate.
+  Actual browser comparison, narrow layout and motion replay were checked in an
+  isolated fixture; see [comparison evidence](validation/2026-11-08-preview-comparison.md).
+- Guided, ordered interaction is now a standing contributor/agent requirement.
+  The asset UI and user walkthrough share five stages: create, review/revise,
+  approve, add/update, preview. Menus group actions in that order, highlight a
+  state-appropriate next action, and keep browsing/advanced/help/finish choices
+  separate from the normal progression. Success messages explain the next step.
+  Ordered stages and explicit decisions were exercised in an isolated real TUI;
+  see [ordered-flow evidence](validation/2026-11-08-ordered-workflow.md).
 
 **Next user test:** in a disposable project, create/revise an asset with a friendly
 name and no output path; use `/assets`, add a copy, update its unchanged managed
@@ -115,6 +140,8 @@ deleted or updated to test this feature. Its use there needs an explicit action.
 
 **Remaining:** user branch acceptance and separately authorized merge. Commit/push
 of the lifecycle changes and user-documentation rewrite was explicitly requested.
+The follow-up feedback, revision handoff, comparison and ordered-flow changes were
+also authorized for commit/push and PR creation on 2026-11-08.
 Automatic history pruning/snapshot restoration, reverse
 source sync, live reference analysis and multi-file atomic transactions are not
 implemented. Do not mark P4 or the new-feature acceptance complete merely because
@@ -151,9 +178,9 @@ not mean human acceptance or the full idea-to-playable product is complete.
 
 ### Validation baseline
 
-- Latest branch validation: **166 Python-discovered tests passed** in the isolated
+- Latest branch validation: **169 Python-discovered tests passed** in the isolated
   Pillow environment with Godot/ttfx checks enabled. The dependency-free run passed
-  with **67 optional tests skipped**. Node adapter/viewer/review tests run through the suite.
+  with **70 optional tests skipped**. Node adapter/viewer/review tests run through the suite.
 - Separate graphical preview checks launched/stopped only an isolated synthetic
   Godot project. A synthetic tileset scene was also rendered; its actual viewport
   capture and numbered tile preview were inspected. These are not user-approved

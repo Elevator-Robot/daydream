@@ -39,6 +39,23 @@ that goal; do not imply complete Summer parity or implemented editor control.
   generators when addressing a recurring product gap. Preserve existing game work;
   do not rewrite another repository as an architectural cleanup.
 
+## Guided user experience
+
+- Treat an intuitive, guided workflow as a standing product requirement. Show the
+  current step and a concrete next action; do not leave users to infer how to proceed.
+- List instructions and menu actions in order of operation, with prerequisites
+  before dependent actions. For assets, use: describe → review/revise → approve →
+  add/update → preview. Revisions return to review rather than skipping ahead.
+- Put relevant next actions ahead of history, help and advanced details. Keep Back,
+  Finish and Cancel easy to find. Highlighting a next step must never execute it.
+- Carry the selected asset and project through the flow. Avoid asking users to
+  remember names, paths, hashes or instructions already available to Daydream.
+- Use consistent, task-oriented labels across dialogs, previews, agent responses
+  and documentation. Explain what a step accomplished and what remains, especially
+  the difference between a candidate, approval, added resource files and gameplay placement.
+- Prefer short numbered procedures and progressive detail over long explanations
+  or extra confirmation screens. Preserve exact-review and separate-apply boundaries.
+
 ## Contributor boundaries
 
 - Read `README.md` and `docs/ROADMAP.md` before changing the scope.

@@ -39,6 +39,31 @@ duplicate welcome banner, run a terminal animation through a tool, or wait for
 an intro to finish before helping. Without the plugin, proceed normally; do not
 install it or change user configuration merely to display branding.
 
+## Guide the user through the workflow
+
+- Present procedures as short numbered steps in the order the user should perform
+  them. Put prerequisites first, identify their current step, and finish with the
+  next concrete action using the actual command or menu label.
+- Use this asset sequence consistently:
+  1. Describe the asset and let Daydream create a candidate.
+  2. Review and compare it; if needed, save feedback and choose **Make revised version**,
+     then review the new candidate.
+  3. Choose **Approve artwork** when satisfied.
+  4. Choose **Add or update in project**, review the plan, and separately apply it.
+  5. Choose **Preview this scene**; for assets already placed in gameplay, use
+     `/preview game` to check the game. A newly added copy still needs scene placement.
+- Resume from the user's actual state; do not send them back through completed
+  steps. Give one next action when that is enough, rather than repeating the whole
+  walkthrough. Treat the revision loop as part of review, not as an unrelated task.
+- Carry known asset/project context forward. Do not ask the user to recall asset
+  names, filenames, revision IDs or earlier notes to continue a selected flow.
+- Describe outcomes precisely: request sent, candidate created, artwork approved,
+  files added/updated, and game placement are different states. Make any remaining
+  user action clear without exposing implementation details unless requested.
+- Keep optional history, configuration and technical details after the normal path.
+  Streamlining guidance never means automatic approval/import or extra confirmation
+  dialogs for already-authorized routine work.
+
 ## Establish the project contract
 
 Prefer the guided asset lifecycle: accept ordinary labels (spaces/capitals are
@@ -112,9 +137,23 @@ for explicit exact-revision approval, change requests, and separately confirmed
 import. Never invoke the decision RPC, reply to a user permission prompt, or use
 the CLI to imitate the user's review clicks. Explicitly human-authorized CLI
 approval remains a fallback, not a way around a denied/cancelled UI decision.
+After a revision, point out **Compare with previous version** in the browser
+preview. It shows earlier artwork and saved feedback at the same pixel scale.
+Changing its older-version picker leaves the candidate under review fixed;
+approval/import in `/assets` still applies only to that selected candidate.
 Use `review.inspect` to read retained feedback/state and create a fresh revision
-when changes are requested. Feedback does not authorize automatic generation or
-undo assets already imported. The CLI fallback is `daydream ops search/describe/call`;
+when changes are requested. Read the complete `feedback.notes` list, including
+follow-up clarifications, rather than only the original note. Users can add notes
+with **Add more feedback** or inspect them with **Read saved feedback** in `/assets`;
+never tell them to delete feedback or add a copy to bypass a change request.
+After saving notes, users can choose **Make revised version** in that same menu.
+This sends an explicit creation request with the selected bundle, kind, hash and
+all saved notes to chat; act on it without asking the user to identify the asset
+again. Verify the project and source hash, use the matching shared edit capability
+with automatic revision storage, preserve earlier versions, and show the new
+candidate's preview. Direct the user back to `/assets` for a fresh review.
+Saving feedback alone does not start generation or undo imported assets.
+The CLI fallback is `daydream ops search/describe/call`;
 see the checkout's `docs/OPERATIONS.md`. Native tools ship with the standard
 install, but verify availability: older or agent-only installations may lack them.
 

@@ -19,25 +19,34 @@ There is no new install flag, model-facing approval tool, service or browser ser
 
 ## The actual user flow
 
-1. Select a bundle or enter a project-local path; confirm opening its browser viewer.
-   The shared inspector verifies the files and exact manifest hash. The dialog
-   shows the friendly candidate name and review state; the full hash appears
-   in the browser and final confirmation.
-2. Inspect the actual sprite, watch animation motion, or check tile layout and
-   collision outlines and exact geometry/settings. Viewer startup alone does not establish review.
-3. Choose **Approve artwork**, **Request changes**, or **Cancel**. Cancel
-   is the default selection. Reopening the same preview is also available.
-4. Approval requires a reviewer label and an explicit confirmation of the full
+1. **Create:** describe a new asset to the session agent. Existing candidates let
+   the user resume at their saved stage. Creation appears before candidate browsing;
+   history, help and advanced path entry follow the normal workflow.
+2. **Review/revise:** select a candidate and confirm opening its validated browser
+   viewer. Inspect artwork, motion, layouts and collision geometry. Viewer startup
+   alone does not establish review. The menu groups review actions before approval
+   and adding/updating; Finish is last and Escape remains available.
+   Drafts highlight **Open preview again**. Saving feedback retains the exact-revision
+   note, blocks further approval/import of it and highlights **Make revised version**.
+   That action submits the selected asset and all notes to the current session;
+   saving a note alone does not start a model request. The result returns to review.
+3. **Approve:** approval requires a reviewer label and explicit confirmation of the full
    revision hash and review responsibility. It records approval only—**no import**.
-5. Request changes requires feedback, a reviewer label and confirmation. The note
-   is retained against that exact revision; further approval/import of it is blocked.
-   Create a fresh revision to address the feedback. No generation/model request is
-   started automatically, and assets already imported are not removed.
-6. Once approved, choose **Add or update in project**. Add a separate copy with
+   Once approved, the menu highlights **Add or update in project** and marks the
+   approval action completed. Highlighting does not dispatch an action.
+4. **Add/update:** add a separate copy with
    automatically selected filenames, or explicitly update an unchanged registered
    asset at stable paths. Read the plain-language summary; exact paths/hashes are
    available under **Show technical details**. Apply is separately confirmed.
    [Guided assets](ASSET_LIFECYCLE.md) explains recovery snapshots and manual-edit protection.
+5. **Preview:** the post-import menu highlights **Preview this scene**, still with
+   separate launch confirmation and permissions. **How to open it in Godot** gives
+   ordered manual steps, including placement guidance for new copies and game
+   preview guidance for updates already referenced by gameplay.
+
+Dialogs show the applicable stage out of five; success messages state the next
+action. The browser shows the same ordered workflow with review as its current
+stage. Finish/Cancel preserves already-confirmed decisions and saved notes.
 
 Tilesets now offer a layout-mode choice: script-free **Editor-visible cells** or
 the legacy runtime companion. Editor mode detects the project engine and checks
@@ -68,11 +77,36 @@ immediate errors but does not wait for browser exit or kill the viewer.
   Existing user/agent permission rules still apply, including explicit allow/deny.
 - `approval.json` remains compatible with CLI approvals. Feedback is an immutable
   `changes-requested.json` record with kind, hash, reviewer, UTC timestamp and note.
-  Repeat identical feedback is harmless; different feedback does not overwrite it.
+  Follow-ups use additional immutable `changes-requested.<digest>.json` records;
+  the original record's bytes never change. The digest binds kind, revision hash,
+  reviewer and note, allowing an identical submission to return `keep_feedback`
+  without adding a duplicate. Status retains the original single-record fields
+  and adds an ordered `feedback.notes` list. UI decisions offer **Add more feedback**
+  and **Read saved feedback**; no note triggers generation or clears the change block.
+- Shared feedback loading validates every recognized note before approval/import.
+  Preparation enumerates note filenames without reading their contents, then
+  requires exact read grants; a new follow-up needs its own exact write grant.
+  Orphan follow-ups still prevent approval/import if the original record was
+  removed outside Daydream. Symlinked, corrupt or wrong-revision notes fail closed.
+  History is bounded to 32 notes / 256 KiB, with 4,000 characters per note.
+  Managed feedback writes retain the existing per-bundle review lock.
 - Status/feedback is discoverable via the read-only `review.inspect` operation.
-  Ask Daydream to address the saved feedback; the model cannot decide approval
+  The model cannot decide approval
   through native tools. It must never call the decision RPC or CLI on the user's
   behalf without explicit human review/authorization.
+- The user-interface RPC's `revise` action rechecks the ticket/session/project/hash
+  and loads current feedback through permissioned `review.inspect`. It returns a
+  request with the selected name, bundle, kind, hash and complete notes, without
+  writes. Only the explicit **Make revised version** click calls the documented
+  `context.client.session.prompt({ sessionID, text })`; the normal agent loop does
+  the editing with its existing tools/permissions. The TUI checks the active
+  session again after preparing the request, closes review after admission, and
+  reports submission failure without retry. The per-command busy guard prevents
+  repeated dispatch during submission. An uncertain transport failure asks the
+  user to check chat before resending; this is not a durable generation job or an
+  exactly-once guarantee across clients. No name/path entry or separate chat prompt
+  is needed. The request requires fresh revision storage, preserved history and
+  preview before a new user approval/import decision.
 - Import plans include the exact revision, generated output content/paths and
   resulting asset-index content. The shared backend rechecks `revision_hash` and
   `plan_hash` before writes. A stale plan is refused, even when destinations happen

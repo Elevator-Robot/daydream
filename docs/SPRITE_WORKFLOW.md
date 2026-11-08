@@ -29,11 +29,13 @@ appear in the exported artwork.
 
 ## Request a revision
 
-Choose **Request changes**, enter what needs improving, then ask Daydream to make
-the revised candidate:
+Choose **Request changes** and enter what needs improving, for example:
 
-> Make Moonlight Slime's outline darker and its eyes easier to read. Keep the
-> previous version and show me the result.
+> Make the outline darker and the eyes easier to read.
+
+After saving the note, choose **Make revised version**. Daydream receives the
+selected asset and all saved notes automatically. Follow progress in chat, then
+return to `/assets` to review the result.
 
 New candidates preserve the original. Use **Show older revisions** in `/assets`
 when you want to inspect an earlier version.

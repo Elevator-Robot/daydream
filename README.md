@@ -67,16 +67,21 @@ Ask in chat, or open **`/assets` → Describe a new asset…**:
 > Create a transparent 32×32 slime named Moonlight Slime. Use a soft purple palette
 > and show me a candidate before adding it to the game.
 
-Then:
+Follow these five steps in order; the asset menus show your current step:
 
-1. Open **`/assets`** and select the candidate.
-2. Inspect its browser preview. For animation, watch it move.
-3. Choose **Request changes** or **Approve artwork**.
-4. If asked for a **reviewer label**, enter your name or simply **`user`**.
-5. Choose **Add or update in project**. **Add a separate copy** is the safe choice
-   for your first test; filenames are handled for you.
-6. Read the summary, then separately confirm adding the asset.
-7. Choose **How to open it in Godot** or **Preview this scene**.
+1. **Create.** Send the description above and follow Daydream's progress in chat.
+2. **Review or revise.** Open `/assets`, select the candidate, and inspect its
+   browser preview. Watch animations move; use **Compare with previous version**
+   when available. If changes are needed, choose **Request changes**, save the
+   feedback, then choose **Make revised version**. Review the new result here again.
+3. **Approve.** When satisfied, choose **Approve artwork** and confirm. For a
+   **reviewer label**—also used when saving feedback—enter your name or **`user`**.
+4. **Add or update.** Choose **Add or update in project**. For your first test,
+   choose **Add a separate copy** and keep its name. Read the plan, choose
+   **Add this asset**, then confirm. Existing managed assets also offer **Update**.
+5. **Preview.** Choose **Preview this scene**, or **How to open it in Godot** for
+   manual steps. Once the asset is placed in your game, use `/preview game` to
+   check it there and `/preview stop` when finished.
 
 **Approval does not add the asset yet. Adding a separate copy does not place it
 into your existing level.** Ask for that integration when you are ready.

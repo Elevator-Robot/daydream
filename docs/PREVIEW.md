@@ -41,8 +41,15 @@ the project's normal starting scene.
 ## Inspect artwork without playing
 
 Run `/preview asset`, select a candidate and confirm opening the browser.
-Use browser zoom to inspect pixels. Watch animation playback rather than judging
-it only from a still image. For tiles, inspect the layout and collision outlines.
+Use **Artwork scale** to inspect pixels. **Compare with previous version** shows
+the selected candidate beside an earlier version, with their saved feedback.
+The **Older version** picker changes the reference side; your selected candidate
+stays fixed. Large images scroll, and narrow screens stack the two versions.
+
+Watch animation playback rather than judging it only from a still image. Clips
+use their own timing; **Replay motion** restarts both visible versions. For tiles,
+inspect the layout and collision outlines. Numbered tiles and animation contact
+sheets remain available in expandable details.
 
 Viewing is not approval. When you are ready to approve, request changes or add the
 asset to the project, return to **`/assets`**.

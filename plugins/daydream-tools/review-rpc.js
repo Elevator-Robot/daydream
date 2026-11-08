@@ -5,7 +5,7 @@ export const Review = Rpc.define({
   methods: { call: {
     input: { type: 'object', properties: {
       sessionID: { type: 'string', minLength: 1, maxLength: 100 },
-      action: { type: 'string', enum: ['open', 'approve', 'changes', 'options', 'setup', 'plan', 'import', 'cancel'] },
+      action: { type: 'string', enum: ['open', 'approve', 'changes', 'revise', 'options', 'setup', 'plan', 'import', 'cancel'] },
       bundle: { type: 'string', minLength: 1, maxLength: 4096 },
       ticket: { type: 'string', minLength: 1, maxLength: 100 },
       reviewer: { type: 'string', minLength: 1, maxLength: 120 },
