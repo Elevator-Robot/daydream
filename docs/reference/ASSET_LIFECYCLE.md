@@ -20,8 +20,9 @@ not preserved as aliases. `/preview` is for viewing/playtesting and OpenCode's
    file-safe ID is derived automatically. These are asset labels, not destination paths.
 2. Open `/assets`. The picker shows the newest candidate per kind/ID, friendly names,
    status and an older-revision count. Choose **Show older revisions**, **View imported
-   assets**, or **Open thumbnail overview** when useful. Overview validates up to
-   12 current candidates; animation thumbnails do not count as motion review.
+   assets**, or **Open project dashboard** when useful. The dashboard provides a
+   refreshable collection and inspectors; thumbnails do not count as motion review.
+   The older 12-thumbnail snapshot remains an adapter fallback without a dashboard opener.
 3. Choose a candidate, open its preview, then approve or request changes. Approval
    still refers to exact bytes, not every future version bearing that name.
 4. Choose **Add or update in project**:

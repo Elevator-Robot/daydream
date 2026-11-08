@@ -69,6 +69,12 @@ install it or change user configuration merely to display branding.
 Prefer the guided asset lifecycle: accept ordinary labels (spaces/capitals are
 fine), omit `output` in native create/edit calls for automatic hidden revision
 storage, and direct users to `/assets` for current candidates/history/thumbnails.
+For a persistent collection workspace, direct them to **Open project dashboard**
+in `/assets`. It can stay open beside the conversation; Refresh collection reloads
+current artwork and versions. Its inspector covers managed sprites, animations and
+tilesets plus supported existing project images. **Copy review command** carries
+the selected candidate back to the guided TUI flow. Dashboard browsing and preview
+controls do not approve, import, alter source files or send model requests.
 Do not make users invent slugs or version suffixes. New candidates are staged under
 `.daydream/revisions`, not spread through art folders by default. Preserve existing
 legacy folders; do not migrate/prune anything merely to tidy the workspace.

@@ -171,6 +171,8 @@ def list_assets(context, data):
                                'name': label,
                                'kind': manifest['kind'], 'state': state, 'revision_hash': hash_value,
                                'parent_revision_hash': manifest.get('provenance', {}).get('parent_revision_hash'),
+                               'base_revision_hash': manifest.get('provenance', {}).get('base_revision_hash'),
+                               'parent_revision_hashes': manifest.get('provenance', {}).get('parent_revision_hashes', []),
                                'modified_at': (bundle / 'manifest.json').stat().st_mtime_ns})
         except (ValueError, OSError, AttributeError): invalid += 1
     candidates.sort(key=lambda row: (-row['modified_at'], row['bundle']))

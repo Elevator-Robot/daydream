@@ -91,6 +91,15 @@ you don't need to invent filenames or `v1/v2` suffixes.
 
 Full walkthrough: **[Your assets](docs/REVIEW.md)**.
 
+## Keep your collection open beside you
+
+Open **`/assets` → Open project dashboard** for a refreshable browser workspace.
+Browse sprites, animations, tilesets and supported existing project images; inspect
+frames, palettes, feedback, versions, terrain and collision data in one place.
+Keep Daydream open and use **Refresh collection** after changes.
+
+Walkthrough: **[Project dashboard](docs/DASHBOARD.md)**.
+
 ## Three commands to remember
 
 | Command | Use it for |

@@ -6,6 +6,8 @@ import { Preview } from "./rpc.js";
 import { previewInput } from "./preview-contract.js";
 import { createReviewService } from "./review.js";
 import { Review } from "./review-rpc.js";
+import { Dashboard } from './dashboard-rpc.js';
+import { createDashboardService } from './dashboard-service.js';
 
 export default Plugin.define({
   id: "daydream.tools",
@@ -30,6 +32,16 @@ export default Plugin.define({
     const tools = definitions(ctx, catalog, run);
     const previews = createPreviewService(ctx, run);
     const reviews = createReviewService(ctx, runReview, previews);
+    const dashboard = createDashboardService(ctx, run);
+    const dashboardRPC = await ctx.rpc.register(Dashboard, {
+      call: async (input, context) => {
+        try { return await dashboard.call(input, { signal: context.signal }); }
+        catch (error) {
+          if (error instanceof PreviewFailure) return context.error('dashboard_failed', error.message, {});
+          throw error;
+        }
+      },
+    });
     const reviewRPC = await ctx.rpc.register(Review, {
       call: async (input, context) => {
         try { return await reviews.call(input, { signal: context.signal }); }
@@ -66,10 +78,12 @@ export default Plugin.define({
     return async () => {
       closed = true;
       reviews.dispose();
+      dashboard.dispose();
       for (const controller of active) controller.abort();
       await previews.dispose();
       await rpc.dispose();
       await reviewRPC.dispose();
+      await dashboardRPC.dispose();
       await registration.dispose();
     };
   },

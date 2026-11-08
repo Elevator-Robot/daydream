@@ -7,6 +7,10 @@ The flow is **1. Create → 2. Review/revise → 3. Approve → 4. Add/update �
 5. Preview**. Menus show the current step and highlight the next available action.
 You can finish for now and resume from the candidate's saved state.
 
+For a persistent visual workspace, choose **Open project dashboard** at the top
+of `/assets`. It gathers the collection, detailed previews and history in one
+refreshable browser window. See [the dashboard walkthrough](DASHBOARD.md).
+
 ## 1. Create: describe what you want
 
 Open `/assets` and choose **Describe a new asset…**, or ask Daydream in the chat:
@@ -31,7 +35,7 @@ separate histories, so both can be labelled **Latest**.
 
 Choose **Show older revisions** to see earlier candidates marked **Older**, alongside
 the **Latest** ones. “2 older” means that particular asset type has two
-earlier saved candidates. You can also search by name, open a thumbnail overview,
+earlier saved candidates. You can also search by name, open the project dashboard,
 or view assets already added to the project. Exact paths are in the preview's
 **Version details** rather than crowding the list.
 

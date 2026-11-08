@@ -14,12 +14,13 @@ export async function pickAsset(context, list, sessionID, browser, { readOnly = 
     if (!result?.ok) throw new Error(result?.error?.message ?? 'Could not list assets');
     const canCreate = !readOnly && context.client?.session?.prompt;
     const selection = context.ui.dialog.select({ title: history ? 'Asset history — newest saved first' : readOnly ? 'Choose artwork — latest candidates' : 'Your assets — latest candidates',
-      current: result.assets?.[0]?.bundle ?? (canCreate ? '\0create' : '\0help'), options: [
+      current: browser?.openDashboard ? '\0dashboard' : result.assets?.[0]?.bundle ?? (canCreate ? '\0create' : '\0help'), options: [
+      ...(browser?.openDashboard ? [{ title: 'Open project dashboard', value: '\0dashboard', category: 'Project workspace', description: 'Keep your collection open beside Daydream; refresh to see the latest artwork' }] : []),
       ...(canCreate ? [{ title: 'Describe a new asset…', value: '\0create', category: '1 · Create', description: 'Tell Daydream what to make; then review its candidate' }] : []),
       ...(result.assets ?? []).map(asset => ({ title: `${asset.is_latest === true || (!history && asset.is_latest !== false) ? 'Latest' : asset.is_latest === false ? 'Older' : 'Revision'} · ${kindLabel(asset.kind)} — ${asset.name ?? asset.bundle}`, value: asset.bundle,
         category: readOnly ? 'Artwork — newest saved first' : history ? '2 · Version history — newest saved first' : '2 · Review a latest candidate — newest saved first',
         description: `${savedLabel(asset.modified_at)} · ${stateLabel(asset.state ?? 'draft')}${asset.older_revisions ? ` · ${asset.older_revisions} older` : ''}` })),
-      ...(browser ? [{ title: 'Open thumbnail overview', value: '\0gallery', category: 'Browse and history', description: 'See the available artwork before choosing a candidate' }] : []),
+      ...(browser && !browser.openDashboard ? [{ title: 'Open thumbnail overview', value: '\0gallery', category: 'Browse and history', description: 'See the available artwork before choosing a candidate' }] : []),
       { title: history ? 'Back to current assets' : 'Show older revisions', value: '\0history', category: 'Browse and history', description: history ? 'Show only the latest candidate of each asset type' : 'Compare saved times; Latest marks the newest of each asset type' },
       { title: 'View imported assets', value: '\0imported', category: 'Browse and history', description: 'See files already added and their current status' },
       { title: 'Workflow steps', value: '\0help', category: 'Help and advanced', description: 'Create → review/revise → approve → add/update → preview' },
@@ -30,6 +31,7 @@ export async function pickAsset(context, list, sessionID, browser, { readOnly = 
     context.ui.dialog.set?.({ size: 'large' });
     const selected = await selection;
     if (!selected || selected === '\0close') return;
+    if (selected === '\0dashboard') { await browser.openDashboard(sessionID); return; }
     if (selected === '\0history') { history = !history; continue; }
     if (selected === '\0imported') {
       const id = await context.ui.dialog.select({ title: 'Imported resource files', options: [

@@ -3,8 +3,9 @@
 Internal milestones and acceptance criteria. For installation and everyday use,
 see the [user README](../README.md).
 
-**Last updated: 2026-11-08. Branch: `feat/preview-playback-and-version-labels`, from `0bf56e2`.
-Stacked on `feat/editor-visible-tile-layouts`; neither branch is merged.**
+**Last updated: 2026-11-08. Branch: `feat/project-asset-dashboard`, from `2c20184`.
+Dashboard and preview/playback changes are not merged. Editor-visible layouts
+and the earlier lifecycle flow were merged through PR #1 (`3472be2`).**
 
 ## START HERE NEXT — test the guided asset lifecycle on this branch
 
@@ -79,7 +80,8 @@ not a reason to reopen the completed phases or ask the user to repeat them.
 - [ ] User acceptance of the new layout-mode selection and normal editor painting
   with the game's own engine. Use a disposable project first; preserve manual edits.
 - Commit/push of this feature branch was authorized on 2026-11-07.
-- [ ] Merge this branch only when explicitly requested; user acceptance remains pending.
+- [x] Editor-layout/lifecycle branch merged through PR #1 (`3472be2`), confirmed
+  from GitHub on 2026-11-08. Do not infer additional feature acceptance from the merge.
 
 **P4 exit criterion:** the bounded editor-visible import is accepted with its
 execution/preservation boundaries, evidence retained, and release steps authorized.
@@ -163,10 +165,43 @@ walkthroughs, ordinary example requests and a troubleshooting guide. Internal
 formats, permission/RPC details and implementation evidence are linked from the
 [contributor reference index](reference/README.md), not mixed into onboarding.
 
-### P6 — next increment (not selected)
+### P6 — persistent project asset dashboard (implemented on this branch)
 
-Choose from user feedback after branch acceptance. Existing-game integration,
-software installation, engine migration and paid providers need their own scope.
+- The user selected a high-quality refreshable workspace for the project collection
+  and explicitly approved React/Radix Themes, project-local build dependencies and
+  a read-only loopback bridge. See [the reviewed design](reference/PROJECT_DASHBOARD_DESIGN.md).
+- `/assets` opens the dashboard. Browser refresh reads current data through native
+  OpenCode RPC and shared catalog/inspection/media operations. The TUI owns the
+  loopback connection; project/session identity, read permissions and capability/
+  origin checks remain enforced. Normal users receive bundled UI assets.
+- The workspace includes current/history browsing, supported existing project
+  images, filters, palettes, provenance, saved feedback, managed-output status,
+  animation clips/frames/timelines/comparison and a complete validated tile explorer
+  with terrain/collision filters and layout/atlas views.
+- User feedback revised the dashboard to text-only navigation with a bundled retro
+  **Day / Dream** wordmark, full-page details and a sticky Back/Escape return path.
+  Linked animations now live inside their source sprite's details. Existing atlas
+  images are included in Tilesets through bounded Godot text references or tileset
+  folders; existing geometry/terrain is never invented from PNGs.
+  See [dashboard refinement evidence](validation/2026-11-08-dashboard-refinement.md).
+- The asset overview now prioritizes a pan-and-zoom artwork canvas with pointer-
+  anchored wheel/pinch zoom, drag panning, Fit/1:1/reset, keyboard controls,
+  background choices and a source-pixel grid. Metadata occupies a compact rail
+  instead of pushing the preview down the page. Comparison retains matched scales.
+  See [canvas validation](validation/2026-11-08-asset-canvas.md).
+- Canvas follow-up fixes remove sticky-artwork overlap, reduce sprite/animation
+  viewport heights and default fit enlargement, and let ordinary wheel scrolling
+  move the page. Zoom requires Ctrl/Cmd+wheel, pinch or explicit controls. Drag
+  release/cancellation and window-blur cleanup prevent a lingering captured cursor.
+  See [compact-canvas validation](validation/2026-11-08-compact-canvas.md).
+- Imported resources are not proof of scene placement. Arbitrary Godot `.tres`
+  resources, audio, 3D and editor graph reconstruction are not implemented. Scan
+  bounds and unsupported previews are explicit. Browsing never approves or imports.
+- User acceptance of this dashboard remains pending. Prior P0/P1 acceptance is
+  unchanged. The user authorized commit, push and PR creation on 2026-11-08;
+  merging the dashboard branch was not requested.
+  See [dashboard validation](validation/2026-11-08-project-dashboard.md) for browser,
+  native TUI, refresh and transport checks.
 
 ## Progress snapshot — what is actually done
 
@@ -189,9 +224,9 @@ not mean human acceptance or the full idea-to-playable product is complete.
 
 ### Validation baseline
 
-- Latest branch validation: **169 Python-discovered tests passed** in the isolated
+- Latest branch validation: **178 Python-discovered tests passed** in the isolated
   Pillow environment with Godot/ttfx checks enabled. The dependency-free run passed
-  with **70 optional tests skipped**. Node adapter/viewer/review tests run through the suite.
+  with **78 optional tests skipped**. Node adapter/viewer/review/dashboard tests run through the suite.
 - Separate graphical preview checks launched/stopped only an isolated synthetic
   Godot project. A synthetic tileset scene was also rendered; its actual viewport
   capture and numbered tile preview were inspected. These are not user-approved
@@ -279,6 +314,10 @@ and TUI command. No separate daemon, Godot addon, MCP endpoint, persistent
 screenshot mechanism, or remote-control port is installed. Existing OpenCode
 configuration remains the authority for tools and permissions. Future integrations
 need their own permission/trust review.
+
+The P6 dashboard is the explicitly reviewed exception for a browser data endpoint:
+a read-only loopback listener owned by the TUI while the workspace is open. It is
+not a Godot remote-control service or separately installed daemon.
 
 ## 0 — Starter (implemented)
 

@@ -6,6 +6,7 @@ import math
 import re
 
 import operation_handlers as handlers
+import dashboard
 
 
 def obj(properties, required):
@@ -126,6 +127,9 @@ OPERATIONS = (
     Operation("review.feedback", "User UI or explicitly authorized CLI only: add exact-revision change-request feedback while retaining earlier notes; identical submissions are kept once. Never approve the candidate.", obj({"bundle": PATH, "kind": {"type": "string", "enum": ["sprite", "animation", "tileset"]}, "revision_hash": HASH, "reviewer": {"type": "string", "minLength": 1, "maxLength": 120}, "feedback": {"type": "string", "minLength": 1, "maxLength": 4000}, "apply": APPLY}, ["bundle", "kind", "revision_hash", "reviewer", "feedback"]), handlers.review_feedback, native=False, direct=False, paths=(("bundle", "review_bundle"),)),
     Operation('assets.list', 'List current asset candidates and managed import status; optional history reveals older revisions. Does not approve or load Godot.', obj({'history': {'type': 'boolean', 'default': False}}, []), handlers.assets_list, effect='read', project_reads=PROJECT_READS, discovery=True),
     Operation('assets.options', 'Suggest add-copy or safe-update choices for one revision, including manual-edit protection and current scene path.', obj({'bundle': PATH, 'kind': {'type': 'string', 'enum': ['sprite', 'animation', 'tileset']}}, ['bundle', 'kind']), handlers.assets_options, effect='read', direct=False, paths=(('bundle', 'review_bundle'),), project_reads=PROJECT_READS, discovery=True),
+    Operation('dashboard.catalog', 'Read the project artwork collection, latest/history identities and managed outputs. Includes existing project images; never imports or runs game code.', obj({}, []), dashboard.catalog, effect='read', direct=False, project_reads=PROJECT_READS, discovery=True),
+    Operation('dashboard.inspect', 'Inspect sprite, animation, tileset or existing project-image details for the project dashboard. Read-only.', obj({'path': PATH, 'kind': {'enum': ['sprite', 'animation', 'tileset', 'image']}, 'revision_hash': HASH}, ['path', 'kind']), dashboard.inspect_asset, effect='read', direct=False, paths=(('path', 'dashboard_asset'),)),
+    Operation('dashboard.media', 'Read a validated dashboard image as bounded PNG data. Browser transport; prefer dashboard.inspect for metadata.', obj({'path': PATH, 'kind': {'enum': ['sprite', 'animation', 'tileset', 'image']}, 'image': {'type': 'string', 'maxLength': 64}, 'revision_hash': HASH}, ['path', 'kind']), dashboard.media, effect='read', direct=False, paths=(('path', 'dashboard_asset'),)),
 )
 
 # Public workflow schemas allow ordinary display labels and automatically placed

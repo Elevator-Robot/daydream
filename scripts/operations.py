@@ -65,6 +65,11 @@ def prepare(operation, data, context):
             path = context.path(value)
             if kind == "output": continue
             if kind == "file": reads.add(str(path)); continue
+            if kind == 'dashboard_asset':
+                if data['kind'] == 'image':
+                    reads.add(str(path))
+                    continue
+                kind = {'sprite': 'static_bundle', 'animation': 'animation_bundle', 'tileset': 'tileset_bundle'}[data['kind']]
             names = {"source.json", "manifest.json", ".gdignore", "approval.json", "changes-requested.json"}
             if kind == "review_bundle":
                 kind = {"sprite": "static_bundle", "animation": "animation_bundle", "tileset": "tileset_bundle"}[data["kind"]]
@@ -132,7 +137,10 @@ def execute(name, data, project, *, surface="cli", prepare_only=False, resolve_o
                 raise PermissionError("Adapter must authorize all planned reads before execution")
             write_grants = set(authorized["writes"])
         if access.get('read_resolution'):
-            from asset_lifecycle import discover_reads
+            if name == 'dashboard.catalog':
+                from dashboard import discover_reads
+            else:
+                from asset_lifecycle import discover_reads
             with asset_access.grants(reads, set()):
                 reads |= discover_reads(context, name, data)
             access['reads'] = sorted(reads)

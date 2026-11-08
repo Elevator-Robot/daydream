@@ -77,10 +77,15 @@ Status. A running process is not proof the game looks correct or has been tested
 
 ## Asset preview
 
+This section describes self-contained revision viewers. The persistent project
+[dashboard](PROJECT_DASHBOARD.md) uses a separately reviewed session-owned local
+bridge so refreshing can read current project data.
+
 The picker supports static sprites, animations and [environment tilesets](TILESETS.md).
 It now uses the shared [asset browser](ASSET_LIFECYCLE.md): current candidates by
-default, older revisions on request, imported/manual-edit status and optional
-validated thumbnail overview. New automatic revisions are under `.daydream/revisions`;
+default, older revisions on request, imported/manual-edit status and the persistent
+project dashboard. A bounded thumbnail snapshot remains an adapter fallback.
+New automatic revisions are under `.daydream/revisions`;
 the configured source root is still scanned for existing candidates.
 Tileset viewers include numbered tiles, collision outlines, seam counts and a
 placed layout. The picker scans the configured `.daydream/config.json` `paths.sources` directory
