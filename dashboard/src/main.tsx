@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { Theme, Button, Badge, Card, Flex, Text, Heading, TextField, Tabs, Switch, Callout, Spinner, Tooltip } from '@radix-ui/themes';
 import '@radix-ui/themes/styles.css';
 import '@fontsource/press-start-2p/latin-400.css';
 import './style.css';
 import './asset-detail.css';
-import { AssetCanvas } from './AssetCanvas';
+import './gallery.css';
+import { ImagePreview } from './ImagePreview';
 import { Select } from './Select';
 
 type Kind = 'sprite' | 'animation' | 'tileset' | 'image';
@@ -71,11 +73,11 @@ function Thumbnail({ asset, refresh }: { asset: Asset; refresh: number }) {
   </div>;
 }
 
-function PixelStage({ asset, role, refresh, zoom, loop = true, clip, replay = 0, matched = false }: { asset: Asset; role: string; refresh: number; zoom: number; loop?: boolean; clip?: Clip; replay?: number; matched?: boolean }) {
+function PixelStage({ asset, role, refresh, loop = true, clip, replay = 0 }: { asset: Asset; role: string; refresh: number; zoom?: number; loop?: boolean; clip?: Clip; replay?: number; matched?: boolean }) {
   const { data, error, loading } = useMedia(asset, role, refresh);
   if (error) return <Notice>{error}</Notice>;
   if (loading || !data) return <Loading/>;
-  return <AssetCanvas image={data} label={`${asset.name} ${role}`} sourceScale={role.startsWith('motion:') ? 4 : 1} loop={loop} clip={clip} replay={replay} fixedScale={matched ? zoom : undefined} initialScale={role.startsWith('contact:') && zoom ? zoom : undefined}/>;
+  return <ImagePreview media={data} label={`${asset.name} ${role}`} loop={loop} clip={clip} replay={replay}/>;
 }
 
 function Region({ media, index, columns, width, height, size = 64 }: { media?: Media; index: number; columns: number; width: number; height: number; size?: number }) {
@@ -109,14 +111,14 @@ function Tiles({ asset, detail, refresh }: { asset: Asset; detail: Detail; refre
 }
 
 function ContactSheet({ asset, clip, refresh }: { asset: Asset; clip: string; refresh: number }) {
-  const [open, setOpen] = useState(false), [actual, setActual] = useState(false);
-  return <details onToggle={event => setOpen(event.currentTarget.open)}><summary>Contact sheet with timing & pivots</summary>{open && <><Button size="1" variant="soft" my="2" onClick={() => setActual(value => !value)}>{actual ? 'Fit sheet' : 'Actual size'}</Button><PixelStage asset={asset} role={`contact:${clip}`} refresh={refresh} zoom={actual ? 1 : 0}/></>}</details>;
+  const [open, setOpen] = useState(false);
+  return <details className="contact-sheet" onToggle={event => setOpen(event.currentTarget.open)}><summary>Contact sheet with timing & pivots</summary>{open && <PixelStage asset={asset} role={`contact:${clip}`} refresh={refresh} zoom={0}/>}</details>;
 }
 
-function Frames({ asset, detail, refresh }: { asset: Asset; detail: Detail; refresh: number }) {
+function Frames({ asset, detail, refresh, compact = false }: { asset: Asset; detail: Detail; refresh: number; compact?: boolean }) {
   const atlas = useMedia(asset, 'atlas', refresh), [selected, setSelected] = useState(0);
   return <div className="tab-body"><Text color="gray" size="2">{detail.frames?.length} source frames · pivot {detail.pivot?.join(', ')}</Text>{atlas.error && <Notice>{atlas.error}</Notice>}
-    <div className="frame-large"><Region media={atlas.data} index={selected} columns={detail.atlas_columns!} width={detail.width} height={detail.height} size={192}/><Text size="2">{detail.frames?.[selected]?.id}</Text></div>
+    <div className="frame-large"><Region media={atlas.data} index={selected} columns={detail.atlas_columns!} width={detail.width} height={detail.height} size={compact ? 128 : 192}/><Text size="2">{detail.frames?.[selected]?.id}</Text></div>
     <div className="tile-grid">{detail.frames?.map(frame => <button key={frame.id} className={`tile ${selected === frame.index ? 'chosen' : ''}`} onClick={() => setSelected(frame.index)}><Region media={atlas.data} index={frame.index} columns={detail.atlas_columns!} width={detail.width} height={detail.height}/><span>{frame.id}</span></button>)}</div>
     {detail.animations?.map(clip => <Card key={clip.name}><Heading size="3">{clip.name} timeline</Heading><Text color="gray" size="2">{clip.fps} FPS · {(clip.duration_ms / 1000).toFixed(2)}s · {clip.loop ? 'Looping' : 'One-shot'}</Text><ol className="timeline">{clip.frames.map((frame, index) => <li key={index}><span>{frame.frame}</span><code>{(frame.duration / clip.fps).toFixed(3)}s</code></li>)}</ol><ContactSheet asset={asset} clip={clip.name} refresh={refresh}/></Card>)}
   </div>;
@@ -126,75 +128,91 @@ function Feedback({ detail }: { detail: Detail & { approval?: { reviewer: string
   return <div className="feedback"><Heading size="3" mb="2">Review notes</Heading>{detail.approval && <Text size="2" color="gray">Approval recorded by {detail.approval.reviewer} · {time(detail.approval.reviewed_at)}</Text>}{detail.stale_approval && <Notice>An earlier approval no longer matches this exact revision.</Notice>}{detail.feedback?.notes?.length ? detail.feedback.notes.map((note, index) => <Card key={index}><Text as="p" size="2" className="pre-wrap">{note.feedback}</Text><Text color="gray" size="1">{note.reviewer} · {time(note.reviewed_at)}</Text></Card>) : <Text size="2" color="gray">No change requests saved for this version.</Text>}</div>;
 }
 
+function AssetFacts({ detail, kind }: { detail: Detail; kind: Kind }) {
+  return <div className="facts"><div><strong>{detail.width} × {detail.height}</strong><span>{kind === 'tileset' ? 'tile pixels' : 'canvas pixels'}</span></div><div><strong>{kind === 'image' ? detail.format ?? 'Image' : detail.animations?.length ?? detail.tiles?.length ?? detail.palette.length}</strong><span>{kind === 'animation' ? 'animation clips' : kind === 'tileset' ? 'tiles' : kind === 'image' ? 'source format' : 'palette colors'}</span></div></div>;
+}
+
 function SpriteAnimations({ sprite, catalog, refresh }: { sprite: Asset; catalog: Catalog; refresh: number }) {
   const associated = catalog.assets.filter(item => item.kind === 'animation' && item.sprite_groups?.includes(sprite.group));
-  const [selected, setSelected] = useState(''), [clipName, setClipName] = useState(''), [loop, setLoop] = useState(true), [replay, setReplay] = useState(0), [zoom, setZoom] = useState(4), [copied, setCopied] = useState(false), [compare, setCompare] = useState(false), [referenceID, setReferenceID] = useState(''), [copyError, setCopyError] = useState(false);
-  const animation = associated.find(item => item.id === selected) ?? associated.find(item => item.is_latest) ?? associated[0];
-  const { data: detail, error, loading } = useDetail(animation, refresh);
-  const clip = detail?.animations?.find(item => item.name === clipName) ?? detail?.animations?.find(item => item.name === detail.default_animation) ?? detail?.animations?.[0];
-  const older = associated.filter(item => animation && item.group === animation.group && item.id !== animation.id && item.modified_at <= animation.modified_at);
-  const reference = older.find(item => item.id === referenceID) ?? older.find(item => item.revision_hash === animation?.parent_revision_hash) ?? older[0];
-  const oldDetail = useDetail(compare ? reference : undefined, refresh);
-  const oldClip = oldDetail.data?.animations?.find(item => item.name === clip?.name);
-  const command = animation ? '/assets ' + catalog.project.directory.replace(/\/$/, '') + '/' + animation.path : '';
-  return <section id="sprite-animations" className="sprite-animations"><Heading size="4">Animations</Heading><Text size="2" color="gray">{associated.length ? 'Linked to this sprite through recorded source revisions. Playback controls do not change the saved asset.' : 'No Daydream animations are linked to this sprite yet. Animations created from this sprite will appear here.'}</Text>
-    {animation && <><Flex gap="3" wrap="wrap" mt="4" align="center"><Select.Root value={animation.id} onValueChange={value => { setSelected(value); setClipName(''); setCopied(false); setCopyError(false); setCompare(false); }}><Select.Trigger aria-label="Animation version"/><Select.Content>{associated.map(item => <Select.Item value={item.id} key={item.id}>{item.name} · {item.is_latest ? 'Latest' : 'Older'} · {time(item.modified_at)}</Select.Item>)}</Select.Content></Select.Root><StateBadge state={detail?.state ?? animation.state}/></Flex>
-      {loading ? <Loading/> : error ? <Notice>{error}</Notice> : detail && clip && <><Flex gap="3" wrap="wrap" align="center" my="4"><Select.Root value={clip.name} onValueChange={setClipName}><Select.Trigger aria-label="Sprite animation clip"/><Select.Content>{detail.animations?.map(item => <Select.Item value={item.name} key={item.name}>{item.name}</Select.Item>)}</Select.Content></Select.Root><Badge color="gray">{clip.fps} FPS · {(clip.duration_ms / 1000).toFixed(2)}s · saved {clip.loop ? 'loop' : 'one-shot'}</Badge>{compare && <Select.Root value={String(zoom)} onValueChange={value => setZoom(Number(value))}><Select.Trigger aria-label="Matched animation scale"/><Select.Content>{[1, 2, 4, 8].map(value => <Select.Item value={String(value)} key={value}>{value}× pixels</Select.Item>)}</Select.Content></Select.Root>}<Text as="label" size="2"><Flex gap="2" align="center"><Switch checked={loop} onCheckedChange={setLoop}/>Loop preview</Flex></Text><Button variant="soft" onClick={() => setReplay(value => value + 1)}>Replay</Button></Flex>
-      {!!older.length && <Flex gap="3" align="center" wrap="wrap"><Text as="label" size="2"><Flex gap="2" align="center"><Switch checked={compare} onCheckedChange={setCompare}/>Compare earlier animation</Flex></Text>{compare && reference && <Select.Root value={reference.id} onValueChange={setReferenceID}><Select.Trigger aria-label="Earlier animation reference"/><Select.Content>{older.map(item => <Select.Item value={item.id} key={item.id}>{time(item.modified_at)}</Select.Item>)}</Select.Content></Select.Root>}</Flex>}
-      <div className={compare && reference ? 'compare-stages' : ''}>{compare && reference && <div><Text color="gray" size="2">Earlier animation reference</Text>{oldDetail.loading ? <Loading/> : oldDetail.error ? <Notice>{oldDetail.error}</Notice> : oldClip ? <><PixelStage asset={reference} role={`motion:${clip.name}`} clip={oldClip} loop={loop} replay={replay} refresh={refresh} zoom={zoom} matched/>{oldDetail.data && <Feedback detail={oldDetail.data}/>}</> : <Notice>No matching clip in this version.</Notice>}</div>}<div>{compare && reference && <Text color="violet" size="2">Selected animation</Text>}<PixelStage asset={animation} role={`motion:${clip.name}`} clip={clip} loop={loop} replay={replay} refresh={refresh} zoom={zoom} matched={compare}/></div></div>
-      <details className="animation-frames"><summary>Inspect animation frames, timing and pivot</summary><Frames key={animation.id} asset={animation} detail={detail} refresh={refresh}/></details><Feedback detail={detail}/>
-      <Text size="1" color="gray">Review and approval apply separately to the animation, not the static sprite.</Text><Button variant="soft" onClick={async () => { try { await navigator.clipboard.writeText(command); setCopied(true); setCopyError(false); } catch { setCopied(false); setCopyError(true); } }}>{copied ? 'Animation review command copied' : 'Copy animation review command'}</Button>{copyError && <><Text size="1" color="amber">Clipboard unavailable. Copy this command:</Text><code>{command}</code></>}</>}
-    </>}
+  const [history, setHistory] = useState(false);
+  const visible = associated.filter(item => history || item.is_latest);
+  return <section id="sprite-animations" className="sprite-animations"><Flex align="center" justify="between" wrap="wrap" gap="3"><Heading size="4">Animations</Heading><Text as="label" size="2"><Flex align="center" gap="2"><Switch size="1" checked={history} onCheckedChange={setHistory}/>Include older versions</Flex></Text></Flex>
+    <Text size="2" color="gray">{associated.length ? 'All linked clips, together. Previews repeat for review only; saved gameplay settings stay unchanged.' : 'No animations are linked to this sprite yet.'}</Text>
+    <div className="animation-gallery">{visible.map(asset => <AnimationGroup key={asset.id} asset={asset} project={catalog.project.directory} refresh={refresh}/>)}</div>
   </section>;
+}
+
+function AnimationGroup({ asset, project, refresh }: { asset: Asset; project: string; refresh: number }) {
+  const { data, error, loading } = useDetail(asset, refresh);
+  if (loading) return <Card className="animation-card"><Text weight="bold">{asset.name}</Text><Loading label="Loading clips…"/></Card>;
+  if (error) return <Card className="animation-card"><Text weight="bold">{asset.name}</Text><Notice>{error}</Notice></Card>;
+  return <>{data?.animations?.map(clip => <AnimationCard key={clip.name} asset={asset} detail={data} clip={clip} project={project} refresh={refresh}/>)}</>;
+}
+
+function AnimationCard({ asset, detail, clip, project, refresh }: { asset: Asset; detail: Detail; clip: Clip; project: string; refresh: number }) {
+  const [replay, setReplay] = useState(0), [open, setOpen] = useState(false), [copied, setCopied] = useState(false), [copyError, setCopyError] = useState(false);
+  const command = '/assets ' + project.replace(/\/$/, '') + '/' + asset.path;
+  return <Card className="animation-card" data-clip={clip.name} data-source={asset.id}><Flex align="center" justify="between" gap="2"><Heading size="3">{clip.name}</Heading><Badge color={asset.is_latest ? 'violet' : 'gray'}>{asset.is_latest ? 'Latest' : 'Older'}</Badge></Flex>
+    <PixelStage asset={asset} role={`motion:${clip.name}`} clip={clip} loop replay={replay} refresh={refresh} zoom={0}/>
+    <Flex gap="2" wrap="wrap"><Badge color="gray">{clip.frames.length} frames</Badge><Badge color="gray">{clip.fps} FPS</Badge><Badge color="gray">{(clip.duration_ms / 1000).toFixed(2)}s</Badge><Badge color="gray">Saved: {clip.loop ? 'loop' : 'one-shot'}</Badge></Flex>
+    <Text color="gray" size="1" className="clip-source">{asset.name}</Text><Flex gap="2" align="center" justify="between"><StateBadge state={detail.state}/><Button size="1" variant="soft" onClick={() => setReplay(value => value + 1)}>Replay</Button></Flex>
+    <details onToggle={event => setOpen(event.currentTarget.open)}><summary>Frames, feedback & review</summary>{open && <><Frames asset={asset} detail={detail} refresh={refresh} compact/><Feedback detail={detail}/><Text as="p" color="gray" size="1">Review applies to this source animation set, not the static sprite.</Text><Button size="1" variant="soft" onClick={async () => { try { await navigator.clipboard.writeText(command); setCopied(true); } catch { setCopyError(true); } }}>{copied ? 'Copied' : 'Copy animation review command'}</Button>{copyError && <code>{command}</code>}</>}</details>
+  </Card>;
 }
 
 function Inspector({ asset, catalog, refresh, select, close }: { asset: Asset; catalog: Catalog; refresh: number; select: (id: string) => void; close: () => void }) {
   const { data: detail, error, loading } = useDetail(asset, refresh);
-  const [tab, setTab] = useState('overview'), [zoom, setZoom] = useState(2), [loop, setLoop] = useState(true), [replay, setReplay] = useState(0), [clipName, setClipName] = useState(''), [view, setView] = useState('layout'), [compare, setCompare] = useState(false), [referenceID, setReferenceID] = useState(''), [copied, setCopied] = useState(false);
+  const [tab, setTab] = useState('overview'), [loop, setLoop] = useState(true), [replay, setReplay] = useState(0), [clipName, setClipName] = useState(''), [view, setView] = useState('layout'), [compare, setCompare] = useState(false), [referenceID, setReferenceID] = useState(''), [copied, setCopied] = useState(false);
+  const zoom = 0;
   const [copyError, setCopyError] = useState(false);
+  const changeCompare = (enabled: boolean) => {
+    if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.startViewTransition(() => flushSync(() => setCompare(enabled)));
+    } else setCompare(enabled);
+  };
   const family = catalog.assets.filter(item => item.group === asset.group), latest = family.find(item => item.is_latest);
   const older = family.filter(item => item.id !== asset.id && item.modified_at <= asset.modified_at);
   const reference = older.find(item => item.id === referenceID) ?? older.find(item => item.revision_hash === asset.parent_revision_hash) ?? older[0];
   const referenceDetail = useDetail(compare ? reference : undefined, refresh);
   const animationCount = catalog.assets.filter(item => item.kind === 'animation' && item.is_latest && item.sprite_groups?.includes(asset.group)).length;
   useEffect(() => { setTab('overview'); setClipName(''); setCompare(false); setReferenceID(''); setCopied(false); }, [asset.id]);
-  const initialized = useRef('');
-  useEffect(() => { if (detail && initialized.current !== asset.id) { initialized.current = asset.id; setZoom(detail.width > 256 || detail.height > 256 ? 0 : detail.width <= 64 && detail.height <= 64 ? 4 : 2); } }, [detail, asset.id]);
   const clip = detail?.animations?.find(item => item.name === clipName) ?? detail?.animations?.find(item => item.name === detail.default_animation) ?? detail?.animations?.[0];
   const role = asset.kind === 'sprite' ? 'sprite' : asset.kind === 'image' ? 'image' : asset.kind === 'animation' ? `motion:${clip?.name}` : view;
   const oldClip = referenceDetail.data?.animations?.find(item => item.name === clip?.name);
   const absolutePath = catalog.project.directory.replace(/\/$/, '') + '/' + asset.path;
   const reviewCommand = asset.origin === 'daydream' ? '/assets ' + absolutePath : absolutePath;
   const copy = async () => { try { await navigator.clipboard.writeText(reviewCommand); setCopied(true); setCopyError(false); } catch { setCopied(false); setCopyError(true); } };
+  const information = detail && <aside className="detail-properties" aria-label="Asset information">
+    <Flex gap="2" align="center" justify="between" wrap="wrap"><Heading size="3">Asset information</Heading><StateBadge state={detail.state}/></Flex><AssetFacts detail={detail} kind={asset.kind}/>
+    {detail.note && <Text size="2" color="gray">{detail.note}</Text>}
+    {asset.collection_type === 'tileset' && <Card><Heading size="3">Existing tileset atlas</Heading><Text as="p" size="2" color="gray">{asset.tileset_evidence === 'godot_reference' ? 'Referenced as a TileSet atlas by Godot text resources.' : 'Found in a project tileset folder.'} This is the complete atlas image. Tile sizes, terrain rules and collision shapes are not guessed from pixels; inspect those in Godot.</Text>{asset.resource_references?.map(path => <code key={path}>{path}<br/></code>)}</Card>}
+    {asset.kind === 'tileset' && <><Flex gap="2" wrap="wrap"><Badge color={detail.seams?.mismatch_count ? 'amber' : 'green'}>{detail.seams?.mismatch_count ?? 0} seam mismatches</Badge><Badge color="gray">{detail.cells?.length ?? 0} placed cells</Badge><Badge color="gray">{detail.terrains?.length} terrains</Badge></Flex><details><summary>Terrain & collision details</summary><Text as="p" size="2">Collision layer: {detail.collision_layer} · mask: {detail.collision_mask}</Text><pre>{JSON.stringify({ terrains: detail.terrains, seams: detail.seams, collisions: detail.collisions }, null, 2)}</pre></details></>}
+    {!!detail.palette.length && <div><Heading size="3" mb="2">Palette</Heading><div className="palette">{detail.palette.map((color, index) => <Tooltip key={color + index} content={color}><button style={{ background: color }} aria-label={`Copy color ${color}`} onClick={() => navigator.clipboard.writeText(color).catch(() => {})}/></Tooltip>)}</div></div>}
+    <Feedback detail={detail}/>
+    {!!asset.imports.length && <Card><Heading size="3">In your project</Heading>{asset.imports.map(record => <div key={record.name}><Text as="p" size="2">{record.name} · {states[record.state]}</Text><Text as="p" size="1" color="gray">{record.revision_hash === detail.revision_hash ? 'Registered from this revision' : 'A different revision is registered'}</Text><code>{record.scene}</code>{!!record.modified_files?.length && <Text as="p" size="2" color="amber">Manual edits are protected.</Text>}</div>)}<Text color="gray" size="1">Registered files do not prove placement in gameplay.</Text></Card>}
+    <Button variant="soft" onClick={copy}>{copied ? 'Copied' : asset.origin === 'daydream' ? 'Copy review command' : 'Copy project path'}</Button><Text size="1" color="gray">{asset.origin === 'daydream' ? 'Continue review and approval in your Daydream session.' : 'Viewing does not adopt or modify this project file.'}</Text>{copyError && <code>{reviewCommand}</code>}
+  </aside>;
   return <aside className="inspector" aria-label="Asset inspector">
     <div className="detail-navigation"><Button variant="soft" color="gray" onClick={close} aria-label="Back to collection">Back to collection</Button><Text size="1" color="gray">Esc to return</Text><Badge color="violet">{assetLabel(asset)}</Badge></div>
     <div className="inspector-header"><Heading size="7" className="asset-heading">{asset.name}</Heading><Flex gap="2" mt="2"><StateBadge state={detail?.state ?? asset.state}/><Badge color={asset.is_latest ? 'violet' : 'gray'}>{asset.is_latest ? 'Latest' : 'Older version'}</Badge></Flex>
     <Text color="gray" size="1" as="p">{asset.modified_at ? `Saved ${time(asset.modified_at)}` : 'Registered project resource'}</Text>
-    {!asset.is_latest && latest && <Button size="1" variant="soft" onClick={() => select(latest.id)}>Open latest candidate</Button>}{asset.kind === 'sprite' && animationCount > 0 && <Button mt="3" variant="soft" onClick={() => { setTab('overview'); requestAnimationFrame(() => document.getElementById('sprite-animations')?.scrollIntoView({ block: 'start' })); }}>View animations ({animationCount})</Button>}</div>
+    {!asset.is_latest && latest && <Button size="1" variant="soft" onClick={() => select(latest.id)}>Open latest candidate</Button>}{asset.kind === 'sprite' && animationCount > 0 && <Button mt="3" variant="soft" onClick={() => { setTab('overview'); requestAnimationFrame(() => document.getElementById('sprite-animations')?.scrollIntoView({ block: 'start' })); }}>View animations</Button>}</div>
     {loading ? <Loading/> : error ? <div className="tab-body"><Notice>{error}</Notice><Text size="2" color="gray">The file is still listed in your collection. Refresh or inspect it in its source editor.</Text><code>{asset.path}</code></div> : detail && <>
       <Tabs.Root value={tab} onValueChange={setTab} className="inspector-tabs"><Tabs.List>
         <Tabs.Trigger value="overview">Overview</Tabs.Trigger>{asset.kind === 'tileset' && <Tabs.Trigger value="tiles">Tiles <span className="tab-count">{detail.tiles?.length}</span></Tabs.Trigger>}{asset.kind === 'animation' && <Tabs.Trigger value="frames">Frames</Tabs.Trigger>}
         <Tabs.Trigger value="history">History <span className="tab-count">{family.length}</span></Tabs.Trigger><Tabs.Trigger value="files">Details</Tabs.Trigger>
       </Tabs.List>
-      <Tabs.Content value="overview"><div className="tab-body asset-detail-layout"><div className="detail-artwork">
+      <Tabs.Content value="overview"><div className={`tab-body asset-detail-layout ${compare ? 'comparing' : ''}`}><div className="detail-artwork">
         {asset.kind === 'animation' && <><Select.Root value={clip?.name ?? ''} onValueChange={setClipName}><Select.Trigger aria-label="Animation clip"/><Select.Content>{detail.animations?.map(item => <Select.Item key={item.name} value={item.name}>{item.name}</Select.Item>)}</Select.Content></Select.Root><Flex gap="2" wrap="wrap"><Badge color="gray">{clip?.fps} FPS</Badge><Badge color="gray">{((clip?.duration_ms ?? 0) / 1000).toFixed(2)}s</Badge><Badge color="gray">Saved: {clip?.loop ? 'loops' : 'plays once'}</Badge></Flex></>}
         {asset.kind === 'tileset' && <Select.Root value={view} onValueChange={setView}><Select.Trigger aria-label="Tileset view"/><Select.Content><Select.Item value="layout">Placed layout</Select.Item><Select.Item value="atlas">Complete atlas</Select.Item>{detail.has_collision_preview && <Select.Item value="collisions">Collision coverage</Select.Item>}</Select.Content></Select.Root>}
-        <Flex gap="3" align="center" wrap="wrap">{compare && <Select.Root value={String(zoom)} onValueChange={value => setZoom(Number(value))}><Select.Trigger aria-label="Matched comparison scale"/><Select.Content>{[1, 2, 4, 8].map(value => <Select.Item value={String(value)} key={value}>{value}× pixels</Select.Item>)}</Select.Content></Select.Root>}
+        <Flex gap="3" align="center" wrap="wrap">
         {asset.kind === 'animation' && <><Text as="label" size="2"><Flex gap="2" align="center"><Switch checked={loop} onCheckedChange={setLoop} size="1"/>Loop preview</Flex></Text><Button size="1" variant="soft" onClick={() => setReplay(value => value + 1)}>Replay</Button></>}
-        {!!older.length && <Text as="label" size="2"><Flex gap="2" align="center"><Switch size="1" checked={compare} onCheckedChange={value => { setCompare(value); if (value) setZoom([4, 2, 1].find(scale => detail.width * scale <= 160) ?? 1); }}/>Compare</Flex></Text>}</Flex>
-        {compare && reference && <Select.Root value={reference.id} onValueChange={setReferenceID}><Select.Trigger aria-label="Compare version"/><Select.Content>{older.map(item => <Select.Item key={item.id} value={item.id}>{time(item.modified_at)} · {states[item.state]}</Select.Item>)}</Select.Content></Select.Root>}
-        <div className={compare ? 'compare-stages' : ''}>{compare && reference && <div><Text size="1" color="gray">Earlier reference</Text>{referenceDetail.error ? <Notice>{referenceDetail.error}</Notice> : referenceDetail.loading ? <Loading/> : asset.kind === 'animation' && !oldClip ? <Notice>This version has no matching clip.</Notice> : <PixelStage asset={reference} role={role} refresh={refresh} zoom={zoom} matched loop={loop} clip={oldClip} replay={replay}/>}</div>}<div>{compare && <Text size="1" color="violet">Selected candidate</Text>}<PixelStage asset={asset} role={role} refresh={refresh} zoom={zoom} matched={compare} loop={loop} clip={clip} replay={replay}/></div></div>
+        {!!older.length && <Text as="label" size="2"><Flex gap="2" align="center"><Switch size="1" checked={compare} onCheckedChange={changeCompare}/>Compare</Flex></Text>}</Flex>
+        {!!older.length && <div className="comparison-selector-row">{compare && reference && <Select.Root value={reference.id} onValueChange={setReferenceID}><Select.Trigger aria-label="Compare version"/><Select.Content>{older.map(item => <Select.Item key={item.id} value={item.id}>{time(item.modified_at)} · {states[item.state]}</Select.Item>)}</Select.Content></Select.Root>}</div>}
+        <div className="compare-stages stable-comparison"><div className="comparison-pane selected-asset-pane"><Text size="1" color="violet">Selected candidate</Text><PixelStage asset={asset} role={role} refresh={refresh} zoom={zoom} matched={compare} loop={loop} clip={clip} replay={replay}/>{information}</div>{compare && reference && <div className="comparison-pane reference-asset-pane"><Text size="1" color="gray">Earlier reference</Text>{referenceDetail.error ? <Notice>{referenceDetail.error}</Notice> : referenceDetail.loading ? <Loading/> : asset.kind === 'animation' && !oldClip ? <Notice>This version has no matching clip.</Notice> : <PixelStage asset={reference} role={role} refresh={refresh} zoom={zoom} matched loop={loop} clip={oldClip} replay={replay}/>} {referenceDetail.data && <section className="comparison-reference-info" aria-label="Reference information"><Flex gap="2" align="center" justify="between" wrap="wrap"><Heading size="3">Reference information</Heading><StateBadge state={referenceDetail.data.state}/></Flex><AssetFacts detail={referenceDetail.data} kind={reference.kind}/><Text color="gray" size="1">Saved {time(reference.modified_at)}</Text>{!!referenceDetail.data.palette.length && <div><Heading size="3">Palette</Heading><div className="palette">{referenceDetail.data.palette.map((color, index) => <span key={color + index} style={{ background: color }} title={color}/>)}</div></div>}<Feedback detail={referenceDetail.data}/></section>}</div>}</div>
         {asset.kind === 'animation' && <Text size="1" color="gray">Loop preview repeats one-shot clips for inspection only. Saved animation and gameplay settings stay unchanged.</Text>}
-        </div><aside className="detail-properties" aria-label="Asset information">
-        <Heading size="3">Asset information</Heading><div className="facts"><div><strong>{detail.width} × {detail.height}</strong><span>{asset.kind === 'tileset' ? 'tile pixels' : 'canvas pixels'}</span></div><div><strong>{asset.kind === 'image' ? detail.format ?? 'Image' : detail.animations?.length ?? detail.tiles?.length ?? detail.palette.length}</strong><span>{asset.kind === 'animation' ? 'animation clips' : asset.kind === 'tileset' ? 'tiles' : asset.kind === 'image' ? 'source format' : 'palette colors'}</span></div></div>
-        {detail.note && <Text size="2" color="gray">{detail.note}</Text>}
-        {asset.collection_type === 'tileset' && <Card><Heading size="3">Existing tileset atlas</Heading><Text as="p" size="2" color="gray">{asset.tileset_evidence === 'godot_reference' ? 'Referenced as a TileSet atlas by Godot text resources.' : 'Found in a project tileset folder.'} This is the complete atlas image. Tile sizes, terrain rules and collision shapes are not guessed from pixels; inspect those in Godot.</Text>{asset.resource_references?.map(path => <code key={path}>{path}<br/></code>)}</Card>}
-        {asset.kind === 'tileset' && <><Flex gap="2" wrap="wrap"><Badge color={detail.seams?.mismatch_count ? 'amber' : 'green'}>{detail.seams?.mismatch_count ?? 0} seam mismatches</Badge><Badge color="gray">{detail.cells?.length ?? 0} placed cells</Badge><Badge color="gray">{detail.terrains?.length} terrains</Badge></Flex><details><summary>Terrain & collision details</summary><Text as="p" size="2">Collision layer: {detail.collision_layer} · mask: {detail.collision_mask}</Text><pre>{JSON.stringify({ terrains: detail.terrains, seams: detail.seams, collisions: detail.collisions }, null, 2)}</pre></details></>}
-        {!!detail.palette.length && <div><Heading size="3" mb="2">Palette</Heading><div className="palette">{detail.palette.map((color, index) => <Tooltip key={color + index} content={color}><button style={{ background: color }} aria-label={`Copy color ${color}`} onClick={() => navigator.clipboard.writeText(color).catch(() => {})}/></Tooltip>)}</div></div>}
-        {compare && referenceDetail.data && <Card><Text size="2" weight="bold">Earlier version feedback</Text><Feedback detail={referenceDetail.data}/></Card>}<Feedback detail={detail}/>
-        {!!asset.imports.length && <Card><Heading size="3">In your project</Heading>{asset.imports.map(record => <div key={record.name}><Text as="p" size="2">{record.name} · {states[record.state]}</Text><Text as="p" size="1" color="gray">{record.revision_hash === detail.revision_hash ? 'Registered from this revision' : 'A different revision is registered'}</Text><code>{record.scene}</code>{!!record.modified_files?.length && <Text as="p" size="2" color="amber">Manual edits are protected.</Text>}</div>)}<Text color="gray" size="1">Registered files do not prove placement in gameplay.</Text></Card>}
-        <Button variant="soft" onClick={copy}>{copied ? 'Copied' : asset.origin === 'daydream' ? 'Copy review command' : 'Copy project path'}</Button><Text size="1" color="gray">{asset.origin === 'daydream' ? 'Continue review and approval in your Daydream session.' : 'Viewing does not adopt or modify this project file.'}</Text>{copyError && <code>{reviewCommand}</code>}
-        </aside>{asset.kind === 'sprite' && <SpriteAnimations sprite={asset} catalog={catalog} refresh={refresh}/>}</div></Tabs.Content>
+        {asset.kind === 'animation' && <div className="animation-gallery">{detail.animations?.map(item => <AnimationCard key={item.name} asset={asset} detail={detail} clip={item} project={catalog.project.directory} refresh={refresh}/>)}</div>}
+        </div>{asset.kind === 'sprite' && <SpriteAnimations sprite={asset} catalog={catalog} refresh={refresh}/>}</div></Tabs.Content>
       {asset.kind === 'tileset' && <Tabs.Content value="tiles"><Tiles asset={asset} detail={detail} refresh={refresh}/></Tabs.Content>}
       {asset.kind === 'animation' && <Tabs.Content value="frames"><Frames asset={asset} detail={detail} refresh={refresh}/></Tabs.Content>}
       <Tabs.Content value="history"><div className="tab-body"><Text size="2" color="gray">Newest saved first. Selecting history never changes approval or files.</Text>{family.map(item => <button key={item.id} className={`history-row ${item.id === asset.id ? 'chosen' : ''}`} onClick={() => select(item.id)}><div><strong>{item.is_latest ? 'Latest candidate' : 'Earlier version'}</strong><span>{time(item.modified_at)}</span></div><StateBadge state={item.state}/></button>)}</div></Tabs.Content>

@@ -3,7 +3,7 @@
 Internal milestones and acceptance criteria. For installation and everyday use,
 see the [user README](../README.md).
 
-**Last updated: 2026-11-08. Branch: `feat/project-asset-dashboard`, from `2c20184`.
+**Last updated: 2026-11-09. Branch: `feat/project-asset-dashboard`, from `2c20184`.
 Dashboard and preview/playback changes are not merged. Editor-visible layouts
 and the earlier lifecycle flow were merged through PR #1 (`3472be2`).**
 
@@ -194,6 +194,28 @@ formats, permission/RPC details and implementation evidence are linked from the
   move the page. Zoom requires Ctrl/Cmd+wheel, pinch or explicit controls. Drag
   release/cancellation and window-blur cleanup prevent a lingering captured cursor.
   See [compact-canvas validation](validation/2026-11-08-compact-canvas.md).
+- Subsequent user direction replaces those canvases with compact PNG/APNG galleries:
+  no image scrolling/zoom/pan controls. All clips from a sprite's latest linked
+  sets appear together rather than defaulting to only the newest set's death clip.
+  Optional history and per-set feedback/review identity are retained.
+- Comparison mode now places reference/candidate information directly beneath the
+  corresponding image instead of keeping a separate sidebar. Facts, palettes,
+  feedback and the selected candidate's review action use the otherwise empty
+  space. [Validation](validation/2026-11-09-comparison-information.md) records the layout checks.
+- The user's consistency requirement now applies in all viewing modes: information
+  is always below its own image, the selected candidate stays anchored first, and
+  comparison adds/removes the reference without relocating the primary content.
+- The user subsequently chose an adaptive desktop layout: single-image information
+  sits to the right, then moves below during comparison through a subtle transition.
+  It remains the same selected panel; reduced-motion and narrow-screen layouts are
+  supported. This supersedes the always-below desktop arrangement above.
+- Animation source frames, per-clip steps and total timeline steps no longer have
+  arbitrary count ceilings. Source/image/decoded-memory safety budgets replace
+  those caps; a complete 76-frame Nyx set was rendered and validated in isolation.
+  See [animation gallery/budget evidence](validation/2026-11-08-animation-gallery-and-budgets.md).
+- The user authorized committing and pushing these follow-up gallery, frame-budget
+  and comparison refinements on 2026-11-09. They update the existing dashboard PR #2;
+  merging is still a separate action.
 - Imported resources are not proof of scene placement. Arbitrary Godot `.tres`
   resources, audio, 3D and editor graph reconstruction are not implemented. Scan
   bounds and unsupported previews are explicit. Browsing never approves or imports.
@@ -224,9 +246,9 @@ not mean human acceptance or the full idea-to-playable product is complete.
 
 ### Validation baseline
 
-- Latest branch validation: **178 Python-discovered tests passed** in the isolated
+- Latest branch validation: **182 Python-discovered tests passed** in the isolated
   Pillow environment with Godot/ttfx checks enabled. The dependency-free run passed
-  with **78 optional tests skipped**. Node adapter/viewer/review/dashboard tests run through the suite.
+  with **80 optional tests skipped**. Node adapter/viewer/review/dashboard tests run through the suite.
 - Separate graphical preview checks launched/stopped only an isolated synthetic
   Godot project. A synthetic tileset scene was also rendered; its actual viewport
   capture and numbered tile preview were inspected. These are not user-approved

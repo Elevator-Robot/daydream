@@ -41,6 +41,14 @@ install it or change user configuration merely to display branding.
 
 ## Guide the user through the workflow
 
+- Write naturally and directly. Avoid formulaic assistant phrasing and frequent
+  em dashes; use short sentences, commas or colons instead. This applies to chat
+  responses and user-facing interface copy.
+- Keep viewing layouts predictable. Desktop single-image details put information
+  beside the artwork; comparison puts each version's information underneath it.
+  Use a subtle reduced-motion-aware transition and preserve selected asset context.
+  Narrow screens stack the information beneath the image in either mode.
+
 - Present procedures as short numbered steps in the order the user should perform
   them. Put prerequisites first, identify their current step, and finish with the
   next concrete action using the actual command or menu label.

@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,8 @@ import animation_core as core
 from animation_godot import outputs
 import sprite_core as sprites
 import sprite_store as store
+from operations import execute
+from operation_registry import find
 from init_project import init_project
 
 PILLOW = importlib.util.find_spec("PIL") is not None
@@ -32,7 +35,50 @@ def source():
     return core.source_from_recipe(base(), recipe())
 
 
+def large_source(count=76, steps=129):
+    sprite = {'schema_version': 1, 'name': 'large', 'width': 4, 'height': 4,
+              'palette': {'a': '#556677', 'b': '#aabbcc'}, 'pixels': ['aaaa'] * 4}
+    frames = []
+    for index in range(count):
+        pixels = ''.join('b' if index & (1 << bit) else 'a' for bit in range(16))
+        frames.append({'id': f'f{index}', 'source': {**copy.deepcopy(sprite), 'pixels': [pixels[start:start + 4] for start in range(0, 16, 4)]}})
+    return {'schema_version': 1, 'name': 'large', 'width': 4, 'height': 4, 'pivot': [2, 4],
+            'frames': frames, 'animations': [{'name': 'all_frames', 'fps': 30, 'loop': True,
+                'frames': [{'frame': f'f{index % count}', 'duration': 1} for index in range(steps)]}],
+            'default_animation': 'all_frames'}
+
+
 class AnimationSchemaTests(unittest.TestCase):
+    def test_frame_and_timeline_counts_have_no_arbitrary_schema_ceiling(self):
+        value = large_source(193, 257)
+        self.assertIs(core.validate_source(value), value)
+        for name in ('animation.create', 'animation.assemble'):
+            schema = find(name).schema
+            frame_schema = schema['properties']['frames'] if name.endswith('assemble') else schema['properties']['recipe']['properties']['frames']
+            self.assertNotIn('maxItems', frame_schema)
+            clips = schema['properties']['animations'] if name.endswith('assemble') else schema['properties']['recipe']['properties']['animations']
+            self.assertNotIn('maxItems', clips['items']['properties']['frames'])
+        recipe_value = {key: copy.deepcopy(value[key]) for key in ('schema_version', 'name', 'pivot', 'animations', 'default_animation')}
+        recipe_value['frames'] = [{'id': frame['id'], 'pixels': frame['source']['pixels']} for frame in value['frames']]
+        rebuilt = core.source_from_recipe(value['frames'][0]['source'], recipe_value)
+        self.assertEqual(len(rebuilt['frames']), 193)
+        self.assertEqual(len(rebuilt['animations'][0]['frames']), 257)
+
+    def test_resource_budgets_replace_frame_count_limits_and_contact_scale_stays_positive(self):
+        value = large_source()
+        with mock.patch.object(core, 'MAX_ATLAS_PIXELS', 10):
+            with self.assertRaisesRegex(ValueError, 'atlas.*budget'): core.validate_source(value)
+        with mock.patch.object(core, 'MAX_PREVIEW_RGBA_BYTES', 10):
+            with self.assertRaisesRegex(ValueError, 'decoded-memory budget'): core.validate_source(value)
+        with mock.patch.object(core, 'MAX_SOURCE_BYTES', 10):
+            with self.assertRaisesRegex(ValueError, 'source.*budget'): core.validate_source(value)
+        long_clip = large_source(2, 1200)
+        scale, cell_w, cell_h, columns, rows = core.contact_geometry(long_clip, long_clip['animations'][0])
+        self.assertGreaterEqual(scale, 1)
+        self.assertGreater(rows * cell_h, 2048)
+        with mock.patch.object(core, 'MAX_CONTACT_PIXELS', 10):
+            with self.assertRaisesRegex(ValueError, 'contact sheet.*budget'): core.validate_source(value)
+
     def test_recipe_has_explicit_order_durations_loop_and_pivot(self):
         value = source()
         self.assertEqual(value["pivot"], [16, 30])
@@ -114,6 +160,66 @@ class AnimationWorkflowTests(unittest.TestCase):
 
     def snapshot(self, path):
         return {str(file.relative_to(path)): file.read_bytes() for file in path.rglob("*") if file.is_file()}
+
+    def test_large_animation_renders_inspects_edits_and_imports_without_losing_frames(self):
+        value = large_source()
+        files = core.make_revision(value, {'method': 'animation-source', 'license': None})
+        bundle = self.root / 'large'
+        store.save_revision(bundle, files, apply=True, kind=core.KIND)
+        loaded = core.load_revision(bundle)
+        self.assertEqual(len(loaded['source']['frames']), 76)
+        self.assertEqual(len(loaded['source']['animations'][0]['frames']), 129)
+        with sprites.open_image(files['all_frames.motion.png']) as image:
+            self.assertEqual(image.n_frames, 129)
+        with sprites.open_image(files['spritesheet.png']) as image:
+            self.assertEqual(image.size, (32, 40))
+        before = self.snapshot(bundle)
+        edited = core.edit_animation(value, {'schema_version': 1, 'operations': [{'op': 'pivot', 'value': [1, 4]}]})
+        self.assertEqual(len(edited['frames']), 76)
+        store.approve_revision(bundle, loaded['revision_hash'], 'synthetic large animation', apply=True, loader=core.load_revision)
+        imported = store.import_revision(bundle, self.project, apply=True, loader=core.load_revision, output_builder=outputs)
+        resource = (self.project / 'assets/sprites/large.frames.tres').read_text()
+        self.assertIn('AtlasTexture_75', resource)
+        self.assertEqual(resource.count('"duration":'), 129)
+        self.assertEqual({name: data for name, data in self.snapshot(bundle).items() if name != 'approval.json'}, before)
+        if os.environ.get('GODOT_BIN'):
+            script = self.project / 'verify_large.gd'
+            script.write_text('''extends SceneTree
+func _init():
+    var frames = load("res://assets/sprites/large.frames.tres")
+    assert(frames.get_frame_count("all_frames") == 129)
+    assert(frames.get_frame_texture("all_frames", 75).region == Rect2(12, 36, 4, 4))
+    print("LARGE_ANIMATION_OK")
+    quit(0)
+''')
+            run = subprocess.run([os.environ['GODOT_BIN'], '--headless', '--editor', '--path', str(self.project), '--import'], capture_output=True, text=True, timeout=60)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            run = subprocess.run([os.environ['GODOT_BIN'], '--headless', '--path', str(self.project), '--script', str(script)], capture_output=True, text=True, timeout=30)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertIn('LARGE_ANIMATION_OK', run.stdout)
+
+    def test_shared_native_create_and_assembly_accept_more_than_32_frames(self):
+        root = self.root / 'operation-project'; root.mkdir(); (root / 'project.godot').write_text('config_version=5\n')
+        source_value = large_source(76, 76)
+        seed = source_value['frames'][0]['source']
+        created = execute('sprite.create', {'source': seed, 'apply': True}, root)
+        self.assertTrue(created['ok'], created)
+        base_bundle = created['result']['directory']
+        data = {'name': 'large', 'pivot': [2, 4], 'frames': [{'id': f'f{index}', 'bundle': base_bundle} for index in range(76)],
+                'animations': source_value['animations'], 'default_animation': 'all_frames'}
+        prepared = execute('animation.assemble', data, root, surface='native', prepare_only=True)
+        self.assertTrue(prepared['ok'], prepared)
+        grants = {'reads': prepared['access']['reads'], 'writes': []}
+        preview = execute('animation.assemble', data, root, surface='native', authorized=grants)
+        self.assertTrue(preview['ok'], preview)
+        applied = execute('animation.assemble', {**data, 'apply': True}, root, surface='native', authorized=preview['access'])
+        self.assertTrue(applied['ok'], applied)
+        self.assertEqual(len(core.load_revision(applied['result']['directory'])['source']['frames']), 76)
+        recipe_value = {key: source_value[key] for key in ('schema_version', 'name', 'pivot', 'animations', 'default_animation')}
+        recipe_value['frames'] = [{'id': frame['id'], 'pixels': frame['source']['pixels']} for frame in source_value['frames']]
+        created = execute('animation.create', {'base': base_bundle, 'recipe': recipe_value, 'apply': True}, root)
+        self.assertTrue(created['ok'], created)
+        self.assertEqual(len(core.load_revision(created['result']['directory'])['source']['frames']), 76)
 
     def test_actual_preview_frames_timing_loop_atlas_and_contact_sheet(self):
         revision = core.load_revision(self.bundle)

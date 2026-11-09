@@ -41,6 +41,14 @@ that goal; do not imply complete Summer parity or implemented editor control.
 
 ## Guided user experience
 
+- Use natural, direct language in user-facing text. Avoid formulaic assistant
+  phrasing and decorative punctuation, especially frequent em dashes. Prefer short
+  sentences, commas or colons where they read naturally.
+- Keep viewing modes predictable. On desktop, single-image information sits neatly
+  to the right; comparison places information below each image. Use a subtle
+  transition, preserve selected asset context and respect reduced-motion settings.
+  Narrow layouts keep information below the image. Keep labels and controls consistent.
+
 - Treat an intuitive, guided workflow as a standing product requirement. Show the
   current step and a concrete next action; do not leave users to infer how to proceed.
 - List instructions and menu actions in order of operation, with prerequisites

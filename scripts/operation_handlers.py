@@ -62,8 +62,14 @@ def animation_create(context, data):
 
 def animation_assemble(context, data):
     frames, parents, palettes = [], [], []
+    source_bytes = 0
     for frame in data["frames"]:
         revision = sprite.load_revision(context.path(frame["bundle"]))
+        if not frames:
+            animation.validate_atlas_budget(revision['source']['width'], revision['source']['height'], len(data['frames']))
+        source_bytes += len(sprite.encoded(revision['source']))
+        if source_bytes > animation.MAX_SOURCE_BYTES:
+            raise ValueError('Assembled animation exceeds the editable-source memory budget')
         frames.append({"id": frame["id"], "source": copy.deepcopy(revision["source"])})
         parents.append(revision["revision_hash"])
         palettes.append(revision["manifest"]["provenance"].get("license"))

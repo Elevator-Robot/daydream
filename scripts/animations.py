@@ -40,7 +40,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.command == "create":
-            recipe = read_json(args.recipe)
+            recipe = json.loads(animation.read_regular(args.recipe, animation.MAX_SOURCE_BYTES))
             if args.base is not None:
                 base = load_sprite(args.base)
                 source = animation.source_from_recipe(base["source"], recipe)

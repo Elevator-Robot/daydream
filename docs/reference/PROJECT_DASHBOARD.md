@@ -110,9 +110,31 @@ a usable position before mouse/keyboard opening. Portal styling and accessible
 Radix selection/keyboard behavior remain shared across filters, canvas controls,
 animation versions/clips and comparison selectors.
 
-## Artwork canvas
+## Artwork gallery (supersedes the canvas)
 
-`dashboard/src/AssetCanvas.tsx` provides a DOM image viewport rather than flattening
+The owner replaced the pan/zoom detail design with compact image and animation
+galleries. `ImagePreview.tsx` displays native PNG/APNG images without gesture
+capture, zoom controls or internal scrolling. Its one-shot replay lifecycle still
+uses validated timing and leaves saved clips unchanged.
+
+`SpriteAnimations` renders all clips from every latest linked animation set at
+once. Older sets are optional; per-source loading/validation failures are displayed
+instead of hiding the other sets. Each clip card keeps its own source identity,
+timing, feedback and whole-source-set review command. Source/frame limits no longer
+need to dictate the user-facing navigation. The removed canvas component and its
+coordinate-helper tests are superseded by gallery/browser checks.
+
+The selected candidate's information is always the same child element in its image
+panel. Desktop single-image mode arranges that panel as artwork plus information
+to its right; comparison stacks information below each image. A named View
+Transition gently repositions the information where supported, with an immediate
+fallback for unsupported browsers or reduced-motion preferences. Selected-first
+order and review identity are preserved. Narrow layouts keep information below
+the image in either mode.
+
+### Historical canvas design
+
+The earlier `AssetCanvas.tsx` provided a DOM image viewport rather than flattening
 APNGs into a raster canvas. It retains animation playback, source pixel scaling and
 the existing preview-only replay lifecycle. The image plane is transformed around
 the viewport center; Ctrl/Cmd+wheel and pinch zoom preserve the pointed source

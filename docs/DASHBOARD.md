@@ -39,24 +39,21 @@ position are kept, and keyboard focus returns to the card you opened.
 
 ### Sprites and existing images
 
-Inspect the artwork, dimensions, palette where available, saved time and status.
-The artwork now sits in a pan-and-zoom canvas, beside a compact information panel:
+Inspect the artwork in a compact image preview beside its dimensions, palette,
+saved time and status. Pictures fit their cards without internal scrollbars,
+panning or zoom controls. Scroll the page normally; **Escape** returns to the
+collection. On narrow screens the information panel moves below the artwork.
 
-1. Scroll normally to move the page. Hold **Ctrl** (or **Cmd**) while scrolling over
-   the canvas to zoom around the point you're inspecting; pinch also zooms.
-2. **Drag** to pan the image, including when zoomed beyond the visible canvas.
-3. Choose **Fit** or double-click to center the whole image. **1:1** shows native pixels.
-4. Use the zoom slider or **+ / −** for precise changes. **Reset view** recenters it.
-5. Switch between checkerboard, dark and light backgrounds, or enable **Pixel grid**
-   to inspect pixel boundaries at 400% zoom and above.
-
-With the canvas focused, **+ / −** zoom, arrow keys pan, **F / 0** fit, and **1**
-returns to native pixels. **Escape** still returns to the collection.
-On narrow screens, the information panel moves below the canvas. Sprite and
-animation canvases are compact and stay in normal page flow, so they never stick
-over one another as you scroll.
-Preview panels are capped at a comfortable width rather than stretched across
-large monitors; the detail content is centered and remains responsive.
+On desktop, asset information sits neatly to the right of the single image.
+Turning **Compare** on adds the earlier reference and moves each version's
+information beneath its own image. The change uses a subtle transition where
+supported, with no animation when reduced motion is enabled. On narrow screens,
+the information stays below the image in either mode. The selected asset and its
+review action remain unchanged.
+Both image panels keep the same dimensions when Compare is toggled. If two panels
+cannot fit side by side, the reference stacks below rather than shrinking them.
+Both sides use matching dimensions/count formatting and review-state badges so
+differences in the metadata are easy to spot.
 
 **Details** contains source
 locations, content identity, provenance and managed output information where available.
@@ -67,19 +64,18 @@ Animations live **inside their sprite's details**, not in a separate collection
 category. Sprite cards show a linked-animation count. Open the sprite and choose
 **View animations**, or scroll to its **Animations** section.
 
-1. Choose an animation version, then a clip to watch it.
-2. Check FPS, duration and the saved loop behavior.
-3. Leave **Loop preview** on to repeatedly inspect one-shot clips, or turn it off
-   to follow their saved settings. **Replay** starts again.
-4. Expand **Inspect animation frames, timing and pivot** to inspect source frames,
-   timelines and contact sheets
-   with timing and pivot markers. Use **Actual size** to read a large sheet without shrinking it.
-5. Turn on **Compare earlier animation** to review an earlier version alongside
-   the selected animation at the same pixel scale.
+1. Browse the **Animations** gallery. Every clip from all the sprite's latest
+   linked animation sets appears together—no bundle dropdown to find an attack,
+   hurt, vanish or death clip.
+2. Watch the looping previews and check each card's frame count, FPS, duration
+   and saved loop behavior. **Replay** starts a particular preview again.
+3. Expand **Frames, feedback & review** for the source frames, timelines, contact
+   sheets and review notes belonging to that clip's source set.
+4. Enable **Include older versions** if you want earlier candidates in the gallery.
 
 Preview controls do not change the saved animation or gameplay.
-Animation previews use the same pan-and-zoom canvas. While comparing versions,
-the shared scale selector keeps both sides at the same pixel scale; each can be panned.
+The gallery uses lossless PNG/APNG animation previews, not a lossy GIF conversion.
+Preview replay does not change a one-shot attack or death clip into a gameplay loop.
 Animation links follow recorded source revisions, not matching names. If the
 source sprite is missing or cannot be linked, the animated asset remains visible
 under **Sprites** rather than being hidden. Existing arbitrary Godot SpriteFrames

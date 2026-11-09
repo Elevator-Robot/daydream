@@ -13,10 +13,21 @@ from sprite_core import open_image, pillow, png_bytes, preview, read_regular, va
 
 
 KIND = "sprite_animation"
+MAX_SOURCE_BYTES = 8 * 1024 * 1024
+MAX_ATLAS_PIXELS = 16 * 1024 * 1024
+MAX_PREVIEW_RGBA_BYTES = 128 * 1024 * 1024
+MAX_CONTACT_PIXELS = 16 * 1024 * 1024
+MAX_IMAGE_EDGE = 16384
 
 
 def number(value):
     return type(value) in (int, float) and abs(value) <= 1000000 and math.isfinite(value)
+
+
+def validate_atlas_budget(width, height, count):
+    atlas_width, atlas_height = min(8, count) * width, math.ceil(count / 8) * height
+    if atlas_width * atlas_height > MAX_ATLAS_PIXELS or max(atlas_width, atlas_height) > MAX_IMAGE_EDGE:
+        raise ValueError("Animation atlas exceeds the safe pixel/dimension budget; reduce canvas size or split the asset deliberately")
 
 
 def validate_source(source):
@@ -32,8 +43,9 @@ def validate_source(source):
     if not isinstance(pivot, list) or len(pivot) != 2 or any(type(value) is not int for value in pivot) or not (0 <= pivot[0] <= width and 0 <= pivot[1] <= height):
         raise ValueError("Animation pivot must be two integer coordinates inside/on the canvas")
     frames = source["frames"]
-    if not isinstance(frames, list) or not 1 <= len(frames) <= 32:
-        raise ValueError("Expected 1–32 unique animation frames")
+    if not isinstance(frames, list) or not frames:
+        raise ValueError("Expected at least one unique animation frame")
+    validate_atlas_budget(width, height, len(frames))
     ids, palette = set(), None
     for frame in frames:
         if not isinstance(frame, dict) or set(frame) != {"id", "source"} or not isinstance(frame["id"], str) or not NAME.fullmatch(frame["id"]) or frame["id"] in ids:
@@ -56,9 +68,12 @@ def validate_source(source):
         if not number(animation["fps"]) or not 1 <= animation["fps"] <= 30 or type(animation["loop"]) is not bool:
             raise ValueError("Animation FPS must be finite (1–30) and loop must be boolean")
         steps = animation["frames"]
-        if not isinstance(steps, list) or not 1 <= len(steps) <= 64:
-            raise ValueError("Expected 1–64 ordered timeline steps per animation")
+        if not isinstance(steps, list) or not steps:
+            raise ValueError("Expected at least one ordered timeline step per animation")
         total_steps += len(steps)
+        if total_steps * width * height * 16 * 4 > MAX_PREVIEW_RGBA_BYTES:
+            raise ValueError("Animation motion previews exceed the safe decoded-memory budget; reduce canvas size or timeline repetition")
+        contact_geometry(source, animation)
         seconds = 0
         for step in steps:
             if not isinstance(step, dict) or set(step) != {"frame", "duration"} or not isinstance(step["frame"], str) or step["frame"] not in ids or not number(step["duration"]) or step["duration"] <= 0:
@@ -69,8 +84,10 @@ def validate_source(source):
             seconds += duration
         if seconds > 30:
             raise ValueError("Animation clips must not exceed 30 seconds")
-    if total_steps > 128 or not isinstance(source["default_animation"], str) or source["default_animation"] not in names:
-        raise ValueError("Expected at most 128 total steps and an existing default animation")
+    if not isinstance(source["default_animation"], str) or source["default_animation"] not in names:
+        raise ValueError("Expected an existing default animation")
+    if len(encoded(source)) > MAX_SOURCE_BYTES:
+        raise ValueError("Animation editable source exceeds the 8 MiB safety budget")
     return source
 
 
@@ -78,8 +95,11 @@ def source_from_recipe(base, recipe):
     validate_sprite(base)
     if not isinstance(recipe, dict) or set(recipe) != {"schema_version", "name", "pivot", "frames", "animations", "default_animation"} or type(recipe["schema_version"]) is not int or recipe["schema_version"] != 1:
         raise ValueError("Unsupported animation recipe")
-    if not isinstance(recipe["frames"], list) or not 1 <= len(recipe["frames"]) <= 32:
-        raise ValueError("Recipe requires 1–32 frame definitions")
+    if not isinstance(recipe["frames"], list) or not recipe["frames"]:
+        raise ValueError("Recipe requires at least one frame definition")
+    validate_atlas_budget(base['width'], base['height'], len(recipe['frames']))
+    if len(recipe['frames']) * len(encoded(base)) > MAX_SOURCE_BYTES:
+        raise ValueError("Expanded animation recipe exceeds the editable-source memory budget")
     frames = []
     for frame in recipe["frames"]:
         if not isinstance(frame, dict) or set(frame) not in ({"id"}, {"id", "patch"}, {"id", "pixels"}):
@@ -165,18 +185,25 @@ def motion_png(source, animation):
     return output.getvalue()
 
 
-def contact_sheet(source, animation):
-    Image, _ = pillow()
-    from PIL import ImageDraw
+def contact_geometry(source, animation):
     count = len(animation["frames"])
     scale = 2
-    while True:
+    while scale >= 1:
         cell_width, cell_height = max(128, source["width"] * scale + 16), source["height"] * scale + 36
         columns = min(8, max(1, 2048 // cell_width), count)
         rows = math.ceil(count / columns)
-        if rows * cell_height <= 2048:
+        if rows * cell_height <= 2048 or scale == 1:
             break
         scale -= 1
+    if columns * cell_width * rows * cell_height > MAX_CONTACT_PIXELS or max(columns * cell_width, rows * cell_height) > MAX_IMAGE_EDGE:
+        raise ValueError("Animation contact sheet exceeds the safe pixel/dimension budget")
+    return scale, cell_width, cell_height, columns, rows
+
+
+def contact_sheet(source, animation):
+    Image, _ = pillow()
+    from PIL import ImageDraw
+    scale, cell_width, cell_height, columns, rows = contact_geometry(source, animation)
     result = Image.new("RGBA", (columns * cell_width, rows * cell_height), (28, 32, 42, 255))
     draw = ImageDraw.Draw(result)
     lookup = {frame["id"]: frame["source"] for frame in source["frames"]}
@@ -226,7 +253,7 @@ def load_revision(path):
     path = Path(path).expanduser().absolute()
     fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        source_data = read_regular("source.json", 1024 * 1024, dir_fd=fd, base=path)
+        source_data = read_regular("source.json", MAX_SOURCE_BYTES, dir_fd=fd, base=path)
         source = validate_source(json.loads(source_data))
         names = artifact_names(source)
         manifest_data = read_regular("manifest.json", 1024 * 1024, dir_fd=fd, base=path)

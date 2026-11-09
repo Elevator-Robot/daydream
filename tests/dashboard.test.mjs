@@ -9,30 +9,11 @@ import { createDashboardBridge, createDashboardManager } from '../plugins/daydre
 import { createDashboardService } from '../plugins/daydream-tools/dashboard-service.js';
 import { createRunner } from '../plugins/daydream-tools/runner.js';
 import { request } from 'node:http';
-import { clampZoom, fitZoom, zoomAt, MIN_ZOOM, MAX_ZOOM } from '../dashboard/src/canvas-math.mjs';
 
 const checkout = fileURLToPath(new URL('../', import.meta.url));
 const python = process.env.DAYDREAM_TEST_PYTHON ?? 'python3';
 const pillow = spawnSync(python, ['-c', 'import PIL']).status === 0;
 const entry = { id: 'asset-key', kind: 'sprite', path: 'art/dot', revision_hash: 'a'.repeat(64) };
-
-test('canvas fit uses crisp integer upscaling and bounded downscaling', () => {
-  assert.equal(fitZoom(32, 32, 800, 500), 8);
-  assert.equal(fitZoom(16, 16, 1200, 1000), 8);
-  assert.ok(fitZoom(4096, 4096, 500, 500) < 1);
-  assert.equal(clampZoom(1000), MAX_ZOOM);
-  assert.equal(clampZoom(0), MIN_ZOOM);
-});
-
-test('canvas zoom keeps the pointed image pixel fixed, including after panning', () => {
-  const before = { scale: 4, x: 30, y: -20 }, point = { x: 120, y: 70 };
-  const after = zoomAt(before, 8, point);
-  assert.equal((point.x - before.x) / before.scale, (point.x - after.x) / after.scale);
-  assert.equal((point.y - before.y) / before.scale, (point.y - after.y) / after.scale);
-  const restored = zoomAt(after, 4, point);
-  assert.deepEqual(restored, before);
-  assert.deepEqual(zoomAt({ scale: MAX_ZOOM, x: 0, y: 0 }, 100, point), { scale: MAX_ZOOM, x: 0, y: 0 });
-});
 
 async function fixture(t, handler) {
   const calls = [];
