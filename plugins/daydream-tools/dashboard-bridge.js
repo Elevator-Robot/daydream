@@ -53,6 +53,7 @@ export async function createDashboardBridge({ sessionID, project, call, staticDi
         if (!entry) return send(response, 404, { error: 'This asset is not in the current collection. Refresh first.' });
         selected = entry;
         input = { ...input, path: entry.path, kind: entry.kind,
+          ...(entry.sprite_resources?.length ? { resources: entry.sprite_resources } : {}),
           ...(entry.revision_hash ? { revision_hash: entry.revision_hash } : {}),
           ...(action === 'media' ? { image: url.searchParams.get('image') ?? 'thumbnail' } : {}) };
       }

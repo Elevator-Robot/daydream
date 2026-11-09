@@ -40,6 +40,13 @@ the project's normal starting scene.
 
 ## Inspect artwork without playing
 
+For a collection you can leave open beside your editor, use
+**`/assets` → Open project dashboard**. Its compact image and looping-clip galleries
+are covered in [Project dashboard](DASHBOARD.md).
+
+`/preview asset` opens a separate single-revision viewer. The controls below refer
+to that viewer, not the dashboard.
+
 Run `/preview asset`, select a candidate and confirm opening the browser.
 Use **Artwork scale** to inspect pixels. **Compare with previous version** shows
 the selected candidate beside an earlier version, with their saved feedback.

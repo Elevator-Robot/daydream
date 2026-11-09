@@ -13,6 +13,10 @@ Daydream creates or revises assets, then refresh to see what changed.
 The dashboard is included in the standard installation. You do not need to install
 a web framework, run a development server, or create an account.
 
+![Project collection with searchable artwork, review statuses and a tileset](images/project-collection.png)
+
+*Sample project using the repository's example artwork.*
+
 ## 2. Find artwork
 
 - Choose **All artwork**, **Sprites**, **Tilesets**, or **Project images**.
@@ -27,6 +31,11 @@ the bottom move into view before opening so the choices remain reachable.
 Daydream candidates appear alongside supported existing images in the project.
 **Project file** means existing artwork, not an approved Daydream candidate. Registered
 output textures are linked to their managed asset rather than counted twice.
+Existing sprites and sprite sheets appear under **Sprites** when referenced by a
+Godot sprite/animation resource or stored in a `sprites` or `sprite` folder. They
+are labelled **Project sprite** and retain their **Project file** status. Tileset
+atlases stay under **Tilesets**, even inside a sprite folder. Other artwork remains
+under **Project images**.
 Managed previews show the staged candidate; manually edited project outputs may
 differ. Their status and locations appear in the inspector. A different imported
 revision is labelled explicitly.
@@ -55,8 +64,16 @@ cannot fit side by side, the reference stacks below rather than shrinking them.
 Both sides use matching dimensions/count formatting and review-state badges so
 differences in the metadata are easy to spot.
 
-**Details** contains source
-locations, content identity, provenance and managed output information where available.
+**Details** contains source locations, content identity, provenance and managed
+output information where available.
+For a project sprite, the information panel shows why it was classified and which
+Godot resources reference it. You do not need to move or import the image first.
+When Godot records supported frame regions or sprite grids, the card and overview
+show an individual frame, not the whole sheet. Recorded SpriteFrames clips appear
+in the same looping animation gallery as other sprites. **Frames** shows the source
+frames and timing. Original artwork, timing and gameplay loop settings stay unchanged.
+If no supported frame definitions are available, Daydream shows the original image
+and explains the limitation rather than guessing a grid from the pixels.
 
 ### Animations
 
@@ -65,7 +82,7 @@ category. Sprite cards show a linked-animation count. Open the sprite and choose
 **View animations**, or scroll to its **Animations** section.
 
 1. Browse the **Animations** gallery. Every clip from all the sprite's latest
-   linked animation sets appears together—no bundle dropdown to find an attack,
+   linked animation sets appears together. There is no bundle dropdown to find an attack,
    hurt, vanish or death clip.
 2. Watch the looping previews and check each card's frame count, FPS, duration
    and saved loop behavior. **Replay** starts a particular preview again.
@@ -81,6 +98,11 @@ source sprite is missing or cannot be linked, the animated asset remains visible
 under **Sprites** rather than being hidden. Existing arbitrary Godot SpriteFrames
 resources are not automatically reconstructed by this dashboard.
 
+![Idle, blink and bounce shown together in a sprite's animation gallery](images/animation-gallery.png)
+
+*Open **Frames, feedback & review** on a card to inspect its source frames and notes.
+Watch the live preview before approval; this screenshot does not show motion.*
+
 ### Tilesets
 
 1. In **Overview**, choose the placed layout, complete atlas or available collision coverage.
@@ -88,6 +110,11 @@ resources are not automatically reconstructed by this dashboard.
 3. Filter by terrain, blocking/one-way geometry or tile ID.
 4. Select a tile to see its enlarged artwork, terrain corners, collision overlay
    and exact polygon settings where present.
+
+![Woodland Paths tileset explorer showing terrain filters, a selected tile and the complete tile grid](images/tileset-explorer.png)
+
+*The sample tileset has 162 terrain combinations. Select a tile to inspect its
+corner rules; filter the collection without altering the source.*
 
 Existing project atlases now appear under **Tilesets** too: the dashboard checks
 direct atlas-image references in Godot text scenes/resources and images stored in

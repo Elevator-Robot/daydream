@@ -2,6 +2,9 @@
 
 New to Daydream? Start with [installation and your first asset](../README.md).
 
+Want a visual tour first? The [dashboard walkthrough](DASHBOARD.md) shows the
+collection, animation gallery and tileset explorer with screenshots.
+
 ## Your asset workflow, in order
 
 1. **Create:** describe what you want and let Daydream prepare a candidate.

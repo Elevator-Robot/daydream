@@ -184,31 +184,30 @@ formats, permission/RPC details and implementation evidence are linked from the
   images are included in Tilesets through bounded Godot text references or tileset
   folders; existing geometry/terrain is never invented from PNGs.
   See [dashboard refinement evidence](validation/2026-11-08-dashboard-refinement.md).
-- The asset overview now prioritizes a pan-and-zoom artwork canvas with pointer-
-  anchored wheel/pinch zoom, drag panning, Fit/1:1/reset, keyboard controls,
-  background choices and a source-pixel grid. Metadata occupies a compact rail
-  instead of pushing the preview down the page. Comparison retains matched scales.
-  See [canvas validation](validation/2026-11-08-asset-canvas.md).
-- Canvas follow-up fixes remove sticky-artwork overlap, reduce sprite/animation
-  viewport heights and default fit enlargement, and let ordinary wheel scrolling
-  move the page. Zoom requires Ctrl/Cmd+wheel, pinch or explicit controls. Drag
-  release/cancellation and window-blur cleanup prevent a lingering captured cursor.
-  See [compact-canvas validation](validation/2026-11-08-compact-canvas.md).
-- Subsequent user direction replaces those canvases with compact PNG/APNG galleries:
-  no image scrolling/zoom/pan controls. All clips from a sprite's latest linked
+- Existing project sprites and sheets now appear under Sprites through bounded
+  Godot Sprite2D/AnimatedSprite2D/SpriteFrames references or sprite-folder evidence.
+  Known scanned AtlasTexture chains are followed without executing Godot or
+  expanding file-read authority. Tilesets take priority; project files remain
+  distinct from managed candidates. See [sprite discovery validation](validation/2026-11-09-existing-project-sprites.md).
+- Project sprites with supported Godot frame definitions now use individual-frame
+  thumbnails/overviews and the same clip gallery/frame explorer as generated assets.
+  Explicit regions, grids, frame durations, FPS and saved loop settings are read
+  without modifying game files. See [native sprite preview validation](validation/2026-11-09-native-sprite-previews.md).
+- Asset details use compact PNG/APNG galleries, not pan/zoom windows. All clips from a sprite's latest linked
   sets appear together rather than defaulting to only the newest set's death clip.
   Optional history and per-set feedback/review identity are retained.
-- Comparison mode now places reference/candidate information directly beneath the
-  corresponding image instead of keeping a separate sidebar. Facts, palettes,
-  feedback and the selected candidate's review action use the otherwise empty
-  space. [Validation](validation/2026-11-09-comparison-information.md) records the layout checks.
-- The user's consistency requirement now applies in all viewing modes: information
-  is always below its own image, the selected candidate stays anchored first, and
-  comparison adds/removes the reference without relocating the primary content.
-- The user subsequently chose an adaptive desktop layout: single-image information
-  sits to the right, then moves below during comparison through a subtle transition.
-  It remains the same selected panel; reduced-motion and narrow-screen layouts are
-  supported. This supersedes the always-below desktop arrangement above.
+- The current adaptive desktop layout puts single-image information
+  to the right, then moves it below during comparison through a subtle transition.
+  It remains the same selected panel. Both image windows retain matching dimensions;
+  facts, palette counts and state badges use matching formatting. Reduced-motion
+  and narrow-screen layouts are supported. See [comparison validation](validation/2026-11-09-comparison-information.md).
+- Earlier canvas and always-below iterations are historical. Their checks remain
+  in [canvas validation](validation/2026-11-08-asset-canvas.md) and
+  [compact-canvas validation](validation/2026-11-08-compact-canvas.md), not the current user walkthrough.
+- The end-user README now leads with real sample-project screenshots, ordered
+  setup and a first-asset walkthrough. Current guides distinguish dashboard and
+  standalone-viewer controls; screenshot provenance uses only repository examples.
+  See [documentation validation](validation/2026-11-09-user-docs-and-screenshots.md).
 - Animation source frames, per-clip steps and total timeline steps no longer have
   arbitrary count ceilings. Source/image/decoded-memory safety budgets replace
   those caps; a complete 76-frame Nyx set was rendered and validated in isolation.
@@ -246,9 +245,9 @@ not mean human acceptance or the full idea-to-playable product is complete.
 
 ### Validation baseline
 
-- Latest branch validation: **182 Python-discovered tests passed** in the isolated
+- Latest branch validation: **191 Python-discovered tests passed** in the isolated
   Pillow environment with Godot/ttfx checks enabled. The dependency-free run passed
-  with **80 optional tests skipped**. Node adapter/viewer/review/dashboard tests run through the suite.
+  with **89 optional tests skipped**. Node adapter/viewer/review/dashboard tests run through the suite.
 - Separate graphical preview checks launched/stopped only an isolated synthetic
   Godot project. A synthetic tileset scene was also rendered; its actual viewport
   capture and numbered tile preview were inspected. These are not user-approved

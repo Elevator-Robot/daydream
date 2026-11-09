@@ -23,6 +23,15 @@ def identity(kind, path):
 
 
 def discover_reads(context, operation, data):
+    if operation in {'dashboard.inspect', 'dashboard.media'}:
+        context.native_sprite_model = None
+        if data.get('kind') == 'image' and data.get('resources'):
+            context.dashboard_resources = [context.path(path) for path in data['resources']]
+            project_image_references(context)
+            from godot_sprite import sprite_model
+            context.native_sprite_model = sprite_model(context.godot_documents, context.relative(context.path(data['path'])))
+            context.native_resource_hashes = context.godot_resource_hashes
+        return set()
     reads = discover_candidates(context, 'assets.list', {})
     files, resources, pending, visited = [], [], [context.root], 0
     managed = set(context.asset_bundles)
@@ -64,34 +73,96 @@ def discover_reads(context, operation, data):
     return reads | {str(file) for file in files + resources}
 
 
-def atlas_references(context):
-    """Read text only; identify direct TileSetAtlasSource texture references.
+def project_image_references(context):
+    """Classify existing artwork from bounded, already-authorized Godot text.
 
-    No Godot execution, arbitrary resource recursion, or inferred tile geometry.
-    Unsupported/binary/oversized resource layouts remain explicit scan warnings.
+    Follow only known texture/SpriteFrames relationships in the scanned documents.
+    Never load extra files, execute scripts or reconstruct gameplay/clip data.
     """
-    references, unavailable = {}, 0
+    atlases, sprites, documents, resource_hashes, graph_limited, unavailable = {}, {}, {}, {}, set(), 0
+    header = re.compile(r'^\[(ext_resource|sub_resource|node|resource|gd_resource|gd_scene)(?:[ \t]+([^\n]*))?\][ \t]*$', re.MULTILINE)
+    expression = re.compile(r'(ExtResource|SubResource)\("([^"\n]+)"\)')
     for file in context.dashboard_resources:
         try:
-            text = read_regular(file, 4 * 1024 * 1024).decode('utf-8')
-            textures = {}
-            for header in re.findall(r'^\[ext_resource\s+[^\n]+\]$', text, re.MULTILINE):
-                attrs = dict(re.findall(r'(\w+)="([^"\n]*)"', header))
-                if attrs.get('type') == 'Texture2D' and attrs.get('path', '').startswith('res://'):
-                    relative = attrs['path'][6:]
-                    path = context.path(relative)
-                    if path.suffix.lower() in IMAGE_EXTENSIONS:
-                        textures[attrs.get('id')] = context.relative(path)
-            blocks = re.findall(r'^\[sub_resource\s+[^\n]*type="TileSetAtlasSource"[^\n]*\]\s*\n([^\[]*)', text, re.MULTILINE)
-            if re.search(r'^\[gd_resource\s+[^\n]*type="TileSetAtlasSource"', text, re.MULTILINE):
-                blocks += re.findall(r'^\[resource\]\s*\n([^\[]*)', text, re.MULTILINE)
-            for block in blocks:
-                texture = re.search(r'^texture\s*=\s*ExtResource\("([^"\n]+)"\)', block, re.MULTILINE)
-                if texture and texture.group(1) in textures:
-                    references.setdefault(textures[texture.group(1)], []).append(context.relative(file))
+            raw = read_regular(file, 4 * 1024 * 1024)
+            text = raw.decode('utf-8')
+            matches = list(header.finditer(text))
+            blocks = []
+            for index, match in enumerate(matches):
+                attrs = dict(re.findall(r'(\w+)="([^"\n]*)"', match.group(2) or ''))
+                body = text[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(text)]
+                if attrs.get('path', '').startswith('res://'):
+                    attrs['relative_path'] = context.relative(context.path(attrs['path'][6:]))
+                blocks.append((match.group(1), attrs, body))
+            documents[context.relative(file)] = blocks
+            resource_hashes[context.relative(file)] = digest(raw)
         except (OSError, ValueError, UnicodeError):
             unavailable += 1
-    return references, unavailable
+
+    def property_ref(body, name):
+        value = re.search(r'^' + name + r'\s*=\s*((?:ExtResource|SubResource)\("[^"\n]+"\))', body, re.MULTILINE)
+        return value.group(1) if value else ''
+
+    def resolve(file, value, seen=None):
+        seen = set() if seen is None else seen
+        key = (file, value)
+        if key in seen:
+            return set()
+        if len(seen) >= 128:
+            graph_limited.add(file)
+            return set()
+        seen.add(key)
+        blocks = documents.get(file, [])
+        if value == 'root':
+            root_type = next((attrs.get('type') for kind, attrs, _ in blocks if kind == 'gd_resource'), None)
+            block = next(((root_type, body) for kind, _, body in blocks if kind == 'resource'), None)
+        else:
+            match = expression.fullmatch(value)
+            if not match:
+                return set()
+            target_kind = 'ext_resource' if match.group(1) == 'ExtResource' else 'sub_resource'
+            target = next(((attrs, body) for kind, attrs, body in blocks if kind == target_kind and attrs.get('id') == match.group(2)), None)
+            if not target:
+                return set()
+            attrs, body = target
+            if target_kind == 'ext_resource':
+                path = attrs.get('relative_path', '')
+                if attrs.get('type') not in {'Texture2D', 'AtlasTexture', 'SpriteFrames'}:
+                    return set()
+                if Path(path).suffix.lower() in IMAGE_EXTENSIONS and attrs.get('type') != 'SpriteFrames':
+                    return {path}
+                return resolve(path, 'root', seen)
+            block = (attrs.get('type'), body)
+        if not block:
+            return set()
+        resource_type, body = block
+        if resource_type == 'AtlasTexture':
+            return resolve(file, property_ref(body, 'atlas'), seen)
+        if resource_type == 'SpriteFrames':
+            result = set()
+            for match in re.finditer(r'"texture"\s*:\s*((?:ExtResource|SubResource)\("[^"\n]+"\))', body):
+                result |= resolve(file, match.group(1), seen)
+            return result
+        return set()
+
+    for file, blocks in documents.items():
+        root_type = next((attrs.get('type') for kind, attrs, _ in blocks if kind == 'gd_resource'), None)
+        for kind, attrs, body in blocks:
+            resource_type = root_type if kind == 'resource' else attrs.get('type')
+            if resource_type == 'TileSetAtlasSource':
+                for image in resolve(file, property_ref(body, 'texture')):
+                    atlases.setdefault(image, set()).add(file)
+            elif resource_type == 'SpriteFrames':
+                value = 'root' if kind == 'resource' else f'SubResource("{attrs.get("id", "")}")'
+                for image in resolve(file, value):
+                    sprites.setdefault(image, set()).add(file)
+            elif kind == 'node' and resource_type in {'Sprite2D', 'AnimatedSprite2D'}:
+                prop = 'texture' if resource_type == 'Sprite2D' else 'sprite_frames'
+                for image in resolve(file, property_ref(body, prop)):
+                    sprites.setdefault(image, set()).add(file)
+    context.godot_documents = documents
+    context.godot_resource_hashes = resource_hashes
+    return atlases, sprites, unavailable + len(graph_limited)
 
 
 def sprite_links(entries):
@@ -143,7 +214,7 @@ def catalog(context, data):
                         'group': family, 'kind': kind, 'origin': 'daydream', 'path': row['bundle'], 'imports': imports})
     # Registered textures already have a managed card; don't count their PNG twice.
     registered = {record['paths'].get('texture') for record in records}
-    references, unreadable_resources = atlas_references(context)
+    references, sprite_references, unreadable_resources = project_image_references(context)
     unavailable = result['invalid_candidates'] + unreadable_resources
     for file in context.dashboard_files:
         relative = context.relative(file)
@@ -156,13 +227,22 @@ def catalog(context, data):
                 raise ValueError('Not a regular image')
             key = identity('image', relative)
             atlas_folder = any(part.lower() in {'tilesets', 'tileset', 'tilemaps'} for part in file.relative_to(context.root).parts[:-1])
+            sprite_folder = any(part.lower() in {'sprites', 'sprite'} for part in file.relative_to(context.root).parts[:-1])
+            is_atlas = relative in references or atlas_folder
+            is_sprite = not is_atlas and (relative in sprite_references or sprite_folder)
+            sprite_resources = []
+            if is_sprite:
+                from godot_sprite import sprite_model
+                sprite_resources = sprite_model(context.godot_documents, relative)['resources']
             entries.append({'id': key, 'group': key, 'name': file.stem, 'kind': 'image',
                             'origin': 'project', 'path': relative, 'state': 'project_file', 'is_latest': True,
                             'modified_at': info.st_mtime_ns, 'bytes': info.st_size,
                             'format': file.suffix[1:].upper(), 'imports': [],
-                            'collection_type': 'tileset' if relative in references or atlas_folder else 'image',
+                            'collection_type': 'tileset' if is_atlas else 'sprite' if is_sprite else 'image',
                             'tileset_evidence': 'godot_reference' if relative in references else 'folder' if atlas_folder else None,
-                            'resource_references': sorted(set(references.get(relative, [])))})
+                            'sprite_evidence': 'godot_reference' if is_sprite and relative in sprite_references else 'folder' if is_sprite else None,
+                            'sprite_resources': sprite_resources,
+                            'resource_references': sorted((references if is_atlas else sprite_references).get(relative, []))})
         except (OSError, ValueError):
             unavailable += 1
     # Imported outputs whose staged revision is absent remain visible in the library.
@@ -173,7 +253,9 @@ def catalog(context, data):
         key = identity('image', relative)
         entries.append({'id': key, 'group': key, 'name': record['name'], 'kind': 'image',
                         'origin': 'project', 'path': relative, 'state': record['state'], 'is_latest': True,
-                        'imports': [record], 'modified_at': 0, 'format': Path(relative).suffix[1:].upper()})
+                        'imports': [record], 'modified_at': 0, 'format': Path(relative).suffix[1:].upper(),
+                        'collection_type': 'tileset' if record['kind'] == 'tileset' else 'sprite',
+                        'sprite_evidence': 'registry' if record['kind'] != 'tileset' else None})
     entries.sort(key=lambda item: (-item['modified_at'], item['name'], item['id']))
     sprite_links(entries)
     project = read_regular(context.path('project.godot'), 1024 * 1024).decode('utf-8', errors='replace')
@@ -181,7 +263,7 @@ def catalog(context, data):
     return {'project': {'name': name.group(1) if name else context.root.name, 'directory': str(context.root)},
             'generated_at': datetime.now(timezone.utc).isoformat(), 'assets': entries,
             'imports': records, 'truncated': result['truncated'], 'unavailable': unavailable,
-            'scope': 'Daydream revisions and supported project images. Existing atlas images referenced by Godot text resources or kept in tileset folders appear under Tilesets. Geometry is not inferred. Hidden/build folders are excluded.',
+            'scope': 'Daydream revisions and supported project images. Godot sprite/atlas references and sprite/tileset folders determine collection categories. Existing images remain project files; frame geometry and animation playback are not inferred. Hidden/build folders are excluded.',
             'limits': {'project_images': MAX_FILES, 'candidate_bundles': 500}}, []
 
 
@@ -217,6 +299,22 @@ def verify_hash(actual, data):
 
 def inspect_asset(context, data):
     if data['kind'] == 'image':
+        model = getattr(context, 'native_sprite_model', None)
+        if model and model['first']:
+            from godot_sprite import decode
+            fingerprint, frames, sheet_size = decode(context, data, model, context.native_resource_hashes)
+            verify_hash(fingerprint, data)
+            first = frames[model['first']]
+            colors = first.getcolors(128)
+            return {'name': context.path(data['path']).stem, 'kind': 'image', 'path': data['path'],
+                    'width': first.width, 'height': first.height, 'sheet_size': sheet_size, 'format': 'PNG',
+                    'native_sprite': True, 'revision_hash': fingerprint, 'state': 'project_file',
+                    'palette': ['#' + ''.join(f'{channel:02x}' for channel in rgba) for _, rgba in sorted(colors or [], reverse=True) if rgba[3]],
+                    'frames': [{'id': key, 'index': index} for index, key in enumerate(frames)],
+                    'atlas_columns': min(8, len(frames)), 'animations': model['animations'],
+                    'default_animation': model['animations'][0]['name'] if model['animations'] else None,
+                    'resource_warnings': model['warnings'],
+                    'note': 'Existing Godot sprite. Previews use its recorded frame regions and clip timing; the source sheet and resources are unchanged.'}, []
         info, image = project_image(context, data)
         image.close()
         verify_hash(info['revision_hash'], data)
@@ -257,6 +355,14 @@ def media(context, data):
     role = data.get('image', 'thumbnail')
     Image, _ = pillow()
     if data['kind'] == 'image':
+        model = getattr(context, 'native_sprite_model', None)
+        if model and model['first']:
+            from godot_sprite import decode, media_bytes
+            fingerprint, frames, _ = decode(context, data, model, context.native_resource_hashes)
+            verify_hash(fingerprint, data)
+            raw, (width, height) = media_bytes(model, frames, role)
+            if len(raw) > 8 * 1024 * 1024: raise ValueError('Native sprite preview exceeds the 8 MiB limit')
+            return {'revision_hash': fingerprint, 'width': width, 'height': height, 'mime': 'image/png', 'data': base64.b64encode(raw).decode()}, []
         if role not in {'thumbnail', 'image'}:
             raise ValueError('Unknown project-image view')
         info, image = project_image(context, data)

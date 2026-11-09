@@ -26,6 +26,24 @@ license notices for bundled dependencies; supplemental notices and provenance li
 in `dashboard/third-party/`. This does not choose a project license.
 Restart OpenCode after rebuilding to load the new UI bundle in a fresh dashboard.
 
+### User documentation and screenshots
+
+Keep the root README as the end-user entry point, with ordered setup, one first-
+asset walkthrough and links into `docs/README.md`. The dashboard and standalone
+revision viewer have different controls; label them explicitly rather than mixing
+their instructions. Historical validation records remain dated evidence, not
+current UI references.
+
+Screenshot provenance is recorded in `docs/images/README.md`. Capture the actual
+current UI using the bundled example artwork in a disposable project. Do not use
+another game's assets without separate authorization or fabricate control labels.
+Inspect the images, provide descriptive alt text and state that static screenshots
+are not motion review. Retain implementation/test details here, not in onboarding.
+
+The README currently identifies dashboard PR #2 as a preview and installs its branch.
+When that PR is merged/released, update that availability note and clone command
+alongside the release; do not leave a deleted preview branch as the install target.
+
 ### Shared capability and integration tests
 
 ```sh

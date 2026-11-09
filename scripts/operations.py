@@ -137,7 +137,7 @@ def execute(name, data, project, *, surface="cli", prepare_only=False, resolve_o
                 raise PermissionError("Adapter must authorize all planned reads before execution")
             write_grants = set(authorized["writes"])
         if access.get('read_resolution'):
-            if name == 'dashboard.catalog':
+            if name.startswith('dashboard.'):
                 from dashboard import discover_reads
             else:
                 from asset_lifecycle import discover_reads

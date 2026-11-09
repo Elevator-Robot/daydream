@@ -147,6 +147,149 @@ class DashboardTests(unittest.TestCase):
         incomplete = {'reads': [file for file in resolved['access']['reads'] if file != resource], 'writes': []}
         self.assertEqual(execute('dashboard.catalog', {}, self.root, surface='native', authorized=incomplete)['error']['code'], 'forbidden')
 
+    def test_existing_sprite2d_images_are_sprites_without_becoming_managed_candidates(self):
+        image = self.image('textures/hero.png')
+        before = image.read_bytes()
+        (self.root / 'hero.tscn').write_text('[gd_scene format=3]\n[ext_resource type="Texture2D" path="res://textures/hero.png" id="art"]\n[node name="Hero" type="Sprite2D"]\ntexture = ExtResource("art")\n')
+        asset = next(item for item in self.call('dashboard.catalog', {})['result']['assets'] if item['path'] == 'textures/hero.png')
+        self.assertEqual(asset['collection_type'], 'sprite')
+        self.assertEqual(asset['sprite_evidence'], 'godot_reference')
+        self.assertEqual(asset['resource_references'], ['hero.tscn'])
+        self.assertEqual(asset['kind'], 'image')  # Still uses bounded project-image reads, not a bundle loader.
+        self.assertEqual(asset['state'], 'project_file')
+        self.assertEqual(image.read_bytes(), before)
+
+    def test_embedded_spriteframes_atlas_references_classify_wonderer_style_sheets(self):
+        self.image('textures/hero-sheet.png')
+        (self.root / 'player.tscn').write_text('''[gd_scene format=3]
+[ext_resource type="Texture2D" path="res://textures/hero-sheet.png" id="sheet"]
+[sub_resource type="AtlasTexture" id="frame0"]
+atlas = ExtResource("sheet")
+region = Rect2(0, 0, 96, 96)
+[sub_resource type="SpriteFrames" id="motion"]
+animations = [{
+"frames": [{"duration": 1.0, "texture": SubResource("frame0")}],
+"name": &"idle", "loop": true, "speed": 8.0
+}]
+[node name="Player" type="AnimatedSprite2D"]
+sprite_frames = SubResource("motion")
+''')
+        asset = next(item for item in self.call('dashboard.catalog', {})['result']['assets'] if item['path'] == 'textures/hero-sheet.png')
+        self.assertEqual(asset['collection_type'], 'sprite')
+        self.assertEqual(asset['resource_references'], ['player.tscn'])
+        detail = self.call('dashboard.inspect', {'kind': asset['kind'], 'path': asset['path']})['result']
+        self.assertNotIn('animations', detail)  # Classification does not invent decoded clips or frame geometry.
+
+    def test_external_spriteframes_and_atlas_documents_use_only_scanned_resources(self):
+        self.image('textures/hero.png')
+        (self.root / 'frame.tres').write_text('[gd_resource type="AtlasTexture" format=3]\n[ext_resource type="Texture2D" path="res://textures/hero.png" id="sheet"]\n[resource]\natlas = ExtResource("sheet")\nregion = Rect2(0, 0, 96, 96)\n')
+        (self.root / 'frames.tres').write_text('[gd_resource type="SpriteFrames" format=3]\n[ext_resource type="Texture2D" path="res://frame.tres" id="frame"]\n[resource]\nanimations = [{"frames": [{"texture": ExtResource("frame"), "duration": 1.0}], "name": &"idle"}]\n')
+        (self.root / 'hero.tscn').write_text('[gd_scene format=3]\n[ext_resource type="SpriteFrames" path="res://frames.tres" id="motion"]\n[node name="Hero" type="AnimatedSprite2D"]\nsprite_frames = ExtResource("motion")\n')
+        asset = next(item for item in self.call('dashboard.catalog', {})['result']['assets'] if item['path'] == 'textures/hero.png')
+        self.assertEqual(asset['collection_type'], 'sprite')
+        self.assertEqual(asset['resource_references'], ['frames.tres', 'hero.tscn'])
+
+    def test_sprite_folders_are_fallbacks_and_tilesets_take_priority(self):
+        self.image('assets/sprites/hero.png')
+        self.image('assets/sprites/tilesets/ground.png')
+        self.image('textures/interface.png')
+        (self.root / 'ui.tscn').write_text('[gd_scene format=3]\n[ext_resource type="Texture2D" path="res://textures/interface.png" id="art"]\n[node name="Image" type="TextureRect"]\ntexture = ExtResource("art")\n')
+        images = {item['path']: item for item in self.call('dashboard.catalog', {})['result']['assets'] if item['origin'] == 'project'}
+        self.assertEqual(images['assets/sprites/hero.png']['collection_type'], 'sprite')
+        self.assertEqual(images['assets/sprites/hero.png']['sprite_evidence'], 'folder')
+        self.assertEqual(images['assets/sprites/tilesets/ground.png']['collection_type'], 'tileset')
+        self.assertEqual(images['textures/interface.png']['collection_type'], 'image')
+
+    def native_fixture(self):
+        from PIL import Image
+        image = self.root / 'hero.png'
+        sheet = Image.new('RGBA', (8, 4), 'red')
+        sheet.paste('blue', (4, 0, 8, 4))
+        sheet.save(image)
+        resource = self.root / 'hero.tres'
+        resource.write_text('''[gd_resource type="SpriteFrames" format=3]
+[ext_resource type="Texture2D" path="res://hero.png" id="sheet"]
+[sub_resource type="AtlasTexture" id="one"]
+atlas = ExtResource("sheet")
+region = Rect2(0, 0, 4, 4)
+[sub_resource type="AtlasTexture" id="two"]
+atlas = ExtResource("sheet")
+region = Rect2(4, 0, 4, 4)
+[resource]
+animations = [{"name": &"Walk Left", "speed": 5.0, "loop": false,
+"frames": [{"texture": SubResource("one"), "duration": 1.0}, {"texture": SubResource("two"), "duration": 2.0}]}]
+''')
+        return {'kind': 'image', 'path': 'hero.png', 'resources': ['hero.tres']}, resource
+
+    def test_native_sprite_crops_pixels_and_preserves_timing_and_loop(self):
+        import base64
+        import io
+        from PIL import Image
+        data, resource = self.native_fixture()
+        before = resource.read_bytes(), (self.root / 'hero.png').read_bytes()
+        catalog = self.call('dashboard.catalog', {})['result']
+        self.assertEqual(next(item for item in catalog['assets'] if item['path'] == 'hero.png')['sprite_resources'], ['hero.tres'])
+        detail = self.call('dashboard.inspect', data)['result']
+        self.assertEqual((detail['width'], detail['height']), (4, 4))
+        self.assertEqual(detail['sheet_size'], [8, 4])
+        clip = detail['animations'][0]
+        self.assertEqual(clip['name'], 'Walk Left')
+        self.assertFalse(clip['loop'])
+        self.assertEqual(clip['duration_ms'], 600)
+        for role in ['thumbnail', 'image', 'atlas', clip['media_key'], clip['contact_key']]:
+            media = self.call('dashboard.media', dict(data, image=role, revision_hash=detail['revision_hash']))['result']
+            with Image.open(io.BytesIO(base64.b64decode(media['data']))) as image:
+                self.assertEqual(image.getpixel((0, 0)), (255, 0, 0, 255))
+                if role == clip['media_key']:
+                    self.assertEqual(image.n_frames, 2)
+                    self.assertEqual(image.info['loop'], 1)
+                    self.assertEqual(image.info['duration'], 200)
+                    image.seek(1)
+                    self.assertEqual(image.info['duration'], 400)
+                    self.assertEqual(image.getpixel((0, 0)), (0, 0, 255, 255))
+        self.assertEqual((resource.read_bytes(), (self.root / 'hero.png').read_bytes()), before)
+
+    def test_native_metadata_changes_invalidate_previews_and_need_read_grants(self):
+        data, resource = self.native_fixture()
+        detail = self.call('dashboard.inspect', data)['result']
+        planned = execute('dashboard.inspect', data, self.root, prepare_only=True)
+        self.assertIn(str(resource), planned['access']['reads'])
+        self.assertEqual(execute('dashboard.inspect', data, self.root, surface='native', authorized={'reads': [str(self.root / 'hero.png')], 'writes': []})['error']['code'], 'forbidden')
+        resource.write_text(resource.read_text().replace('5.0', '10.0'))
+        stale = execute('dashboard.media', dict(data, image='thumbnail', revision_hash=detail['revision_hash']), self.root)
+        self.assertFalse(stale['ok'])
+        self.assertIn('changed', stale['error']['message'].lower())
+
+    def test_native_outside_regions_and_decoded_motion_budget_are_refused(self):
+        data, resource = self.native_fixture()
+        original = resource.read_text()
+        resource.write_text(original.replace('Rect2(4, 0, 4, 4)', 'Rect2(7, 0, 4, 4)'))
+        result = execute('dashboard.inspect', data, self.root)
+        self.assertFalse(result['ok'])
+        resource.write_text(original)
+        with mock.patch('godot_sprite.MAX_DECODED_BYTES', 100):
+            self.assertFalse(execute('dashboard.inspect', data, self.root)['ok'])
+
+    def test_native_sprite2d_grid_uses_explicit_frame_not_whole_sheet(self):
+        data, _ = self.native_fixture()
+        scene = self.root / 'static.tscn'
+        scene.write_text('[gd_scene format=3]\n[ext_resource type="Texture2D" path="res://hero.png" id="art"]\n[node name="Hero" type="Sprite2D"]\ntexture = ExtResource("art")\nhframes = 2\nvframes = 1\nframe = 1\n')
+        data['resources'] = ['static.tscn']
+        detail = self.call('dashboard.inspect', data)['result']
+        self.assertEqual((detail['width'], detail['height']), (4, 4))
+        self.assertEqual(detail['animations'], [])
+
+    def test_resource_cycles_and_outside_paths_do_not_expand_read_authority(self):
+        self.image('textures/unrelated.png')
+        (self.root / 'cycle.tres').write_text('[gd_resource type="AtlasTexture" format=3]\n[ext_resource type="Texture2D" path="res://cycle.tres" id="cycle"]\n[resource]\natlas = ExtResource("cycle")\n')
+        (self.root / 'frames.tres').write_text('[gd_resource type="SpriteFrames" format=3]\n[ext_resource type="Texture2D" path="res://cycle.tres" id="frame"]\n[resource]\nanimations = [{"frames": [{"texture": ExtResource("frame")}]}]\n')
+        (self.root / 'outside.tscn').write_text('[gd_scene format=3]\n[ext_resource type="Texture2D" path="res://../secret.png" id="bad"]\n[node name="Bad" type="Sprite2D"]\ntexture = ExtResource("bad")\n')
+        result = self.call('dashboard.catalog', {})
+        asset = next(item for item in result['result']['assets'] if item['path'] == 'textures/unrelated.png')
+        self.assertEqual(asset['collection_type'], 'image')
+        self.assertGreaterEqual(result['result']['unavailable'], 1)
+        self.assertTrue(all(str(self.root) in path for path in result['access']['reads']))
+
 
 class DashboardAdapterTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which('node'), 'Node required')

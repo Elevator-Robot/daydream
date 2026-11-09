@@ -49,6 +49,15 @@ or view assets already added to the project. Exact paths are in the preview's
 
 ### Preview and decide
 
+The dashboard and the review preview serve different purposes:
+
+- **Project dashboard:** keep the collection open, watch all linked clips in the
+  gallery, inspect details and compare versions. **Copy review command** brings
+  the selected candidate back to Daydream.
+- **Candidate review preview:** select a candidate in the `/assets` menu to open
+  its exact-version viewer, then make your decision in OpenCode. The controls
+  described below belong to this separate viewer, not the dashboard gallery.
+
 Select the candidate and confirm opening its browser preview. Inspect the artwork
 at the size you intend to use. For animation, watch it move. For tiles, look at
 the arrangement, edges and collision outlines.

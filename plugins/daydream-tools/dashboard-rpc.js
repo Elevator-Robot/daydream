@@ -10,6 +10,7 @@ export const Dashboard = Rpc.define({
       path: { type: 'string', minLength: 1, maxLength: 4096 },
       kind: { enum: ['sprite', 'animation', 'tileset', 'image'] },
       image: { type: 'string', maxLength: 64 },
+      resources: { type: 'array', maxItems: 500, items: { type: 'string', minLength: 1, maxLength: 4096 } },
       revision_hash: { type: 'string', minLength: 64, maxLength: 64 },
     }, required: ['sessionID', 'project', 'action'], additionalProperties: false },
     output: { type: 'object', properties: {}, additionalProperties: true },

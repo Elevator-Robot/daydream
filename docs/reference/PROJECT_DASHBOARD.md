@@ -26,9 +26,29 @@ represented in history. It is bounded to 3,000 directories / 1,000 project image
 alongside the existing 500-bundle catalog. Pagination is independent of those limits;
 truncation produces a visible warning. Arbitrary Godot `.tres`/`.res`, audio and 3D
 resource graph reconstruction is not implemented. Bounded `.tres`/`.tscn` text
-inspection identifies direct `TileSetAtlasSource` references to project images;
-images in tileset folders are also classified as atlas candidates. No Godot code
-is run, no arbitrary reference recursion is performed, and no geometry is inferred.
+inspection identifies `TileSetAtlasSource`, `Sprite2D`, `AnimatedSprite2D` and
+`SpriteFrames` image references. Known `AtlasTexture`/`SpriteFrames` chains are
+resolved only within the already-scanned, already-authorized documents, with
+cycle detection and a 128-reference budget. No additional file is opened through
+a reference. Budget exhaustion contributes to the visible unavailable count.
+Images in sprite/tileset folders provide clearly labelled fallback evidence;
+tilesets take priority. UI textures referenced only by TextureRect do not become
+sprites unless they are deliberately placed in a sprite folder. No Godot code
+is run and no frame layout or geometry is guessed.
+
+Supported project sprites use a data-only Godot value reader to reconstruct
+SpriteFrames clips with direct/AtlasTexture frames and static Sprite2D regions or
+hframes/vframes grids. Catalog entries carry the exact scanned resource dependency
+paths. Inspect/media operations declare and authorize those paths before parsing;
+they never follow references into ungranted files. Composite content hashes include
+the source image and resource bytes, so changed regions/timing invalidate media.
+The native parser lives in `scripts/godot_sprite.py`. It uses bounded input,
+nesting/token/reference limits, source-pixel and decoded-motion budgets, and PNG/APNG
+output limits. Unsupported cropped-atlas chains, margins, mixed-size frames,
+multi-sheet clips and ping-pong modes are not approximated. Clips use opaque media
+keys rather than requiring Godot animation names to match Daydream naming rules.
+The UI shares the normal animation cards, replay behavior and frame explorer while
+retaining Project file status and hiding managed-review actions for native clips.
 Up to 500 such text resources are read using separately resolved exact file grants.
 Unreadable/oversized resources contribute to the visible unavailable count.
 SVG is inventoried without execution
@@ -86,16 +106,16 @@ provenance do not assign Daydream a project license.
 Search/filter/selected-asset state survives browser reload using session storage.
 Refresh updates the collection without silently switching a selected older revision;
 the inspector offers **Open latest candidate**. Failed refresh keeps a visibly stale
-last snapshot. Pixel comparison uses a shared integer scale, with Fit unavailable
-while comparing. Motion controls, frame/tile selection, geometry, palettes, history
+last snapshot. Compact comparison images retain matching window dimensions rather
+than exposing pan/zoom controls. Motion replay, frame/tile selection, geometry, palettes, history
 and feedback are read-only views.
 
 Sprite cards consolidate linked animation assets rather than exposing a separate
 animation collection category. The shared catalog resolves `sprite_groups` through
 recorded base/frame hashes and animation edit ancestry, never by display name.
 Missing-source animations stay visible as animated sprites. The sprite detail
-section retains version/clip selection, looping, frame/timing inspection, comparison,
-feedback and a separate animation review command.
+section shows all latest linked clips together, with optional older versions,
+looping, frame/timing inspection, feedback and source-set review commands.
 
 Asset details fill the page instead of sharing the collection grid. A sticky
 **Back to collection** control and Escape restore collection state and card focus.
@@ -107,10 +127,10 @@ instances. The shared wrapper uses bottom/start Popper placement, disables verti
 collision flipping, and bounds the list to the space below the trigger. Long menus
 scroll instead of opening upwards. A trigger near the lower edge is scrolled into
 a usable position before mouse/keyboard opening. Portal styling and accessible
-Radix selection/keyboard behavior remain shared across filters, canvas controls,
-animation versions/clips and comparison selectors.
+Radix selection/keyboard behavior remain shared across status/terrain filters,
+standalone clip controls and comparison selectors.
 
-## Artwork gallery (supersedes the canvas)
+## Artwork gallery
 
 The owner replaced the pan/zoom detail design with compact image and animation
 galleries. `ImagePreview.tsx` displays native PNG/APNG images without gesture
@@ -132,30 +152,9 @@ fallback for unsupported browsers or reduced-motion preferences. Selected-first
 order and review identity are preserved. Narrow layouts keep information below
 the image in either mode.
 
-### Historical canvas design
-
-The earlier `AssetCanvas.tsx` provided a DOM image viewport rather than flattening
-APNGs into a raster canvas. It retains animation playback, source pixel scaling and
-the existing preview-only replay lifecycle. The image plane is transformed around
-the viewport center; Ctrl/Cmd+wheel and pinch zoom preserve the pointed source
-coordinate. Unmodified wheel input scrolls the page and does not change scale.
-Mouse/touch pointer capture supports panning, with global release cleanup. Bounds
-are 1/256×–32×. Fit uses integer enlargement where possible, at most 8× initially;
-large images can fit through fractional downscaling. ResizeObserver preserves Fit
-on resize, while deliberate panning/zooming keeps the user's view.
-
-Controls include Fit, 1:1, slider, zoom buttons, reset, background and an optional
-source-pixel grid above 4×. Focused keyboard commands parallel the mouse controls;
-Escape is left to collection navigation. Comparison keeps a fixed shared scale
-rather than permitting inconsistent independent zoom. A compact metadata rail
-sits beside the main viewport on desktop and below it on narrow screens. Zoom/pan
-never modifies image bytes, source records, feedback or approval.
-
-Artwork is no longer sticky within the overview grid: sticking that grid child
-allowed it to cover the following animation section. Main viewports are capped
-at 360 px high and animation viewports use 280 px. Pointer capture is released on
-ending a drag, cancelled/uncaptured mouse movement clears dragging state, and window
-blur clears all active drag pointers. No pointer-lock API is used.
+Earlier canvas designs are historical, not current controls. Their evidence is
+retained in the [canvas record](../validation/2026-11-08-asset-canvas.md) and
+[gallery replacement record](../validation/2026-11-08-animation-gallery-and-budgets.md).
 
 **Copy review command** carries a project-absolute `/assets` path, preventing another
 project from silently resolving a same-named relative bundle. Approval and import

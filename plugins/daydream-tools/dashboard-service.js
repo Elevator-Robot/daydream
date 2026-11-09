@@ -14,6 +14,7 @@ export function createDashboardService(ctx, run) {
       const data = input.action === 'catalog' ? {} : {
         path: input.path, kind: input.kind,
         ...(input.revision_hash ? { revision_hash: input.revision_hash } : {}),
+        ...(input.kind === 'image' && input.resources?.length ? { resources: input.resources } : {}),
         ...(input.action === 'media' ? { image: input.image ?? 'thumbnail' } : {}),
       };
       const check = value => { if (!value.ok) throw new PreviewFailure(value.error?.message ?? 'Dashboard read failed'); return value; };
