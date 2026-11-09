@@ -15,8 +15,12 @@ scene. It extends—not replaces—the static [sprite workflow](SPRITES.md).
 - A canonical animation source embeds every frame, uses one shared palette and
   canvas, and declares a single integer pivot. No implicit resizing, trimming,
   per-frame offset guessing, or interpolation hides alignment problems.
-- Bounds: canvas up to 128×128; 32 unique frames; 8 named animations; 64 timeline
-  steps per animation and 128 total; 20–5000 ms per step and 30 seconds per clip.
+- Bounds: canvas up to 128×128; 8 named animations; 20–5000 ms per step and
+  30 seconds per clip. There is no arbitrary frame-count, per-clip step-count or
+  total-step-count ceiling. Safety budgets apply to actual source/image/memory
+  size: 8 MiB editable source, 16-megapixel atlases/contact sheets with a maximum
+  16,384-pixel edge, and 128 MiB of decoded motion-preview frame data. Encoded
+  artifacts retain the 16 MiB per-file / 32 MiB bundle bounds.
   FPS and relative durations follow Godot's `duration / fps` semantics.
 - Each immutable bundle contains canonical source, a deterministic spritesheet,
   per-clip animated PNGs and labeled contact sheets, and a local HTML viewer.

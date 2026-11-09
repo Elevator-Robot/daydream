@@ -6,6 +6,7 @@ import math
 import re
 
 import operation_handlers as handlers
+import dashboard
 
 
 def obj(properties, required):
@@ -35,11 +36,11 @@ PATCH = obj({"schema_version": VERSION, "operations": {"type": "array", "minItem
 PIVOT = {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0, "maximum": 128}}
 STEP = obj({"frame": SLUG, "duration": {"type": "number", "exclusiveMinimum": 0, "maximum": 150}}, ["frame", "duration"])
 CLIP = obj({"name": SLUG, "fps": {"type": "number", "minimum": 1, "maximum": 30}, "loop": {"type": "boolean"},
-            "frames": {"type": "array", "minItems": 1, "maxItems": 64, "items": STEP}}, ["name", "fps", "loop", "frames"])
+            "frames": {"type": "array", "minItems": 1, "items": STEP}}, ["name", "fps", "loop", "frames"])
 CLIPS = {"type": "array", "minItems": 1, "maxItems": 8, "items": CLIP}
 RECIPE_FRAME = {"oneOf": [obj({"id": SLUG}, ["id"]), obj({"id": SLUG, "patch": PATCH}, ["id", "patch"]), obj({"id": SLUG, "pixels": PIXELS}, ["id", "pixels"])]}
 RECIPE = obj({"schema_version": VERSION, "name": SLUG, "pivot": PIVOT,
-              "frames": {"type": "array", "minItems": 1, "maxItems": 32, "items": RECIPE_FRAME},
+              "frames": {"type": "array", "minItems": 1, "items": RECIPE_FRAME},
               "animations": CLIPS, "default_animation": SLUG}, ["schema_version", "name", "pivot", "frames", "animations", "default_animation"])
 ANIMATION_PATCH = obj({"schema_version": VERSION, "operations": {"type": "array", "minItems": 1, "maxItems": 128, "items": {"oneOf": [
     obj({"op": {"enum": ["frame"]}, "id": SLUG, "patch": PATCH}, ["op", "id", "patch"]),
@@ -110,7 +111,7 @@ OPERATIONS = (
     Operation("sprite.approve", "User review UI or explicitly authorized CLI only: approve one exact static sprite", APPROVE, handlers.sprite_approve, effect="approval", native=False, direct=False, paths=(("bundle", "static_bundle"),)),
     Operation("sprite.import", "Preview or import an approved static sprite into Godot without overwrites", IMPORT, handlers.sprite_import, paths=(("bundle", "static_bundle"),), project_reads=PROJECT_READS),
     Operation("animation.create", "Create named animation clips, atlas, motion previews and contact sheets from a static base", obj({"recipe": RECIPE, "base": PATH, "output": PATH, "apply": APPLY}, ["recipe", "base", "output"]), handlers.animation_create, paths=(("base", "static_bundle"), ("output", "output"))),
-    Operation("animation.assemble", "Assemble existing sprite frame revisions into named animations instead of custom GIF packing scripts", obj({"name": SLUG, "pivot": PIVOT, "frames": {"type": "array", "minItems": 1, "maxItems": 32, "items": obj({"id": SLUG, "bundle": PATH}, ["id", "bundle"])}, "animations": CLIPS, "default_animation": SLUG, "output": PATH, "apply": APPLY}, ["name", "pivot", "frames", "animations", "default_animation", "output"]), handlers.animation_assemble, paths=(("frames.*.bundle", "static_bundle"), ("output", "output"))),
+    Operation("animation.assemble", "Assemble existing sprite frame revisions into named animations without an arbitrary frame-count cap; source, image and memory safety budgets apply", obj({"name": SLUG, "pivot": PIVOT, "frames": {"type": "array", "minItems": 1, "items": obj({"id": SLUG, "bundle": PATH}, ["id", "bundle"])}, "animations": CLIPS, "default_animation": SLUG, "output": PATH, "apply": APPLY}, ["name", "pivot", "frames", "animations", "default_animation", "output"]), handlers.animation_assemble, paths=(("frames.*.bundle", "static_bundle"), ("output", "output"))),
     Operation("animation.edit", "Revise frames, global palette, timing, loop or pivot without changing the original animation", obj({"bundle": PATH, "patch": ANIMATION_PATCH, "output": PATH, "apply": APPLY}, ["bundle", "patch", "output"]), handlers.animation_edit, paths=(("bundle", "animation_bundle"), ("output", "output"))),
     Operation("animation.inspect", "Validate animation artifacts and return frame/timing data and motion/contact preview paths", obj({"bundle": PATH}, ["bundle"]), handlers.animation_inspect, effect="read", paths=(("bundle", "animation_bundle"),)),
     Operation("animation.approve", "User review UI or explicitly authorized CLI only: approve an entire exact animation", APPROVE, handlers.animation_approve, effect="approval", native=False, direct=False, paths=(("bundle", "animation_bundle"),)),
@@ -126,6 +127,9 @@ OPERATIONS = (
     Operation("review.feedback", "User UI or explicitly authorized CLI only: add exact-revision change-request feedback while retaining earlier notes; identical submissions are kept once. Never approve the candidate.", obj({"bundle": PATH, "kind": {"type": "string", "enum": ["sprite", "animation", "tileset"]}, "revision_hash": HASH, "reviewer": {"type": "string", "minLength": 1, "maxLength": 120}, "feedback": {"type": "string", "minLength": 1, "maxLength": 4000}, "apply": APPLY}, ["bundle", "kind", "revision_hash", "reviewer", "feedback"]), handlers.review_feedback, native=False, direct=False, paths=(("bundle", "review_bundle"),)),
     Operation('assets.list', 'List current asset candidates and managed import status; optional history reveals older revisions. Does not approve or load Godot.', obj({'history': {'type': 'boolean', 'default': False}}, []), handlers.assets_list, effect='read', project_reads=PROJECT_READS, discovery=True),
     Operation('assets.options', 'Suggest add-copy or safe-update choices for one revision, including manual-edit protection and current scene path.', obj({'bundle': PATH, 'kind': {'type': 'string', 'enum': ['sprite', 'animation', 'tileset']}}, ['bundle', 'kind']), handlers.assets_options, effect='read', direct=False, paths=(('bundle', 'review_bundle'),), project_reads=PROJECT_READS, discovery=True),
+    Operation('dashboard.catalog', 'Read the project artwork collection, latest/history identities and managed outputs. Includes existing project images; never imports or runs game code.', obj({}, []), dashboard.catalog, effect='read', direct=False, project_reads=PROJECT_READS, discovery=True),
+    Operation('dashboard.inspect', 'Inspect sprite, animation, tileset or existing project-image details for the project dashboard. Read-only.', obj({'path': PATH, 'kind': {'enum': ['sprite', 'animation', 'tileset', 'image']}, 'revision_hash': HASH, 'resources': {'type': 'array', 'maxItems': 500, 'items': PATH}}, ['path', 'kind']), dashboard.inspect_asset, effect='read', direct=False, paths=(('path', 'dashboard_asset'), ('resources.*', 'file')), discovery=True),
+    Operation('dashboard.media', 'Read a validated dashboard image as bounded PNG data. Browser transport; prefer dashboard.inspect for metadata.', obj({'path': PATH, 'kind': {'enum': ['sprite', 'animation', 'tileset', 'image']}, 'image': {'type': 'string', 'maxLength': 64}, 'revision_hash': HASH, 'resources': {'type': 'array', 'maxItems': 500, 'items': PATH}}, ['path', 'kind']), dashboard.media, effect='read', direct=False, paths=(('path', 'dashboard_asset'), ('resources.*', 'file')), discovery=True),
 )
 
 # Public workflow schemas allow ordinary display labels and automatically placed

@@ -62,8 +62,14 @@ def animation_create(context, data):
 
 def animation_assemble(context, data):
     frames, parents, palettes = [], [], []
+    source_bytes = 0
     for frame in data["frames"]:
         revision = sprite.load_revision(context.path(frame["bundle"]))
+        if not frames:
+            animation.validate_atlas_budget(revision['source']['width'], revision['source']['height'], len(data['frames']))
+        source_bytes += len(sprite.encoded(revision['source']))
+        if source_bytes > animation.MAX_SOURCE_BYTES:
+            raise ValueError('Assembled animation exceeds the editable-source memory budget')
         frames.append({"id": frame["id"], "source": copy.deepcopy(revision["source"])})
         parents.append(revision["revision_hash"])
         palettes.append(revision["manifest"]["provenance"].get("license"))
@@ -86,13 +92,18 @@ def animation_edit(context, data):
 def animation_inspect(context, data):
     revision = animation.load_revision(context.path(data["bundle"]))
     source = revision["source"]
+    previews = []
+    for clip in source['animations']:
+        frames, durations = animation.motion_frames(source, clip)
+        previews.append({'animation': clip['name'], 'visual_frames': len(frames),
+                         'duration_ms': sum(durations), 'loop': clip['loop'],
+                         'motion': str(revision['path'] / (clip['name'] + '.motion.png')),
+                         'contact_sheet': str(revision['path'] / (clip['name'] + '.contact.png'))})
     return {"name": source["name"], "width": source["width"], "height": source["height"], "pivot": source["pivot"],
             "frames": [frame["id"] for frame in source["frames"]], "animations": source["animations"],
             "revision_hash": revision["revision_hash"], "preview": str(revision["path"] / "preview.html"),
             "spritesheet": str(revision["path"] / "spritesheet.png"), "artifact_kind": "animation",
-            "previews": [{"animation": clip["name"], "visual_frames": len(animation.motion_frames(source, clip)[0]),
-                          "motion": str(revision["path"] / (clip["name"] + ".motion.png")),
-                          "contact_sheet": str(revision["path"] / (clip["name"] + ".contact.png"))} for clip in source["animations"]]}, []
+            "previews": previews}, []
 
 
 def animation_approve(context, data):

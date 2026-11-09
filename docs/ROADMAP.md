@@ -3,8 +3,9 @@
 Internal milestones and acceptance criteria. For installation and everyday use,
 see the [user README](../README.md).
 
-**Last updated: 2026-11-08. Branch: `feat/editor-visible-tile-layouts`, from `208a7f5`.
-Editor-visible layout work is implemented and undergoing branch validation; not merged.**
+**Last updated: 2026-11-09. Branch: `feat/project-asset-dashboard`, from `2c20184`.
+Dashboard and preview/playback changes are not merged. Editor-visible layouts
+and the earlier lifecycle flow were merged through PR #1 (`3472be2`).**
 
 ## START HERE NEXT — test the guided asset lifecycle on this branch
 
@@ -79,7 +80,8 @@ not a reason to reopen the completed phases or ask the user to repeat them.
 - [ ] User acceptance of the new layout-mode selection and normal editor painting
   with the game's own engine. Use a disposable project first; preserve manual edits.
 - Commit/push of this feature branch was authorized on 2026-11-07.
-- [ ] Merge this branch only when explicitly requested; user acceptance remains pending.
+- [x] Editor-layout/lifecycle branch merged through PR #1 (`3472be2`), confirmed
+  from GitHub on 2026-11-08. Do not infer additional feature acceptance from the merge.
 
 **P4 exit criterion:** the bounded editor-visible import is accepted with its
 execution/preservation boundaries, evidence retained, and release steps authorized.
@@ -131,6 +133,17 @@ after encountering slug/path collisions. [Guided assets](ASSET_LIFECYCLE.md) now
   separate from the normal progression. Success messages explain the next step.
   Ordered stages and explicit decisions were exercised in an isolated real TUI;
   see [ordered-flow evidence](validation/2026-11-08-ordered-workflow.md).
+- Candidate rows now distinguish **Latest** from **Older**, use friendly type labels
+  and show saved times. A same-named static sprite and animation are explicitly
+  separate histories. The normal list shows the latest of each type, newest saved
+  first; raw revision paths remain in preview details.
+  See [latest-label validation](validation/2026-11-08-latest-candidates.md).
+- **Loop preview**, enabled by default, repeats one-shot animation clips for review
+  without changing saved loop flags or creating a new asset revision. Users can
+  turn it off to inspect saved playback behavior; hidden comparisons/page cleanup
+  stop automatic replay timers.
+  [Preview-loop validation](validation/2026-11-08-preview-loop.md) records timer,
+  source-preservation and actual browser playback checks.
 
 **Next user test:** in a disposable project, create/revise an asset with a friendly
 name and no output path; use `/assets`, add a copy, update its unchanged managed
@@ -152,10 +165,64 @@ walkthroughs, ordinary example requests and a troubleshooting guide. Internal
 formats, permission/RPC details and implementation evidence are linked from the
 [contributor reference index](reference/README.md), not mixed into onboarding.
 
-### P6 — next increment (not selected)
+### P6 — persistent project asset dashboard (implemented on this branch)
 
-Choose from user feedback after branch acceptance. Existing-game integration,
-software installation, engine migration and paid providers need their own scope.
+- The user selected a high-quality refreshable workspace for the project collection
+  and explicitly approved React/Radix Themes, project-local build dependencies and
+  a read-only loopback bridge. See [the reviewed design](reference/PROJECT_DASHBOARD_DESIGN.md).
+- `/assets` opens the dashboard. Browser refresh reads current data through native
+  OpenCode RPC and shared catalog/inspection/media operations. The TUI owns the
+  loopback connection; project/session identity, read permissions and capability/
+  origin checks remain enforced. Normal users receive bundled UI assets.
+- The workspace includes current/history browsing, supported existing project
+  images, filters, palettes, provenance, saved feedback, managed-output status,
+  animation clips/frames/timelines/comparison and a complete validated tile explorer
+  with terrain/collision filters and layout/atlas views.
+- User feedback revised the dashboard to text-only navigation with a bundled retro
+  **Day / Dream** wordmark, full-page details and a sticky Back/Escape return path.
+  Linked animations now live inside their source sprite's details. Existing atlas
+  images are included in Tilesets through bounded Godot text references or tileset
+  folders; existing geometry/terrain is never invented from PNGs.
+  See [dashboard refinement evidence](validation/2026-11-08-dashboard-refinement.md).
+- Existing project sprites and sheets now appear under Sprites through bounded
+  Godot Sprite2D/AnimatedSprite2D/SpriteFrames references or sprite-folder evidence.
+  Known scanned AtlasTexture chains are followed without executing Godot or
+  expanding file-read authority. Tilesets take priority; project files remain
+  distinct from managed candidates. See [sprite discovery validation](validation/2026-11-09-existing-project-sprites.md).
+- Project sprites with supported Godot frame definitions now use individual-frame
+  thumbnails/overviews and the same clip gallery/frame explorer as generated assets.
+  Explicit regions, grids, frame durations, FPS and saved loop settings are read
+  without modifying game files. See [native sprite preview validation](validation/2026-11-09-native-sprite-previews.md).
+- Asset details use compact PNG/APNG galleries, not pan/zoom windows. All clips from a sprite's latest linked
+  sets appear together rather than defaulting to only the newest set's death clip.
+  Optional history and per-set feedback/review identity are retained.
+- The current adaptive desktop layout puts single-image information
+  to the right, then moves it below during comparison through a subtle transition.
+  It remains the same selected panel. Both image windows retain matching dimensions;
+  facts, palette counts and state badges use matching formatting. Reduced-motion
+  and narrow-screen layouts are supported. See [comparison validation](validation/2026-11-09-comparison-information.md).
+- Earlier canvas and always-below iterations are historical. Their checks remain
+  in [canvas validation](validation/2026-11-08-asset-canvas.md) and
+  [compact-canvas validation](validation/2026-11-08-compact-canvas.md), not the current user walkthrough.
+- The end-user README now leads with real sample-project screenshots, ordered
+  setup and a first-asset walkthrough. Current guides distinguish dashboard and
+  standalone-viewer controls; screenshot provenance uses only repository examples.
+  See [documentation validation](validation/2026-11-09-user-docs-and-screenshots.md).
+- Animation source frames, per-clip steps and total timeline steps no longer have
+  arbitrary count ceilings. Source/image/decoded-memory safety budgets replace
+  those caps; a complete 76-frame Nyx set was rendered and validated in isolation.
+  See [animation gallery/budget evidence](validation/2026-11-08-animation-gallery-and-budgets.md).
+- The user authorized committing and pushing these follow-up gallery, frame-budget
+  and comparison refinements on 2026-11-09. They update the existing dashboard PR #2;
+  merging is still a separate action.
+- Imported resources are not proof of scene placement. Arbitrary Godot `.tres`
+  resources, audio, 3D and editor graph reconstruction are not implemented. Scan
+  bounds and unsupported previews are explicit. Browsing never approves or imports.
+- User acceptance of this dashboard remains pending. Prior P0/P1 acceptance is
+  unchanged. The user authorized commit, push and PR creation on 2026-11-08;
+  merging the dashboard branch was not requested.
+  See [dashboard validation](validation/2026-11-08-project-dashboard.md) for browser,
+  native TUI, refresh and transport checks.
 
 ## Progress snapshot — what is actually done
 
@@ -178,13 +245,18 @@ not mean human acceptance or the full idea-to-playable product is complete.
 
 ### Validation baseline
 
-- Latest branch validation: **169 Python-discovered tests passed** in the isolated
+- Latest branch validation: **191 Python-discovered tests passed** in the isolated
   Pillow environment with Godot/ttfx checks enabled. The dependency-free run passed
-  with **70 optional tests skipped**. Node adapter/viewer/review tests run through the suite.
+  with **89 optional tests skipped**. Node adapter/viewer/review/dashboard tests run through the suite.
 - Separate graphical preview checks launched/stopped only an isolated synthetic
   Godot project. A synthetic tileset scene was also rendered; its actual viewport
   capture and numbered tile preview were inspected. These are not user-approved
   artwork or an existing-game playtest.
+- Fixed the reported preview RPC failure, `Expected JSON value at ["code"]`, by
+  omitting unknown process-status fields while retaining real zero/null exit codes.
+  A live isolated OpenCode RPC check launched real Godot, read running status,
+  detected the same running instance, stopped it and read its exit status. See
+  [preview response evidence](validation/2026-11-08-preview-json.md).
 - Commands and fixture boundaries: [development](DEVELOPMENT.md). Prior temporary
   images/logs may disappear; do not treat their paths as durable acceptance reports
   or infer user acceptance from unit-test counts. P0/P1 completion is attributed
@@ -263,6 +335,10 @@ and TUI command. No separate daemon, Godot addon, MCP endpoint, persistent
 screenshot mechanism, or remote-control port is installed. Existing OpenCode
 configuration remains the authority for tools and permissions. Future integrations
 need their own permission/trust review.
+
+The P6 dashboard is the explicitly reviewed exception for a browser data endpoint:
+a read-only loopback listener owned by the TUI while the workspace is open. It is
+not a Godot remote-control service or separately installed daemon.
 
 ## 0 — Starter (implemented)
 

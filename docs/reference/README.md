@@ -9,6 +9,8 @@ The task-focused [user guide](../README.md) should remain free of those details.
 - [Review and approval](REVIEW.md): exact-revision decisions, shared implementation,
   import-plan binding and user-interface boundaries.
 - [Preview](PREVIEW.md): runtime process management, browser delivery and advanced setup.
+- [Project dashboard](PROJECT_DASHBOARD.md): refreshable workspace, shared reads,
+  client-owned loopback transport and the [reviewed design](PROJECT_DASHBOARD_DESIGN.md).
 - [Editor-visible layouts](EDITOR_LAYOUTS.md): engine resolution, isolated serialization
   and persistent cell verification.
 - [Tilesets](TILESETS.md): source contracts, terrain generation, seam evidence and imports.

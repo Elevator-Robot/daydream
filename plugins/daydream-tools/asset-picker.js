@@ -1,5 +1,11 @@
 export const stateLabel = value => ({ draft: 'Draft', unreviewed: 'Draft', approved: 'Approved', changes_requested: 'Needs changes', imported: 'Imported', modified: 'Modified outside Daydream' }[value] ?? value);
 export const assetStep = (number, title) => `Step ${number} of 5 — ${title}`;
+const kindLabel = kind => ({ sprite: 'Static sprite', sprite_animation: 'Animation', animation: 'Animation', tileset: 'Tileset' }[kind] ?? kind);
+const savedTime = new Intl.DateTimeFormat('en', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'UTC', timeZoneName: 'short' });
+function savedLabel(value) {
+  const date = new Date(value / 1e6);
+  return Number.isFinite(value) && Number.isFinite(date.getTime()) ? `Saved ${savedTime.format(date)}` : 'Saved time unavailable';
+}
 
 export async function pickAsset(context, list, sessionID, browser, { readOnly = false } = {}) {
   let history = false;
@@ -7,24 +13,29 @@ export async function pickAsset(context, list, sessionID, browser, { readOnly = 
     const result = await list({ sessionID, action: 'assets', history });
     if (!result?.ok) throw new Error(result?.error?.message ?? 'Could not list assets');
     const canCreate = !readOnly && context.client?.session?.prompt;
-    const selected = await context.ui.dialog.select({ title: history ? 'Asset history — select a revision' : readOnly ? 'Choose artwork to preview' : 'Your assets — create or continue',
-      current: result.assets?.[0]?.bundle ?? (canCreate ? '\0create' : '\0help'), options: [
+    const selection = context.ui.dialog.select({ title: history ? 'Asset history — newest saved first' : readOnly ? 'Choose artwork — latest candidates' : 'Your assets — latest candidates',
+      current: browser?.openDashboard ? '\0dashboard' : result.assets?.[0]?.bundle ?? (canCreate ? '\0create' : '\0help'), options: [
+      ...(browser?.openDashboard ? [{ title: 'Open project dashboard', value: '\0dashboard', category: 'Project workspace', description: 'Keep your collection open beside Daydream; refresh to see the latest artwork' }] : []),
       ...(canCreate ? [{ title: 'Describe a new asset…', value: '\0create', category: '1 · Create', description: 'Tell Daydream what to make; then review its candidate' }] : []),
-      ...(result.assets ?? []).map(asset => ({ title: asset.name ?? asset.bundle, value: asset.bundle,
-        category: readOnly ? 'Choose artwork' : '2 · Choose a candidate to review',
-        description: `${stateLabel(asset.state ?? 'draft')} · ${asset.kind}${asset.older_revisions ? ` · ${asset.older_revisions} older revisions` : ''} · ${asset.bundle}` })),
-      ...(browser ? [{ title: 'Open thumbnail overview', value: '\0gallery', category: 'Browse and history', description: 'See the available artwork before choosing a candidate' }] : []),
-      { title: history ? 'Back to current assets' : 'Show older revisions', value: '\0history', category: 'Browse and history', description: 'History is retained; nothing is deleted' },
+      ...(result.assets ?? []).map(asset => ({ title: `${asset.is_latest === true || (!history && asset.is_latest !== false) ? 'Latest' : asset.is_latest === false ? 'Older' : 'Revision'} · ${kindLabel(asset.kind)} — ${asset.name ?? asset.bundle}`, value: asset.bundle,
+        category: readOnly ? 'Artwork — newest saved first' : history ? '2 · Version history — newest saved first' : '2 · Review a latest candidate — newest saved first',
+        description: `${savedLabel(asset.modified_at)} · ${stateLabel(asset.state ?? 'draft')}${asset.older_revisions ? ` · ${asset.older_revisions} older` : ''}` })),
+      ...(browser && !browser.openDashboard ? [{ title: 'Open thumbnail overview', value: '\0gallery', category: 'Browse and history', description: 'See the available artwork before choosing a candidate' }] : []),
+      { title: history ? 'Back to current assets' : 'Show older revisions', value: '\0history', category: 'Browse and history', description: history ? 'Show only the latest candidate of each asset type' : 'Compare saved times; Latest marks the newest of each asset type' },
       { title: 'View imported assets', value: '\0imported', category: 'Browse and history', description: 'See files already added and their current status' },
       { title: 'Workflow steps', value: '\0help', category: 'Help and advanced', description: 'Create → review/revise → approve → add/update → preview' },
       { title: 'Enter a revision path (advanced)', value: '\0manual', category: 'Help and advanced' },
       { title: 'Close', value: '\0close', category: 'Finish' },
     ] });
+    // The standard narrow picker clips type, saved time and review state.
+    context.ui.dialog.set?.({ size: 'large' });
+    const selected = await selection;
     if (!selected || selected === '\0close') return;
+    if (selected === '\0dashboard') { await browser.openDashboard(sessionID); return; }
     if (selected === '\0history') { history = !history; continue; }
     if (selected === '\0imported') {
       const id = await context.ui.dialog.select({ title: 'Imported resource files', options: [
-        ...(result.active ?? []).map(asset => ({ title: asset.name, value: asset.id, description: `${stateLabel(asset.state)} · ${asset.scene}` })),
+        ...(result.active ?? []).map(asset => ({ title: `${kindLabel(asset.kind)} — ${asset.name}`, value: asset.id, description: `${stateLabel(asset.state)} · ${asset.scene}` })),
         { title: 'Back', value: '\0back' },
       ] });
       const asset = (result.active ?? []).find(asset => asset.id === id);

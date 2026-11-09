@@ -1,7 +1,7 @@
 # Versions, history and updates
 
 Daydream keeps previous versions so you can revise artwork without losing the
-original. You manage them through **`/assets`**—you don't need to name folders
+original. You manage them through **`/assets`**, without needing to name folders
 `v1`, `v2`, and so on.
 
 ## Find the version you want

@@ -8,6 +8,44 @@ instructions must never be installed as a game's global instructions.
 
 ## Tests
 
+### Dashboard UI build
+
+The owner approved React/Radix Themes and the session-owned loopback bridge design
+on 2026-11-08. Runtime users receive the built UI under
+`plugins/daydream-tools/dashboard-dist`; no npm install occurs during installation
+or ordinary use. For UI development, run from `dashboard/`:
+
+```sh
+npm ci --ignore-scripts --no-audit --no-fund
+npm run check
+npm run build
+```
+
+Commit the source, lockfile and rebuilt distribution together. The build extracts
+license notices for bundled dependencies; supplemental notices and provenance live
+in `dashboard/third-party/`. This does not choose a project license.
+Restart OpenCode after rebuilding to load the new UI bundle in a fresh dashboard.
+
+### User documentation and screenshots
+
+Keep the root README as the end-user entry point, with ordered setup, one first-
+asset walkthrough and links into `docs/README.md`. The dashboard and standalone
+revision viewer have different controls; label them explicitly rather than mixing
+their instructions. Historical validation records remain dated evidence, not
+current UI references.
+
+Screenshot provenance is recorded in `docs/images/README.md`. Capture the actual
+current UI using the bundled example artwork in a disposable project. Do not use
+another game's assets without separate authorization or fabricate control labels.
+Inspect the images, provide descriptive alt text and state that static screenshots
+are not motion review. Retain implementation/test details here, not in onboarding.
+
+The README currently identifies dashboard PR #2 as a preview and installs its branch.
+When that PR is merged/released, update that availability note and clone command
+alongside the release; do not leave a deleted preview branch as the install target.
+
+### Shared capability and integration tests
+
 ```sh
 # No engine, network, or actual user-config writes.
 python3 -m unittest discover -s tests -v

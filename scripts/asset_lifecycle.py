@@ -171,11 +171,16 @@ def list_assets(context, data):
                                'name': label,
                                'kind': manifest['kind'], 'state': state, 'revision_hash': hash_value,
                                'parent_revision_hash': manifest.get('provenance', {}).get('parent_revision_hash'),
+                               'base_revision_hash': manifest.get('provenance', {}).get('base_revision_hash'),
+                               'parent_revision_hashes': manifest.get('provenance', {}).get('parent_revision_hashes', []),
                                'modified_at': (bundle / 'manifest.json').stat().st_mtime_ns})
         except (ValueError, OSError, AttributeError): invalid += 1
     candidates.sort(key=lambda row: (-row['modified_at'], row['bundle']))
     groups = {}
     for row in candidates: groups.setdefault((row['kind'], row['id']), []).append(row)
+    for revisions in groups.values():
+        for position, row in enumerate(revisions):
+            row['is_latest'] = position == 0
     rows = candidates if data.get('history', False) else [dict(rows[0], older_revisions=len(rows)-1) for rows in groups.values()]
     return {'assets': rows, 'active': active, 'truncated': context.asset_truncated, 'invalid_candidates': invalid,
             'status_note': 'Discovery status only; opening review revalidates the exact artwork and metadata.'}

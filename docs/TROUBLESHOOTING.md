@@ -117,6 +117,18 @@ starting scene selected in Godot. If another preview is running, stop it with
 For a newly added asset, choose **Preview this scene** or open that scene in Godot
 and press **F6**. `/preview game` runs the game's normal starting scene.
 
+## Preview says “Expected JSON value at [\"code\"]”
+
+This was a Daydream preview-response bug while Godot was running, rather than a
+problem with your project's files. The game may already have opened even though
+the command reported an error.
+
+1. Update Daydream to the fixed version and restart OpenCode in your game project.
+2. Run `/preview status` to check the current preview state.
+3. If it is running, use that game window. Otherwise, run `/preview game` and
+   confirm the launch.
+4. Use `/preview stop` when finished.
+
 ## The layout is empty in the editor but appears when playing
 
 It may use the older runtime layout option. Add a separate copy with

@@ -47,6 +47,11 @@ Skip this step for a static sprite. Otherwise, describe the motion:
 > Give Moonlight Slime a four-frame idle animation with a slow blink. Keep its
 > feet aligned and show me the motion before adding it.
 
+In the [project dashboard](DASHBOARD.md), open the sprite and choose **View animations**.
+All its latest linked clips appear in one looping gallery, even when older work
+was saved in separate animation sets. Open **Frames, feedback & review** for timing,
+source frames and notes.
+
 Watch playback in the browser. Check the speed, loop transition and whether the
 character seems to slide or jump between frames. A still image cannot show this.
 

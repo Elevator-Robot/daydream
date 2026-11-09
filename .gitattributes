@@ -1,0 +1,4 @@
+# Bundled dependency template strings contain intentional CSS whitespace.
+# Do not rewrite string contents merely to satisfy source whitespace checks.
+plugins/daydream-tools/dashboard-dist/app.js -whitespace linguist-generated=true
+plugins/daydream-tools/dashboard-dist/app.css linguist-generated=true

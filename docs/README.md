@@ -2,6 +2,9 @@
 
 New to Daydream? Start with [installation and your first asset](../README.md).
 
+Want a visual tour first? The [dashboard walkthrough](DASHBOARD.md) shows the
+collection, animation gallery and tileset explorer with screenshots.
+
 ## Your asset workflow, in order
 
 1. **Create:** describe what you want and let Daydream prepare a candidate.
@@ -18,6 +21,7 @@ recorded. Follow the [guided walkthrough](REVIEW.md) for each choice.
 
 | I want to… | Read this |
 | --- | --- |
+| Keep the project's artwork collection open beside me | [Project dashboard](DASHBOARD.md) |
 | Create, preview, approve or add artwork | [Your assets](REVIEW.md) |
 | Make a character, prop or animation | [Sprites and animations](SPRITE_WORKFLOW.md) |
 | Build walls, floors and transitions | [Environment tiles](TILESETS.md) |

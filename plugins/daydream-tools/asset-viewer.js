@@ -47,15 +47,35 @@ export const viewerScript = `const compare = document.getElementById('compare');
 const older = document.getElementById('older-version');
 const history = document.getElementById('history-panel');
 const panels = document.getElementById('panels');
+const loopPreview = document.getElementById('loop-preview');
 const motion = new Map([...document.querySelectorAll('img[data-motion]')].map(img => [img, { source: img.src }]));
-function replayMotion() {
-  for (const [img, entry] of motion) {
-    if (!img.getClientRects().length) continue;
-    if (entry.url) URL.revokeObjectURL(entry.url);
+let pageClosed = false;
+const visible = img => !pageClosed && !document.hidden && img.getClientRects().length > 0;
+function clearPlayback(img, entry) {
+  clearTimeout(entry.timer);
+  img.onload = null;
+  if (entry.url) URL.revokeObjectURL(entry.url);
+  entry.url = undefined;
+}
+function play(img, entry) {
+  clearPlayback(img, entry);
+  if (!visible(img)) return;
+  if (!entry.blob) {
     const bytes = Uint8Array.from(atob(entry.source.split(',')[1]), ch => ch.charCodeAt(0));
-    entry.url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
-    img.src = entry.url;
+    entry.blob = new Blob([bytes], { type: 'image/png' });
   }
+  const url = URL.createObjectURL(entry.blob);
+  entry.url = url;
+  img.onload = () => {
+    const duration = Number(img.dataset.durationMs);
+    if (entry.url !== url || !visible(img) || !loopPreview?.checked || img.dataset.loop !== 'false' || Number(img.dataset.visualFrames) < 2 || !Number.isFinite(duration) || duration <= 0) return;
+    clearTimeout(entry.timer);
+    entry.timer = setTimeout(() => play(img, entry), duration);
+  };
+  img.src = url;
+}
+function replayMotion() {
+  for (const [img, entry] of motion) play(img, entry);
 }
 function selectOlder() {
   for (const pane of document.querySelectorAll('[data-history-index]')) pane.hidden = pane.dataset.historyIndex !== older.value;
@@ -68,10 +88,13 @@ if (compare) {
     replayMotion();
   });
   older.addEventListener('change', selectOlder);
-  selectOlder();
 }
+replayMotion();
 document.getElementById('replay-motion')?.addEventListener('click', replayMotion);
-window.addEventListener('pagehide', () => { for (const entry of motion.values()) if (entry.url) URL.revokeObjectURL(entry.url); });
+loopPreview?.addEventListener('change', replayMotion);
+document.addEventListener('visibilitychange', replayMotion);
+window.addEventListener('pagehide', () => { pageClosed = true; for (const [img, entry] of motion) clearPlayback(img, entry); });
+window.addEventListener('pageshow', event => { if (event.persisted) { pageClosed = false; replayMotion(); } });
 document.getElementById('zoom').addEventListener('change', event => {
   const zoom = Number(event.target.value);
   if ([1, 2, 4, 8].includes(zoom)) document.documentElement.style.setProperty('--zoom', zoom);
@@ -95,7 +118,8 @@ button{font:inherit;cursor:pointer;background:#354568;color:#edf1f7;border:1px s
 <nav aria-label="Asset workflow"><ol class="workflow"><li>Create</li><li aria-current="step">Review / revise</li><li>Approve</li><li>Add / update</li><li>Preview</li></ol></nav>
 <p class="guidance">Preview only — opening this viewer does not approve or import. Return to <strong>/assets</strong> to decide about the <strong>${label.toLowerCase()}</strong>. Comparing older versions never changes the candidate under review.</p></header>
 <div class="controls">${history.length ? `<details id="compare"><summary>Compare with previous version</summary><label for="older-version">Older version</label><select id="older-version">${history.map((item, index) => `<option value="${index}">${index ? 'Older version ' + (index + 1) : 'Previous version'}${item.modified_at ? ' · ' + esc(saved(item.modified_at)) : ''}${item.error ? ' · unavailable' : ''}</option>`).join('')}</select></details>` : '<p>No older version is available for comparison.</p>'}
-<label for="zoom">Artwork scale <select id="zoom"><option value="1">1×</option><option value="2">2×</option><option value="4" selected>4×</option><option value="8">8×</option></select></label>${current.kind === 'animation' ? '<button id="replay-motion" type="button">Replay motion</button>' : ''}</div>
+<label for="zoom">Artwork scale <select id="zoom"><option value="1">1×</option><option value="2">2×</option><option value="4" selected>4×</option><option value="8">8×</option></select></label>${current.kind === 'animation' ? '<label><input id="loop-preview" type="checkbox" checked aria-describedby="loop-help"> Loop preview</label><button id="replay-motion" type="button">Replay motion</button>' : ''}</div>
+${current.kind === 'animation' ? '<p id="loop-help">Loop preview repeats one-shot clips for review only. Turn it off to follow each clip’s saved loop setting. This control does not change the saved animation or game.</p>' : ''}
 ${notice ? `<p class="notice" role="status">${esc(notice)}</p>` : ''}<noscript>Enable JavaScript to compare embedded versions and change scale. The selected candidate is shown below.</noscript>
 <main id="panels" class="panels">${history.length ? `<aside id="history-panel" class="panel" aria-label="Earlier versions, reference only" hidden>${history.map(oldPane).join('')}</aside>` : ''}
 <article class="panel candidate" aria-label="Candidate under review"><h2>${label}</h2><p class="version-meta">${stateLabel(current.state)} · Candidate under review</p>${current.body}${feedbackHTML(current.notes)}${details(current)}</article></main>

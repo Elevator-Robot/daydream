@@ -58,6 +58,10 @@ to `allow` need no additional server prompt; the TUI still confirms launch.
 One owned game process per project/plugin instance is allowed. Repeating Game
 returns the running instance rather than launching another. Status retains the
 last 8 KiB of output and exit code; treat those diagnostics as potentially private.
+Snapshots omit unknown fields such as `code` and `signal` while running, rather
+than returning JavaScript `undefined`, which OpenCode's RPC JSON validation rejects
+before serialization. Actual zero exit codes and null codes on signal termination
+are preserved. The status dialog displays a numeric exit code or termination signal.
 Stop sends TERM, then KILL if necessary, **only to the ChildProcess it owns**.
 It never searches process names, adopts PIDs, closes your editor, or kills game
 instances you launched yourself. Processes started by game scripts are not managed.
@@ -73,10 +77,15 @@ Status. A running process is not proof the game looks correct or has been tested
 
 ## Asset preview
 
+This section describes self-contained revision viewers. The persistent project
+[dashboard](PROJECT_DASHBOARD.md) uses a separately reviewed session-owned local
+bridge so refreshing can read current project data.
+
 The picker supports static sprites, animations and [environment tilesets](TILESETS.md).
 It now uses the shared [asset browser](ASSET_LIFECYCLE.md): current candidates by
-default, older revisions on request, imported/manual-edit status and optional
-validated thumbnail overview. New automatic revisions are under `.daydream/revisions`;
+default, older revisions on request, imported/manual-edit status and the persistent
+project dashboard. A bounded thumbnail snapshot remains an adapter fallback.
+New automatic revisions are under `.daydream/revisions`;
 the configured source root is still scanned for existing candidates.
 Tileset viewers include numbered tiles, collision outlines, seam counts and a
 placed layout. The picker scans the configured `.daydream/config.json` `paths.sources` directory
@@ -134,6 +143,17 @@ remain reference details with their own layouts. Animation clips run independent
 not as a synchronized frame-by-frame comparison. **Replay motion** restarts the
 visible clips using local PNG blobs made from the embedded bytes, including when
 the reference picker changes; replaced blob URLs are revoked. Narrow screens stack panels.
+
+**Loop preview** is enabled by default and repeats only visible non-looping,
+multi-frame clips. `animation.inspect` supplies each preview's saved `loop` flag
+and total `duration_ms`, summed from the same rounded/coalesced timing used to
+encode its APNG. After an image loads, a timer replays that clip from its cached
+local PNG blob at the end of the cycle. Already-looping APNGs retain their native
+playback. Turning the checkbox off replays once using saved settings. Timers are
+cleared when comparisons change, the page is hidden or it closes; visible playback
+resumes when the page returns. This control writes no source/manifest/PNG/import
+files and does not grant artwork approval. Browser scheduling may add a small
+delay at replay boundaries; this is review playback, not a Godot timing guarantee.
 
 Rendering/validation still requires optional Pillow. Each revision is limited to
 10 MiB of raw image data. Comparison embeds up to eight earlier versions with a

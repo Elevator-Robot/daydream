@@ -32,6 +32,7 @@ export function createRunner(checkout, options = {}, spawnProcess = spawn, surfa
       try { await access(python, constants.X_OK); } catch { python = "python3"; }
     }
     const partial = request.action === "call" && request.input?.apply === true;
+    const outputLimit = request.op === 'dashboard.media' ? 12 * 1024 * 1024 : request.op === 'dashboard.catalog' ? 4 * 1024 * 1024 : 1024 * 1024;
     return await new Promise((resolve) => {
       let child, output = "", bytes = 0, settled = false, timeout, kill;
       const cleanup = () => { clearTimeout(timeout); signal?.removeEventListener("abort", aborted); };
@@ -57,7 +58,7 @@ export function createRunner(checkout, options = {}, spawnProcess = spawn, surfa
       child.stdout.on("data", (chunk) => {
         if (settled) return;
         bytes += Buffer.byteLength(chunk);
-        if (bytes > 1024 * 1024) { finish(errorResult("output_limit", "Backend result exceeded 1 MiB", partial), true); return; }
+        if (bytes > outputLimit) { finish(errorResult("output_limit", `Backend result exceeded ${outputLimit / (1024 * 1024)} MiB`, partial), true); return; }
         output += chunk;
       });
       // Never dump private backend logs/tracebacks into model results.

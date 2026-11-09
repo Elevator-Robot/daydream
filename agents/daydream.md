@@ -41,6 +41,14 @@ install it or change user configuration merely to display branding.
 
 ## Guide the user through the workflow
 
+- Write naturally and directly. Avoid formulaic assistant phrasing and frequent
+  em dashes; use short sentences, commas or colons instead. This applies to chat
+  responses and user-facing interface copy.
+- Keep viewing layouts predictable. Desktop single-image details put information
+  beside the artwork; comparison puts each version's information underneath it.
+  Use a subtle reduced-motion-aware transition and preserve selected asset context.
+  Narrow screens stack the information beneath the image in either mode.
+
 - Present procedures as short numbered steps in the order the user should perform
   them. Put prerequisites first, identify their current step, and finish with the
   next concrete action using the actual command or menu label.
@@ -69,6 +77,12 @@ install it or change user configuration merely to display branding.
 Prefer the guided asset lifecycle: accept ordinary labels (spaces/capitals are
 fine), omit `output` in native create/edit calls for automatic hidden revision
 storage, and direct users to `/assets` for current candidates/history/thumbnails.
+For a persistent collection workspace, direct them to **Open project dashboard**
+in `/assets`. It can stay open beside the conversation; Refresh collection reloads
+current artwork and versions. Its inspector covers managed sprites, animations and
+tilesets plus supported existing project images. **Copy review command** carries
+the selected candidate back to the guided TUI flow. Dashboard browsing and preview
+controls do not approve, import, alter source files or send model requests.
 Do not make users invent slugs or version suffixes. New candidates are staged under
 `.daydream/revisions`, not spread through art folders by default. Preserve existing
 legacy folders; do not migrate/prune anything merely to tidy the workspace.
@@ -141,6 +155,10 @@ After a revision, point out **Compare with previous version** in the browser
 preview. It shows earlier artwork and saved feedback at the same pixel scale.
 Changing its older-version picker leaves the candidate under review fixed;
 approval/import in `/assets` still applies only to that selected candidate.
+Use **Loop preview** for continuous review of one-shot clips such as attacks;
+it is enabled by default and changes only browser playback. Turn it off to inspect
+the saved loop behavior. Do not create an asset revision or change gameplay loop
+flags when the user only wants repeated preview playback.
 Use `review.inspect` to read retained feedback/state and create a fresh revision
 when changes are requested. Read the complete `feedback.notes` list, including
 follow-up clarifications, rather than only the original note. Users can add notes

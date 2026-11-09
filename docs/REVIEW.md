@@ -7,6 +7,10 @@ The flow is **1. Create → 2. Review/revise → 3. Approve → 4. Add/update �
 5. Preview**. Menus show the current step and highlight the next available action.
 You can finish for now and resume from the candidate's saved state.
 
+For a persistent visual workspace, choose **Open project dashboard** at the top
+of `/assets`. It gathers the collection, detailed previews and history in one
+refreshable browser window. See [the dashboard walkthrough](DASHBOARD.md).
+
 ## 1. Create: describe what you want
 
 Open `/assets` and choose **Describe a new asset…**, or ask Daydream in the chat:
@@ -24,8 +28,16 @@ When the candidate is ready, open `/assets` again.
 
 ### Pick a candidate
 
-The list shows current candidates first. You can search by name, open a thumbnail
-overview, look at older versions, or view assets already added to the project.
+The list shows the **Latest** candidate for each asset type, newest saved first.
+Rows use clear **Animation**, **Static sprite** or **Tileset** labels and show when
+they were saved. A sprite and animation can share a friendly name; they have
+separate histories, so both can be labelled **Latest**.
+
+Choose **Show older revisions** to see earlier candidates marked **Older**, alongside
+the **Latest** ones. “2 older” means that particular asset type has two
+earlier saved candidates. You can also search by name, open the project dashboard,
+or view assets already added to the project. Exact paths are in the preview's
+**Version details** rather than crowding the list.
 
 | Status | What it means |
 | --- | --- |
@@ -37,9 +49,22 @@ overview, look at older versions, or view assets already added to the project.
 
 ### Preview and decide
 
+The dashboard and the review preview serve different purposes:
+
+- **Project dashboard:** keep the collection open, watch all linked clips in the
+  gallery, inspect details and compare versions. **Copy review command** brings
+  the selected candidate back to Daydream.
+- **Candidate review preview:** select a candidate in the `/assets` menu to open
+  its exact-version viewer, then make your decision in OpenCode. The controls
+  described below belong to this separate viewer, not the dashboard gallery.
+
 Select the candidate and confirm opening its browser preview. Inspect the artwork
 at the size you intend to use. For animation, watch it move. For tiles, look at
 the arrangement, edges and collision outlines.
+
+Animation previews have **Loop preview** enabled so attacks and other one-shot
+clips keep repeating for review. Turn it off to see their saved playback behavior.
+The checkbox affects this preview only; no new candidate or approval is needed.
 
 After a revision, open **Compare with previous version** in the browser. The
 previous version appears on the left and the **New candidate** on the right, with

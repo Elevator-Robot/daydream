@@ -20,8 +20,9 @@ not preserved as aliases. `/preview` is for viewing/playtesting and OpenCode's
    file-safe ID is derived automatically. These are asset labels, not destination paths.
 2. Open `/assets`. The picker shows the newest candidate per kind/ID, friendly names,
    status and an older-revision count. Choose **Show older revisions**, **View imported
-   assets**, or **Open thumbnail overview** when useful. Overview validates up to
-   12 current candidates; animation thumbnails do not count as motion review.
+   assets**, or **Open project dashboard** when useful. The dashboard provides a
+   refreshable collection and inspectors; thumbnails do not count as motion review.
+   The older 12-thumbnail snapshot remains an adapter fallback without a dashboard opener.
 3. Choose a candidate, open its preview, then approve or request changes. Approval
    still refers to exact bytes, not every future version bearing that name.
 4. Choose **Add or update in project**:
@@ -61,6 +62,14 @@ The picker collapses history by default; previous candidates remain recoverable 
 **Show older revisions**. Artwork, timing, layout, collisions or feedback still need
 their normal exact-revision review. Explicit output paths and old helper CLIs remain
 available for advanced/fallback use.
+
+Discovery groups candidates by `(kind, asset ID)` and orders them by manifest
+file modification time, with path as a deterministic tie-breaker. It exposes
+`is_latest` for every row in both current and history views. This is the existing
+saved-file ordering, not a new permanent version-number scheme or inferred release
+status. Same-named sprites and animations are separate groups. The picker shows
+**Latest**/**Older**, friendly type names and UTC saved times, keeping raw revision
+paths in preview details instead of normal row descriptions.
 
 This applies to **new** tool-created candidates. Existing `art/.../v1/v2` bundles
 are not moved/deleted/migrated automatically. Nothing is pruned automatically, and
